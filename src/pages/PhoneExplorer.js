@@ -88,10 +88,12 @@ function buildScene() {
 }
 
 function PhoneExplorer() {
-  const mountRef       = useRef(null);
-  const infoPanelRef   = useRef(null);
-  const selectedMeshRef = useRef(null);   // shared with animate loop for panel positioning
-  const dismissRef     = useRef(null);    // function to dismiss panel, set in useEffect
+  const mountRef        = useRef(null);
+  const infoPanelRef    = useRef(null);
+  const selectedMeshRef = useRef(null);
+  const dismissRef      = useRef(null);
+  const strafeBarRef    = useRef(null);
+  const strafeThumbRef  = useRef(null);
 
   const [infoPanel, setInfoPanel] = useState(null);
 
@@ -318,6 +320,92 @@ function PhoneExplorer() {
     mount.addEventListener('click',       onMouseClick);
     mount.addEventListener('dblclick',    onDblClick);
 
+    // --- Strafe scrollbar ---
+    const STRAFE_SPEED = 0.022;
+    let strafeActiveId  = null;
+    let strafeLastX     = null;
+
+    const thumbEl  = () => strafeThumbRef.current;
+    const THUMB_MAX = 90; // max px the thumb travels from center
+
+    const setThumbX = (px, animated) => {
+      const el = thumbEl();
+      if (!el) return;
+      el.style.transition = animated ? 'transform 0.25s ease-out' : 'none';
+      el.style.transform  = `translateX(${Math.max(-THUMB_MAX, Math.min(THUMB_MAX, px))}px)`;
+    };
+
+    let thumbOffset = 0;
+
+    const onStrafeStart = (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      const t = e.changedTouches[0];
+      strafeActiveId = t.identifier;
+      strafeLastX    = t.clientX;
+      thumbOffset    = 0;
+      setThumbX(0, false);
+    };
+
+    const onStrafeMove = (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      for (const t of e.changedTouches) {
+        if (t.identifier !== strafeActiveId) continue;
+        const dx = t.clientX - strafeLastX;
+        strafeLastX = t.clientX;
+        thumbOffset += dx;
+        setThumbX(thumbOffset, false);
+        const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+        camera.position.addScaledVector(right, dx * STRAFE_SPEED);
+      }
+    };
+
+    const onStrafeEnd = (e) => {
+      e.stopPropagation();
+      e.preventDefault();
+      strafeActiveId = null;
+      strafeLastX    = null;
+      thumbOffset    = 0;
+      setThumbX(0, true); // snap back
+    };
+
+    const strafeBar = strafeBarRef.current;
+    if (strafeBar) {
+      strafeBar.addEventListener('touchstart',  onStrafeStart, { passive: false });
+      strafeBar.addEventListener('touchmove',   onStrafeMove,  { passive: false });
+      strafeBar.addEventListener('touchend',    onStrafeEnd,   { passive: false });
+      strafeBar.addEventListener('touchcancel', onStrafeEnd,   { passive: false });
+    }
+
+    // Desktop drag on strafe bar
+    let strafeMouseDown = false;
+    let strafeMouseLastX = null;
+    const onStrafeMouseDown = (e) => {
+      strafeMouseDown  = true;
+      strafeMouseLastX = e.clientX;
+      thumbOffset      = 0;
+    };
+    const onStrafeMouseMove = (e) => {
+      if (!strafeMouseDown) return;
+      const dx = e.clientX - strafeMouseLastX;
+      strafeMouseLastX = e.clientX;
+      thumbOffset += dx;
+      setThumbX(thumbOffset, false);
+      const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+      camera.position.addScaledVector(right, dx * STRAFE_SPEED);
+    };
+    const onStrafeMouseUp = () => {
+      strafeMouseDown = false;
+      thumbOffset = 0;
+      setThumbX(0, true);
+    };
+    if (strafeBar) {
+      strafeBar.addEventListener('mousedown', onStrafeMouseDown);
+    }
+    window.addEventListener('mousemove', onStrafeMouseMove);
+    window.addEventListener('mouseup',   onStrafeMouseUp);
+
     const onResize = () => {
       camera.aspect = mount.clientWidth / mount.clientHeight;
       camera.updateProjectionMatrix();
@@ -396,13 +484,22 @@ function PhoneExplorer() {
     return () => {
       cancelAnimationFrame(animId);
       clearTimeout(clickDebounce);
-      window.removeEventListener('resize', onResize);
+      window.removeEventListener('resize',     onResize);
+      window.removeEventListener('mousemove',  onStrafeMouseMove);
+      window.removeEventListener('mouseup',    onStrafeMouseUp);
       mount.removeEventListener('touchstart',  onTouchStart);
       mount.removeEventListener('touchmove',   onTouchMove);
       mount.removeEventListener('touchend',    onTouchEnd);
       mount.removeEventListener('touchcancel', onTouchEnd);
       mount.removeEventListener('click',       onMouseClick);
       mount.removeEventListener('dblclick',    onDblClick);
+      if (strafeBar) {
+        strafeBar.removeEventListener('touchstart',  onStrafeStart);
+        strafeBar.removeEventListener('touchmove',   onStrafeMove);
+        strafeBar.removeEventListener('touchend',    onStrafeEnd);
+        strafeBar.removeEventListener('touchcancel', onStrafeEnd);
+        strafeBar.removeEventListener('mousedown',   onStrafeMouseDown);
+      }
       if (mount.contains(renderer.domElement)) mount.removeChild(renderer.domElement);
       renderer.dispose();
     };
@@ -427,6 +524,13 @@ function PhoneExplorer() {
           <p className="info-desc">{infoPanel.description}</p>
         </div>
       )}
+
+      <div className="strafe-bar" ref={strafeBarRef}>
+        <div className="strafe-track">
+          <div className="strafe-thumb" ref={strafeThumbRef} />
+        </div>
+        <span className="strafe-label">◀ strafe ▶</span>
+      </div>
 
       <div ref={mountRef} className="canvas-mount" />
     </div>
