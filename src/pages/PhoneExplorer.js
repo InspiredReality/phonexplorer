@@ -95,7 +95,8 @@ function PhoneExplorer() {
   const strafeBarRef    = useRef(null);
   const strafeThumbRef  = useRef(null);
 
-  const [infoPanel, setInfoPanel] = useState(null);
+  const [infoPanel, setInfoPanel]       = useState(null);
+  const [hintsVisible, setHintsVisible] = useState(true);
 
   const dismiss = useCallback(() => {
     setInfoPanel(null);
@@ -509,13 +510,15 @@ function PhoneExplorer() {
     <div className="explorer-wrapper">
       <h1 className="explorer-title">Phone Explorer</h1>
 
-      <div className="hint">
-        <span>1 finger = look</span>
-        <span>spread = forward</span>
-        <span>pinch = back</span>
-        <span>tap = info</span>
-        <span>double tap = focus</span>
-      </div>
+      {hintsVisible && (
+        <div className="hint">
+          <span>1 finger = look</span>
+          <span>spread = forward</span>
+          <span>pinch = back</span>
+          <span>tap = info</span>
+          <span>double tap = focus</span>
+        </div>
+      )}
 
       {infoPanel && (
         <div className="info-panel" ref={infoPanelRef}>
@@ -526,10 +529,16 @@ function PhoneExplorer() {
       )}
 
       <div className="strafe-bar" ref={strafeBarRef}>
+        <button
+          className="hints-toggle"
+          onClick={() => setHintsVisible(v => !v)}
+        >
+          {hintsVisible ? 'hints ✕' : 'hints'}
+        </button>
+
         <div className="strafe-track">
           <div className="strafe-thumb" ref={strafeThumbRef} />
         </div>
-        <span className="strafe-label">◀ strafe ▶</span>
       </div>
 
       <div ref={mountRef} className="canvas-mount" />

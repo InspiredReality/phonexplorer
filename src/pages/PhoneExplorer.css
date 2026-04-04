@@ -23,7 +23,7 @@
 
 .hint {
   position: absolute;
-  bottom: 72px;
+  bottom: 68px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
@@ -94,55 +94,66 @@
   margin: 0;
 }
 
-/* Strafe scrollbar */
+/* Strafe scrollbar — always-visible HUD bar at the bottom */
 .strafe-bar {
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
-  height: 64px;
+  height: 60px;
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   align-items: center;
   justify-content: center;
-  gap: 4px;
-  background: rgba(0, 0, 0, 0.55);
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  z-index: 20;
+  background: #1a1a2e;
+  border-top: 2px solid rgba(255, 255, 255, 0.2);
+  z-index: 30;
   touch-action: none;
   user-select: none;
-  cursor: ew-resize;
+  gap: 12px;
+}
+
+.hints-toggle {
+  position: absolute;
+  left: 14px;
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  color: #ffffff;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  padding: 5px 10px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-family: sans-serif;
+  white-space: nowrap;
+  touch-action: manipulation;
+}
+
+.hints-toggle:active {
+  background: rgba(255, 255, 255, 0.22);
 }
 
 .strafe-track {
   position: relative;
-  width: 72%;
-  max-width: 340px;
-  height: 10px;
-  background: rgba(255, 255, 255, 0.12);
-  border-radius: 5px;
-  overflow: visible;
+  width: 55%;
+  max-width: 300px;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.18);
+  border-radius: 4px;
   display: flex;
   align-items: center;
   justify-content: center;
+  overflow: visible;
 }
 
 .strafe-thumb {
-  width: 56px;
-  height: 22px;
-  background: rgba(255, 255, 255, 0.55);
-  border-radius: 11px;
+  width: 52px;
+  height: 26px;
+  background: rgba(255, 255, 255, 0.75);
+  border-radius: 13px;
   position: absolute;
-  /* JS controls transform: translateX */
-  box-shadow: 0 2px 8px rgba(0,0,0,0.4);
-  pointer-events: none;
-}
-
-.strafe-label {
-  color: rgba(255, 255, 255, 0.35);
-  font-size: 0.62rem;
-  letter-spacing: 0.1em;
-  font-family: sans-serif;
+  /* JS sets transform: translateX(...) */
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
   pointer-events: none;
 }
 
@@ -151,6 +162,7 @@
   top: 0;
   left: 0;
   right: 0;
-  bottom: 64px; /* leave room for the strafe bar */
+  bottom: 60px; /* matches strafe-bar height */
+  overflow: hidden;
   touch-action: none;
 }
