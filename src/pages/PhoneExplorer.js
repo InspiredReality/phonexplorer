@@ -97,6 +97,11 @@ function PhoneExplorer() {
 
   const [infoPanel, setInfoPanel]       = useState(null);
   const [hintsVisible, setHintsVisible] = useState(true);
+  const [strafeMode, setStrafeMode]     = useState('hor'); // 'hor' | 'vert'
+  const strafeModeRef                   = useRef('hor');
+
+  // Keep strafeModeRef readable inside Three.js event handlers without re-creating them
+  useEffect(() => { strafeModeRef.current = strafeMode; }, [strafeMode]);
 
   const dismiss = useCallback(() => {
     setInfoPanel(null);
@@ -339,6 +344,8 @@ function PhoneExplorer() {
     let thumbOffset = 0;
 
     const onStrafeStart = (e) => {
+      // Let button taps pass through so React onClick fires
+      if (e.target.closest('button')) return;
       e.stopPropagation();
       e.preventDefault();
       const t = e.changedTouches[0];
@@ -349,6 +356,7 @@ function PhoneExplorer() {
     };
 
     const onStrafeMove = (e) => {
+      if (strafeActiveId === null) return;
       e.stopPropagation();
       e.preventDefault();
       for (const t of e.changedTouches) {
@@ -357,8 +365,13 @@ function PhoneExplorer() {
         strafeLastX = t.clientX;
         thumbOffset += dx;
         setThumbX(thumbOffset, false);
-        const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
-        camera.position.addScaledVector(right, dx * STRAFE_SPEED);
+        if (strafeModeRef.current === 'hor') {
+          const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+          camera.position.addScaledVector(right, dx * STRAFE_SPEED);
+        } else {
+          // vert: right = up, left = down (world Y axis)
+          camera.position.y += dx * STRAFE_SPEED;
+        }
       }
     };
 
@@ -383,6 +396,7 @@ function PhoneExplorer() {
     let strafeMouseDown = false;
     let strafeMouseLastX = null;
     const onStrafeMouseDown = (e) => {
+      if (e.target.closest('button')) return;
       strafeMouseDown  = true;
       strafeMouseLastX = e.clientX;
       thumbOffset      = 0;
@@ -393,8 +407,12 @@ function PhoneExplorer() {
       strafeMouseLastX = e.clientX;
       thumbOffset += dx;
       setThumbX(thumbOffset, false);
-      const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
-      camera.position.addScaledVector(right, dx * STRAFE_SPEED);
+      if (strafeModeRef.current === 'hor') {
+        const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
+        camera.position.addScaledVector(right, dx * STRAFE_SPEED);
+      } else {
+        camera.position.y += dx * STRAFE_SPEED;
+      }
     };
     const onStrafeMouseUp = () => {
       strafeMouseDown = false;
@@ -537,7 +555,7 @@ function PhoneExplorer() {
       {/* strafe bar — fixed-height flex footer, always visible */}
       <div className="strafe-bar" ref={strafeBarRef}>
         <button
-          className="hints-toggle"
+          className="bar-btn bar-btn--left"
           onClick={() => setHintsVisible(v => !v)}
         >
           {hintsVisible ? 'hints ✕' : 'hints'}
@@ -546,6 +564,13 @@ function PhoneExplorer() {
         <div className="strafe-track">
           <div className="strafe-thumb" ref={strafeThumbRef} />
         </div>
+
+        <button
+          className="bar-btn bar-btn--right"
+          onClick={() => setStrafeMode(m => m === 'hor' ? 'vert' : 'hor')}
+        >
+          {strafeMode}
+        </button>
       </div>
 
     </div>
