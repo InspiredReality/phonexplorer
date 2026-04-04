@@ -47,13 +47,10 @@
   white-space: nowrap;
 }
 
-/* Info panel — right side, vertically centered */
+/* Info panel — positioned above the tapped object via JS */
 .info-panel {
   position: absolute;
-  top: 50%;
-  right: 20px;
-  transform: translateY(-50%);
-  width: min(280px, 42vw);
+  width: min(220px, 55vw);
   background: rgba(10, 10, 30, 0.88);
   border: 1px solid rgba(255, 255, 255, 0.15);
   border-radius: 12px;

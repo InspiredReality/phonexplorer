@@ -1,19 +1,19 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
 import * as THREE from 'three';
 import './PhoneExplorer.css';
 
 const OBJECT_META = {
   sphere: {
     title: 'Sphere',
-    description: 'A perfectly round geometric solid. Every point on its surface is equidistant from the center. Spheres appear throughout nature in bubbles, planets, and cells.',
+    description: 'A perfectly round geometric solid. Every point on its surface is equidistant from the center.',
   },
   cube: {
     title: 'Cube',
-    description: 'A regular hexahedron with 6 square faces, 12 edges, and 8 vertices. One of the five Platonic solids and the basis of much 3D level design.',
+    description: 'A regular hexahedron with 6 square faces, 12 edges, and 8 vertices. One of the five Platonic solids.',
   },
   tetrahedron: {
     title: 'Tetrahedron',
-    description: 'The simplest polyhedron, composed of 4 triangular faces, 6 edges, and 4 vertices. It is the 3D analog of the triangle.',
+    description: 'The simplest polyhedron — 4 triangular faces, 6 edges, 4 vertices. The 3D analog of the triangle.',
   },
 };
 
@@ -70,19 +70,16 @@ function buildScene() {
     interactables.push(mesh);
   }
 
-  // Bounding box
   scene.add(new THREE.Box3Helper(
     new THREE.Box3(new THREE.Vector3(-10, -10, -10), new THREE.Vector3(10, 10, 10)),
     0x333355
   ));
 
-  // Thick white floor slab (25× the original grid line — solid geometry instead of lines)
   const floorMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.8, metalness: 0.0 });
   const floorMesh = new THREE.Mesh(new THREE.BoxGeometry(20, 0.5, 20), floorMat);
-  floorMesh.position.set(0, -10.25, 0); // sits just below y=-10
+  floorMesh.position.set(0, -10.25, 0);
   scene.add(floorMesh);
 
-  // Subtle grid lines on top of the slab for spatial reference
   const grid = new THREE.GridHelper(20, 20, 0xcccccc, 0xcccccc);
   grid.position.y = -10.0;
   scene.add(grid);
@@ -91,8 +88,20 @@ function buildScene() {
 }
 
 function PhoneExplorer() {
-  const mountRef  = useRef(null);
-  const [infoPanel, setInfoPanel] = useState(null); // { title, description } or null
+  const mountRef       = useRef(null);
+  const infoPanelRef   = useRef(null);
+  const selectedMeshRef = useRef(null);   // shared with animate loop for panel positioning
+  const dismissRef     = useRef(null);    // function to dismiss panel, set in useEffect
+
+  const [infoPanel, setInfoPanel] = useState(null);
+
+  const dismiss = useCallback(() => {
+    setInfoPanel(null);
+    selectedMeshRef.current = null;
+  }, []);
+
+  // Keep dismissRef in sync so the Three.js loop can call it
+  useEffect(() => { dismissRef.current = dismiss; }, [dismiss]);
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -114,16 +123,34 @@ function PhoneExplorer() {
     };
     applyOrientation();
 
-    // --- Camera fly-to animation ---
-    let flyTarget = null;   // { pos: Vector3, lookAt: Vector3 }
+    // --- Fly-to state ---
+    let flyTarget   = null;  // { pos, lookAt }
     let flyProgress = 0;
-    const flyStartPos = new THREE.Vector3();
+    const flyStartPos  = new THREE.Vector3();
     const flyStartQuat = new THREE.Quaternion();
 
-    const startFly = (targetPos, lookAtPos) => {
+    const startFly = (mesh) => {
       flyStartPos.copy(camera.position);
       flyStartQuat.copy(camera.quaternion);
-      flyTarget = { pos: targetPos.clone(), lookAt: lookAtPos.clone() };
+
+      const objPos = mesh.position.clone();
+
+      // Compute stop distance so the object fills ~screen width
+      const bbox = new THREE.Box3().setFromObject(mesh);
+      const size = new THREE.Vector3();
+      bbox.getSize(size);
+      const halfSize = Math.max(size.x, size.y, size.z) / 2;
+
+      const fovY = THREE.MathUtils.degToRad(camera.fov);
+      const fovX = 2 * Math.atan(Math.tan(fovY / 2) * camera.aspect);
+      // Distance where halfSize fills half the horizontal FOV → object fills screen width
+      const stopDist = (halfSize / Math.tan(fovX / 2)) * 1.3; // 30% breathing room
+
+      // Approach along the current camera→object axis (never overshoot)
+      const dir = camera.position.clone().sub(objPos).normalize();
+      const targetPos = objPos.clone().addScaledVector(dir, stopDist);
+
+      flyTarget = { pos: targetPos, lookAt: objPos };
       flyProgress = 0;
     };
 
@@ -131,55 +158,29 @@ function PhoneExplorer() {
     let highlighted = null;
     const setHighlight = (mesh, on) => {
       if (!mesh) return;
-      mesh.material.emissive = on ? new THREE.Color(0x444444) : new THREE.Color(0x000000);
+      mesh.material.emissive.set(on ? 0x444444 : 0x000000);
     };
 
     // --- Raycaster ---
     const raycaster = new THREE.Raycaster();
-    const castAtNDC = (nx, ny) => {
-      raycaster.setFromCamera(new THREE.Vector2(nx, ny), camera);
-      return raycaster.intersectObjects(interactables);
-    };
-
-    // Convert client coords to NDC
     const toNDC = (cx, cy) => {
       const rect = mount.getBoundingClientRect();
-      return {
-        x: ((cx - rect.left) / rect.width)  * 2 - 1,
-        y: -((cy - rect.top)  / rect.height) * 2 + 1,
-      };
-    };
-
-    // --- Touch state ---
-    let activeTouches = {};
-    const LOOK_SPEED = 0.003;
-    const MOVE_SPEED = 0.018;
-    let lastSingleX = null, lastSingleY = null;
-    let lastPinchDist = null;
-
-    // Tap detection
-    let tapStart = null;        // { x, y, time, id }
-    let lastTapTime = 0;
-    let lastTapPos  = null;
-    const TAP_MAX_MOVE = 12;    // px
-    const TAP_MAX_MS   = 250;
-    const DOUBLE_TAP_MS = 400;
-
-    const getDistance = (t1, t2) => {
-      const dx = t1.clientX - t2.clientX;
-      const dy = t1.clientY - t2.clientY;
-      return Math.sqrt(dx * dx + dy * dy);
+      return new THREE.Vector2(
+        ((cx - rect.left) / rect.width)  * 2 - 1,
+        -((cy - rect.top)  / rect.height) * 2 + 1
+      );
     };
 
     const handleTap = (cx, cy, isDouble) => {
-      const { x, y } = toNDC(cx, cy);
-      const hits = castAtNDC(x, y);
+      const ndc  = toNDC(cx, cy);
+      raycaster.setFromCamera(ndc, camera);
+      const hits = raycaster.intersectObjects(interactables);
 
       if (hits.length === 0) {
-        // Tap on empty space — deselect
         setHighlight(highlighted, false);
         highlighted = null;
-        setInfoPanel(null);
+        selectedMeshRef.current = null;
+        dismissRef.current?.();
         return;
       }
 
@@ -187,27 +188,33 @@ function PhoneExplorer() {
       const { type, index } = mesh.userData;
       const meta = OBJECT_META[type];
 
-      // Update highlight
       setHighlight(highlighted, false);
       highlighted = mesh;
       setHighlight(highlighted, true);
+      selectedMeshRef.current = mesh;
 
       setInfoPanel({ title: `${meta.title} ${index}`, description: meta.description });
 
       if (isDouble) {
-        // Fly camera: object appears left-of-center, panel fills right side
-        // Offset camera to the RIGHT of and behind the object so object sits left in view
-        const objPos = mesh.position.clone();
-        const right   = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion).normalize();
-        const back    = new THREE.Vector3(0, 0, 1).applyQuaternion(camera.quaternion).normalize();
-        // Position: step behind + shift right so object projects to left ~30% of screen
-        const targetPos = objPos.clone()
-          .add(right.clone().multiplyScalar(2.5))
-          .add(back.clone().multiplyScalar(4))
-          .add(new THREE.Vector3(0, 0.5, 0));
-        startFly(targetPos, objPos);
+        startFly(mesh);
       }
     };
+
+    // --- Touch handling ---
+    let activeTouches = {};
+    const LOOK_SPEED = 0.003;
+    const MOVE_SPEED = 0.018;
+    let lastSingleX = null, lastSingleY = null;
+    let lastPinchDist = null;
+
+    let tapStart    = null;
+    let lastTapTime = 0;
+    let lastTapPos  = null;
+    const TAP_MAX_MOVE  = 12;
+    const TAP_MAX_MS    = 250;
+    const DOUBLE_TAP_MS = 400;
+
+    const dist2D = (ax, ay, bx, by) => Math.hypot(ax - bx, ay - by);
 
     const onTouchStart = (e) => {
       e.preventDefault();
@@ -218,16 +225,17 @@ function PhoneExplorer() {
 
       if (ids.length === 1) {
         const t = activeTouches[ids[0]];
-        tapStart = { x: t.clientX, y: t.clientY, time: Date.now(), id: ids[0] };
+        tapStart    = { x: t.clientX, y: t.clientY, time: Date.now(), id: ids[0] };
         lastSingleX = t.clientX;
         lastSingleY = t.clientY;
         lastPinchDist = null;
       } else if (ids.length >= 2) {
-        tapStart = null;
-        lastSingleX = null;
-        lastSingleY = null;
+        tapStart = null; lastSingleX = null; lastSingleY = null;
         const [a, b] = ids;
-        lastPinchDist = getDistance(activeTouches[a], activeTouches[b]);
+        lastPinchDist = dist2D(
+          activeTouches[a].clientX, activeTouches[a].clientY,
+          activeTouches[b].clientX, activeTouches[b].clientY
+        );
       }
     };
 
@@ -241,55 +249,42 @@ function PhoneExplorer() {
       if (ids.length === 1) {
         const cx = activeTouches[ids[0]].clientX;
         const cy = activeTouches[ids[0]].clientY;
-
-        // Invalidate tap if moved too far
-        if (tapStart) {
-          const dx = cx - tapStart.x, dy = cy - tapStart.y;
-          if (Math.sqrt(dx * dx + dy * dy) > TAP_MAX_MOVE) tapStart = null;
-        }
-
+        if (tapStart && dist2D(cx, cy, tapStart.x, tapStart.y) > TAP_MAX_MOVE) tapStart = null;
         if (lastSingleX !== null) {
           yaw   -= (cx - lastSingleX) * LOOK_SPEED;
           pitch -= (cy - lastSingleY) * LOOK_SPEED;
-          pitch = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, pitch));
+          pitch  = Math.max(-Math.PI / 2, Math.min(Math.PI / 2, pitch));
           applyOrientation();
         }
-        lastSingleX = cx;
-        lastSingleY = cy;
+        lastSingleX = cx; lastSingleY = cy;
       } else if (ids.length >= 2) {
         tapStart = null;
         const [a, b] = ids;
-        const dist = getDistance(activeTouches[a], activeTouches[b]);
+        const d = dist2D(
+          activeTouches[a].clientX, activeTouches[a].clientY,
+          activeTouches[b].clientX, activeTouches[b].clientY
+        );
         if (lastPinchDist !== null) {
-          const delta = dist - lastPinchDist;
+          const delta   = d - lastPinchDist;
           const forward = new THREE.Vector3(0, 0, -1).applyQuaternion(camera.quaternion);
           camera.position.addScaledVector(forward, delta * MOVE_SPEED);
         }
-        lastPinchDist = dist;
-        lastSingleX = null;
-        lastSingleY = null;
+        lastPinchDist = d; lastSingleX = null; lastSingleY = null;
       }
     };
 
     const onTouchEnd = (e) => {
       e.preventDefault();
-
-      // Check for tap before removing touch
       for (const t of e.changedTouches) {
         if (tapStart && tapStart.id === String(t.identifier)) {
           const elapsed = Date.now() - tapStart.time;
-          const dx = t.clientX - tapStart.x, dy = t.clientY - tapStart.y;
-          const moved = Math.sqrt(dx * dx + dy * dy);
-
+          const moved   = dist2D(t.clientX, t.clientY, tapStart.x, tapStart.y);
           if (elapsed < TAP_MAX_MS && moved < TAP_MAX_MOVE) {
-            const now = Date.now();
-            const isDouble =
-              lastTapPos &&
+            const now      = Date.now();
+            const isDouble = lastTapPos &&
               now - lastTapTime < DOUBLE_TAP_MS &&
-              Math.abs(t.clientX - lastTapPos.x) < 40 &&
-              Math.abs(t.clientY - lastTapPos.y) < 40;
-
-            handleTap(t.clientX, t.clientY, isDouble);
+              dist2D(t.clientX, t.clientY, lastTapPos.x, lastTapPos.y) < 40;
+            handleTap(t.clientX, t.clientY, !!isDouble);
             lastTapTime = now;
             lastTapPos  = { x: t.clientX, y: t.clientY };
           }
@@ -297,19 +292,15 @@ function PhoneExplorer() {
         }
         delete activeTouches[t.identifier];
       }
-
       const ids = Object.keys(activeTouches);
       lastPinchDist = null;
       if (ids.length === 1) {
         lastSingleX = activeTouches[ids[0]].clientX;
         lastSingleY = activeTouches[ids[0]].clientY;
-      } else {
-        lastSingleX = null;
-        lastSingleY = null;
-      }
+      } else { lastSingleX = null; lastSingleY = null; }
     };
 
-    // Desktop click / dblclick
+    // Desktop
     let clickDebounce = null;
     const onMouseClick = (e) => {
       clearTimeout(clickDebounce);
@@ -334,37 +325,72 @@ function PhoneExplorer() {
     };
     window.addEventListener('resize', onResize);
 
-    // --- Animation loop ---
-    const tmpQuat = new THREE.Quaternion();
-    let animId;
+    // --- Panel position update (called each frame) ---
+    const tmpV  = new THREE.Vector3();
+    const updatePanelPosition = () => {
+      const panel = infoPanelRef.current;
+      const mesh  = selectedMeshRef.current;
+      if (!panel || !mesh) return;
+
+      tmpV.copy(mesh.position);
+      tmpV.project(camera);
+
+      // If object is behind camera, hide panel
+      if (tmpV.z > 1) { panel.style.display = 'none'; return; }
+      panel.style.display = '';
+
+      const w  = mount.clientWidth;
+      const h  = mount.clientHeight;
+      const sx = ( tmpV.x * 0.5 + 0.5) * w;
+      const sy = (-tmpV.y * 0.5 + 0.5) * h;
+
+      const pw = panel.offsetWidth  || 220;
+      const ph = panel.offsetHeight || 100;
+      const GAP = 14;
+
+      let left = sx - pw / 2;
+      let top  = sy - ph - GAP;
+
+      // Clamp horizontally
+      left = Math.max(8, Math.min(w - pw - 8, left));
+      // If panel would clip top, flip it below the object
+      if (top < 8) top = sy + GAP;
+
+      panel.style.left = `${left}px`;
+      panel.style.top  = `${top}px`;
+    };
+
+    // --- Fly-to target quaternion helper ---
+    const flyTargetQuat = new THREE.Quaternion();
+    const flyM          = new THREE.Matrix4();
+
     const animate = () => {
       animId = requestAnimationFrame(animate);
 
-      // Fly-to animation
       if (flyTarget) {
         flyProgress = Math.min(flyProgress + 0.04, 1);
         const t = 1 - Math.pow(1 - flyProgress, 3); // ease-out cubic
 
         camera.position.lerpVectors(flyStartPos, flyTarget.pos, t);
 
-        // Compute target quaternion by aiming at lookAt
-        const dummy = new THREE.Object3D();
-        dummy.position.copy(flyTarget.pos);
-        dummy.lookAt(flyTarget.lookAt);
-        tmpQuat.copy(dummy.quaternion);
-        camera.quaternion.slerpQuaternions(flyStartQuat, tmpQuat, t);
+        // Build target look-at quaternion
+        flyM.lookAt(flyTarget.pos, flyTarget.lookAt, camera.up);
+        flyTargetQuat.setFromRotationMatrix(flyM);
+        camera.quaternion.slerpQuaternions(flyStartQuat, flyTargetQuat, t);
 
         if (flyProgress >= 1) {
-          // Sync yaw/pitch to final orientation so swipe continues from correct angles
-          const e = new THREE.Euler().setFromQuaternion(camera.quaternion, 'YXZ');
-          yaw   = e.y;
-          pitch = e.x;
+          const euler = new THREE.Euler().setFromQuaternion(camera.quaternion, 'YXZ');
+          yaw   = euler.y;
+          pitch = euler.x;
           flyTarget = null;
         }
       }
 
       renderer.render(scene, camera);
+      updatePanelPosition();
     };
+
+    let animId;
     animate();
 
     return () => {
@@ -377,7 +403,7 @@ function PhoneExplorer() {
       mount.removeEventListener('touchcancel', onTouchEnd);
       mount.removeEventListener('click',       onMouseClick);
       mount.removeEventListener('dblclick',    onDblClick);
-      mount.removeChild(renderer.domElement);
+      if (mount.contains(renderer.domElement)) mount.removeChild(renderer.domElement);
       renderer.dispose();
     };
   }, []);
@@ -395,8 +421,8 @@ function PhoneExplorer() {
       </div>
 
       {infoPanel && (
-        <div className="info-panel">
-          <button className="info-close" onClick={() => setInfoPanel(null)}>✕</button>
+        <div className="info-panel" ref={infoPanelRef}>
+          <button className="info-close" onClick={dismiss}>✕</button>
           <h2 className="info-title">{infoPanel.title}</h2>
           <p className="info-desc">{infoPanel.description}</p>
         </div>
