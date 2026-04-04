@@ -376,6 +376,8 @@ function PhoneExplorer() {
     };
 
     const onStrafeEnd = (e) => {
+      // If no drag was active (e.g. a button tap), let the browser fire click normally
+      if (strafeActiveId === null) return;
       e.stopPropagation();
       e.preventDefault();
       strafeActiveId = null;
