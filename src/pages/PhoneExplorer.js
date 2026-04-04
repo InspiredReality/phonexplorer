@@ -92,7 +92,6 @@ function buildScene() {
 
 function PhoneExplorer() {
   const mountRef  = useRef(null);
-  const stateRef  = useRef({});        // mutable state shared with event handlers
   const [infoPanel, setInfoPanel] = useState(null); // { title, description } or null
 
   useEffect(() => {
@@ -313,7 +312,6 @@ function PhoneExplorer() {
     // Desktop click / dblclick
     let clickDebounce = null;
     const onMouseClick = (e) => {
-      const { x, y } = toNDC(e.clientX, e.clientY);
       clearTimeout(clickDebounce);
       clickDebounce = setTimeout(() => handleTap(e.clientX, e.clientY, false), 180);
     };
