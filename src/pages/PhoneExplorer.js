@@ -508,26 +508,33 @@ function PhoneExplorer() {
 
   return (
     <div className="explorer-wrapper">
-      <h1 className="explorer-title">Phone Explorer</h1>
 
-      {hintsVisible && (
-        <div className="hint">
-          <span>1 finger = look</span>
-          <span>spread = forward</span>
-          <span>pinch = back</span>
-          <span>tap = info</span>
-          <span>double tap = focus</span>
-        </div>
-      )}
+      {/* canvas area — flex:1, fills everything above the strafe bar */}
+      <div className="canvas-area">
+        <div ref={mountRef} className="canvas-mount" />
 
-      {infoPanel && (
-        <div className="info-panel" ref={infoPanelRef}>
-          <button className="info-close" onClick={dismiss}>✕</button>
-          <h2 className="info-title">{infoPanel.title}</h2>
-          <p className="info-desc">{infoPanel.description}</p>
-        </div>
-      )}
+        <h1 className="explorer-title">Phone Explorer</h1>
 
+        {hintsVisible && (
+          <div className="hint">
+            <span>1 finger = look</span>
+            <span>spread = forward</span>
+            <span>pinch = back</span>
+            <span>tap = info</span>
+            <span>double tap = focus</span>
+          </div>
+        )}
+
+        {infoPanel && (
+          <div className="info-panel" ref={infoPanelRef}>
+            <button className="info-close" onClick={dismiss}>✕</button>
+            <h2 className="info-title">{infoPanel.title}</h2>
+            <p className="info-desc">{infoPanel.description}</p>
+          </div>
+        )}
+      </div>
+
+      {/* strafe bar — fixed-height flex footer, always visible */}
       <div className="strafe-bar" ref={strafeBarRef}>
         <button
           className="hints-toggle"
@@ -541,7 +548,6 @@ function PhoneExplorer() {
         </div>
       </div>
 
-      <div ref={mountRef} className="canvas-mount" />
     </div>
   );
 }

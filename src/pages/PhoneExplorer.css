@@ -1,11 +1,30 @@
+/* ── Root wrapper: flex column filling the full viewport ── */
 .explorer-wrapper {
-  position: relative;
+  display: flex;
+  flex-direction: column;
   width: 100vw;
   height: 100vh;
+  height: 100dvh; /* uses dynamic viewport on modern mobile — respects browser chrome */
   background: #111122;
   overflow: hidden;
 }
 
+/* ── Canvas area: grows to fill all space above the strafe bar ── */
+.canvas-area {
+  position: relative;
+  flex: 1;
+  min-height: 0; /* essential for flex children to shrink below content size */
+  overflow: hidden;
+}
+
+/* Three.js canvas container fills the canvas-area exactly */
+.canvas-mount {
+  position: absolute;
+  inset: 0;
+  touch-action: none;
+}
+
+/* ── Overlays inside canvas-area ── */
 .explorer-title {
   position: absolute;
   top: 16px;
@@ -19,17 +38,18 @@
   z-index: 10;
   pointer-events: none;
   font-family: sans-serif;
+  white-space: nowrap;
 }
 
 .hint {
   position: absolute;
-  bottom: 68px;
+  bottom: 10px;
   left: 50%;
   transform: translateX(-50%);
   display: flex;
   flex-wrap: wrap;
   justify-content: center;
-  gap: 8px;
+  gap: 6px;
   z-index: 10;
   pointer-events: none;
   width: 100%;
@@ -47,7 +67,7 @@
   white-space: nowrap;
 }
 
-/* Info panel — positioned above the tapped object via JS */
+/* Info panel — positioned above tapped object via JS */
 .info-panel {
   position: absolute;
   width: min(220px, 55vw);
@@ -75,9 +95,7 @@
   padding: 2px 4px;
 }
 
-.info-close:hover {
-  color: #ffffff;
-}
+.info-close:hover { color: #ffffff; }
 
 .info-title {
   color: #ffffff;
@@ -94,19 +112,16 @@
   margin: 0;
 }
 
-/* Strafe scrollbar — always-visible HUD bar at the bottom */
+/* ── Strafe bar: fixed-height flex footer — always visible ── */
 .strafe-bar {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
+  flex-shrink: 0;
   height: 60px;
   display: flex;
   flex-direction: row;
   align-items: center;
   justify-content: center;
   background: #1a1a2e;
-  border-top: 2px solid rgba(255, 255, 255, 0.2);
+  border-top: 2px solid rgba(255, 255, 255, 0.25);
   z-index: 30;
   touch-action: none;
   user-select: none;
@@ -119,9 +134,9 @@
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.3);
   color: #ffffff;
-  font-size: 0.7rem;
-  letter-spacing: 0.08em;
-  padding: 5px 10px;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  padding: 6px 12px;
   border-radius: 6px;
   cursor: pointer;
   font-family: sans-serif;
@@ -138,7 +153,7 @@
   width: 55%;
   max-width: 300px;
   height: 8px;
-  background: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.2);
   border-radius: 4px;
   display: flex;
   align-items: center;
@@ -149,20 +164,9 @@
 .strafe-thumb {
   width: 52px;
   height: 26px;
-  background: rgba(255, 255, 255, 0.75);
+  background: rgba(255, 255, 255, 0.8);
   border-radius: 13px;
   position: absolute;
-  /* JS sets transform: translateX(...) */
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
   pointer-events: none;
-}
-
-.canvas-mount {
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 60px; /* matches strafe-bar height */
-  overflow: hidden;
-  touch-action: none;
 }
