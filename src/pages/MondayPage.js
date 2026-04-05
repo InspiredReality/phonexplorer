@@ -116,9 +116,6 @@ function OpenTasksTable({ tasks, loading, error, onRetry }) {
             </thead>
             <tbody>
               {tasks?.map((item) => {
-                const colMap = Object.fromEntries(
-                  (item.column_values ?? []).map((c) => [c.type, c])
-                );
                 const status = item.column_values?.find(c => c.type === 'color' || c.id === 'status')?.text
                   || item.column_values?.find(c => c.label)?.label;
                 const due    = item.column_values?.find(c => c.type === 'date')?.date
