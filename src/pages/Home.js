@@ -6,9 +6,14 @@ function Home() {
 
   return (
     <div className="home-container">
-      <button className="enter-btn" onClick={() => navigate('/explorer')}>
-        enter
-      </button>
+      <div className="home-buttons">
+        <button className="home-btn" onClick={() => navigate('/explorer')}>
+          enter
+        </button>
+        <button className="home-btn home-btn--monday" onClick={() => navigate('/monday')}>
+          monday
+        </button>
+      </div>
     </div>
   );
 }
