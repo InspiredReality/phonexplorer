@@ -1,3 +1,4 @@
+from pydantic import AliasChoices, Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -10,8 +11,11 @@ class Settings(BaseSettings):
     # e.g. ALLOWED_ORIGINS=http://localhost:3000,https://yourapp.vercel.app
     allowed_origins_raw: str = "http://localhost:3000"
 
-    # Railway injects DATABASE_URL as postgres:// — asyncpg needs postgresql+asyncpg://
-    database_url_raw: str = "postgresql+asyncpg://localhost/phonexplorer"
+    # Accepts both DATABASE_URL (Railway default) and DATABASE_URL_RAW
+    database_url_raw: str = Field(
+        default="postgresql+asyncpg://localhost/phonexplorer",
+        validation_alias=AliasChoices("DATABASE_URL_RAW", "DATABASE_URL"),
+    )
 
     @property
     def allowed_origins(self) -> list[str]:
