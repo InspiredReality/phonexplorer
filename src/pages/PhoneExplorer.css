@@ -36,9 +36,16 @@
   text-transform: uppercase;
   margin: 0;
   z-index: 10;
-  pointer-events: none;
   font-family: sans-serif;
   white-space: nowrap;
+  cursor: pointer;
+  padding: 4px 12px;
+  border-radius: 6px;
+  transition: background 0.15s;
+}
+
+.explorer-title:hover {
+  background: rgba(255, 255, 255, 0.12);
 }
 
 .hint {
@@ -109,7 +116,65 @@
   color: rgba(200, 210, 255, 0.85);
   font-size: 0.82rem;
   line-height: 1.55;
-  margin: 0;
+  margin: 0 0 12px;
+}
+
+.info-link-btn {
+  display: block;
+  width: 100%;
+  padding: 7px 10px;
+  background: rgba(100, 140, 255, 0.18);
+  border: 1px solid rgba(100, 140, 255, 0.4);
+  border-radius: 7px;
+  color: rgba(180, 200, 255, 0.9);
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  font-family: sans-serif;
+  text-align: center;
+  transition: background 0.15s;
+}
+
+.info-link-btn:hover {
+  background: rgba(100, 140, 255, 0.32);
+}
+
+/* Link-mode banner */
+.link-banner {
+  position: absolute;
+  top: 56px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(80, 120, 255, 0.88);
+  border: 1px solid rgba(140, 170, 255, 0.5);
+  border-radius: 10px;
+  padding: 10px 16px;
+  color: #fff;
+  font-size: 0.82rem;
+  font-family: sans-serif;
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  white-space: nowrap;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.link-cancel {
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 6px;
+  color: #fff;
+  font-size: 0.75rem;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-family: sans-serif;
+  white-space: nowrap;
+}
+
+.link-cancel:hover {
+  background: rgba(255, 255, 255, 0.32);
 }
 
 /* ── Strafe bar: fixed-height flex footer — always visible ── */
@@ -162,6 +227,154 @@
   align-items: center;
   justify-content: center;
   overflow: visible;
+}
+
+/* ── Add-object modal ── */
+.add-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+}
+
+.add-modal {
+  position: relative;
+  background: #0d0d1f;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 16px;
+  padding: 28px 24px 24px;
+  width: 100%;
+  max-width: 360px;
+  max-height: 90vh;
+  overflow-y: auto;
+  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.7);
+  font-family: sans-serif;
+}
+
+.add-modal-close {
+  position: absolute;
+  top: 14px;
+  right: 16px;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 1.1rem;
+  cursor: pointer;
+  line-height: 1;
+  padding: 2px 4px;
+}
+
+.add-modal-close:hover { color: #ffffff; }
+
+.add-modal-heading {
+  color: #ffffff;
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin: 0 0 20px;
+}
+
+.add-modal-form {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.add-field {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+
+.add-field span {
+  color: rgba(200, 210, 255, 0.7);
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.add-field input[type="text"],
+.add-field input[type="number"],
+.add-field select,
+.add-field textarea {
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  color: #ffffff;
+  font-size: 0.88rem;
+  font-family: sans-serif;
+  padding: 8px 10px;
+  outline: none;
+  transition: border-color 0.15s;
+}
+
+.add-field input[type="text"]:focus,
+.add-field input[type="number"]:focus,
+.add-field select:focus,
+.add-field textarea:focus {
+  border-color: rgba(100, 160, 255, 0.6);
+}
+
+.add-field textarea {
+  resize: vertical;
+  min-height: 60px;
+}
+
+.add-field select option {
+  background: #0d0d1f;
+}
+
+.add-field-row {
+  display: flex;
+  gap: 10px;
+}
+
+.add-field-row .add-field {
+  flex: 1;
+}
+
+.add-field--color {
+  flex-direction: row;
+  align-items: center;
+  gap: 12px;
+}
+
+.add-field--color input[type="color"] {
+  width: 44px;
+  height: 36px;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  background: none;
+  cursor: pointer;
+  padding: 2px;
+}
+
+.add-submit {
+  margin-top: 6px;
+  padding: 11px;
+  background: rgba(68, 136, 255, 0.85);
+  border: none;
+  border-radius: 10px;
+  color: #ffffff;
+  font-size: 0.9rem;
+  font-weight: 600;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+  font-family: sans-serif;
+  transition: background 0.15s;
+}
+
+.add-submit:hover {
+  background: rgba(68, 136, 255, 1);
+}
+
+.add-submit:active {
+  background: rgba(40, 100, 220, 1);
 }
 
 .strafe-thumb {
