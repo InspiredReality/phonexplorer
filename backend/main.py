@@ -8,7 +8,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from config import settings
-from routers import data
+from routers import data, monday
 from services.http_client import client
 
 
@@ -35,6 +35,7 @@ app.add_middleware(
 )
 
 app.include_router(data.router)
+app.include_router(monday.router)
 
 
 @app.get("/health")
