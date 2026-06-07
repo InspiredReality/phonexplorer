@@ -116,7 +116,65 @@
   color: rgba(200, 210, 255, 0.85);
   font-size: 0.82rem;
   line-height: 1.55;
-  margin: 0;
+  margin: 0 0 12px;
+}
+
+.info-link-btn {
+  display: block;
+  width: 100%;
+  padding: 7px 10px;
+  background: rgba(100, 140, 255, 0.18);
+  border: 1px solid rgba(100, 140, 255, 0.4);
+  border-radius: 7px;
+  color: rgba(180, 200, 255, 0.9);
+  font-size: 0.78rem;
+  letter-spacing: 0.06em;
+  cursor: pointer;
+  font-family: sans-serif;
+  text-align: center;
+  transition: background 0.15s;
+}
+
+.info-link-btn:hover {
+  background: rgba(100, 140, 255, 0.32);
+}
+
+/* Link-mode banner */
+.link-banner {
+  position: absolute;
+  top: 56px;
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(80, 120, 255, 0.88);
+  border: 1px solid rgba(140, 170, 255, 0.5);
+  border-radius: 10px;
+  padding: 10px 16px;
+  color: #fff;
+  font-size: 0.82rem;
+  font-family: sans-serif;
+  z-index: 25;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  white-space: nowrap;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.link-cancel {
+  background: rgba(255, 255, 255, 0.18);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+  border-radius: 6px;
+  color: #fff;
+  font-size: 0.75rem;
+  padding: 4px 10px;
+  cursor: pointer;
+  font-family: sans-serif;
+  white-space: nowrap;
+}
+
+.link-cancel:hover {
+  background: rgba(255, 255, 255, 0.32);
 }
 
 /* ── Strafe bar: fixed-height flex footer — always visible ── */

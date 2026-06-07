@@ -1,30 +1,38 @@
 import { useEffect, useRef, useState, useCallback } from 'react';
 import * as THREE from 'three';
 import './PhoneExplorer.css';
+import { fetchObjects, createObject, addRelationship } from '../api';
 
-const OBJECT_META = {
-  sphere: {
-    title: 'Sphere',
-    description: 'A perfectly round geometric solid. Every point on its surface is equidistant from the center.',
-  },
-  cube: {
-    title: 'Cube',
-    description: 'A regular hexahedron with 6 square faces, 12 edges, and 8 vertices. One of the five Platonic solids.',
-  },
-  tetrahedron: {
-    title: 'Tetrahedron',
-    description: 'The simplest polyhedron — 4 triangular faces, 6 edges, 4 vertices. The 3D analog of the triangle.',
-  },
+// ── Three.js helpers (module-level, no React state) ────────────────────────
+
+const GEO_FACTORIES = {
+  sphere:      () => new THREE.SphereGeometry(0.5, 32, 32),
+  cube:        () => new THREE.BoxGeometry(0.9, 0.9, 0.9),
+  tetrahedron: () => new THREE.TetrahedronGeometry(0.7),
 };
 
-function seededRandom(seed) {
-  const results = [];
-  let s = seed;
-  for (let i = 0; i < 100; i++) {
-    s = (s * 9301 + 49297) % 233280;
-    results.push((s / 233280) * 20 - 10);
-  }
-  return results;
+function makeMesh(obj) {
+  const geo = (GEO_FACTORIES[obj.shape] || GEO_FACTORIES.sphere)();
+  const mat = new THREE.MeshStandardMaterial({
+    color:     new THREE.Color(obj.color || '#4488ff'),
+    metalness: 0.3,
+    roughness: 0.6,
+  });
+  const mesh = new THREE.Mesh(geo, mat);
+  mesh.position.set(obj.x ?? 0, obj.y ?? 0, obj.z ?? 0);
+  mesh.userData = {
+    id:          obj.id,
+    type:        obj.shape,
+    customTitle: obj.title,
+    customDescription: obj.description ?? '',
+  };
+  return mesh;
+}
+
+function makeLine(posA, posB) {
+  const geo = new THREE.BufferGeometry().setFromPoints([posA.clone(), posB.clone()]);
+  const mat = new THREE.LineBasicMaterial({ color: 0x8899ff, opacity: 0.65, transparent: true });
+  return new THREE.Line(geo, mat);
 }
 
 function buildScene() {
@@ -36,47 +44,15 @@ function buildScene() {
   dirLight.position.set(10, 20, 10);
   scene.add(dirLight);
 
-  const rnd = seededRandom(42);
-  let ri = 0;
-  const next3 = () => [rnd[ri++], rnd[ri++], rnd[ri++]];
-
-  const matSphere = new THREE.MeshStandardMaterial({ color: 0x4488ff, metalness: 0.3, roughness: 0.6 });
-  const matCube   = new THREE.MeshStandardMaterial({ color: 0xff6644, metalness: 0.3, roughness: 0.6 });
-  const matTetra  = new THREE.MeshStandardMaterial({ color: 0x44cc88, metalness: 0.3, roughness: 0.6 });
-
-  const interactables = [];
-
-  for (let i = 0; i < 4; i++) {
-    const mesh = new THREE.Mesh(new THREE.SphereGeometry(0.5, 32, 32), matSphere.clone());
-    mesh.position.set(...next3());
-    mesh.userData = { type: 'sphere', index: i + 1 };
-    scene.add(mesh);
-    interactables.push(mesh);
-  }
-
-  for (let i = 0; i < 5; i++) {
-    const mesh = new THREE.Mesh(new THREE.BoxGeometry(0.9, 0.9, 0.9), matCube.clone());
-    mesh.position.set(...next3());
-    mesh.userData = { type: 'cube', index: i + 1 };
-    scene.add(mesh);
-    interactables.push(mesh);
-  }
-
-  for (let i = 0; i < 3; i++) {
-    const mesh = new THREE.Mesh(new THREE.TetrahedronGeometry(0.7), matTetra.clone());
-    mesh.position.set(...next3());
-    mesh.userData = { type: 'tetrahedron', index: i + 1 };
-    scene.add(mesh);
-    interactables.push(mesh);
-  }
-
   scene.add(new THREE.Box3Helper(
     new THREE.Box3(new THREE.Vector3(-10, -10, -10), new THREE.Vector3(10, 10, 10)),
     0x333355
   ));
 
-  const floorMat = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.8, metalness: 0.0 });
-  const floorMesh = new THREE.Mesh(new THREE.BoxGeometry(20, 0.5, 20), floorMat);
+  const floorMesh = new THREE.Mesh(
+    new THREE.BoxGeometry(20, 0.5, 20),
+    new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.8, metalness: 0.0 })
+  );
   floorMesh.position.set(0, -10.25, 0);
   scene.add(floorMesh);
 
@@ -84,8 +60,10 @@ function buildScene() {
   grid.position.y = -10.0;
   scene.add(grid);
 
-  return { scene, interactables };
+  return scene;
 }
+
+// ── Component ──────────────────────────────────────────────────────────────
 
 function PhoneExplorer() {
   const mountRef        = useRef(null);
@@ -93,21 +71,30 @@ function PhoneExplorer() {
   const selectedMeshRef = useRef(null);
   const dismissRef      = useRef(null);
   const strafeBarRef    = useRef(null);
-  const strafeThumbRef   = useRef(null);
-  const sceneRef         = useRef(null);
-  const interactablesRef = useRef([]);
+  const strafeThumbRef  = useRef(null);
+
+  // Three.js scene bridges
+  const sceneRef          = useRef(null);
+  const interactablesRef  = useRef([]);
+  const objectMeshesRef   = useRef({});  // id → mesh
+  const linesGroupRef     = useRef(null);
+
+  // Link-mode bridge (readable inside Three.js closure without re-creating handlers)
+  const linkingFromRef    = useRef(null); // { id, mesh } | null
+  const createRelationRef = useRef(null);
 
   const [infoPanel, setInfoPanel]       = useState(null);
   const [hintsVisible, setHintsVisible] = useState(true);
-  const [strafeMode, setStrafeMode]     = useState('hor'); // 'hor' | 'vert'
+  const [strafeMode, setStrafeMode]     = useState('hor');
   const strafeModeRef                   = useRef('hor');
 
-  const [addMenuOpen, setAddMenuOpen] = useState(false);
-  const [addForm, setAddForm]         = useState({
+  const [addMenuOpen, setAddMenuOpen]   = useState(false);
+  const [addForm, setAddForm]           = useState({
     object: 'sphere', title: '', description: '', x: '0', y: '0', z: '0', color: '#4488ff',
   });
 
-  // Keep strafeModeRef readable inside Three.js event handlers without re-creating them
+  const [linkingFrom, setLinkingFrom]   = useState(null); // { id, title } — for UI only
+
   useEffect(() => { strafeModeRef.current = strafeMode; }, [strafeMode]);
 
   const dismiss = useCallback(() => {
@@ -115,51 +102,56 @@ function PhoneExplorer() {
     selectedMeshRef.current = null;
   }, []);
 
-  // Keep dismissRef in sync so the Three.js loop can call it
   useEffect(() => { dismissRef.current = dismiss; }, [dismiss]);
 
+  // ── createRelationship: called from Three.js tap handler via ref ──────────
+  const createRelationship = useCallback(async (fromId, toId) => {
+    try {
+      await addRelationship(fromId, toId);
+      const meshA = objectMeshesRef.current[fromId];
+      const meshB = objectMeshesRef.current[toId];
+      if (meshA && meshB && linesGroupRef.current) {
+        linesGroupRef.current.add(makeLine(meshA.position, meshB.position));
+      }
+    } catch (err) {
+      console.error('Failed to link objects:', err);
+    }
+  }, []);
+
+  useEffect(() => { createRelationRef.current = createRelationship; }, [createRelationship]);
+
+  // ── Form handlers ────────────────────────────────────────────────────────
   const handleFormChange = useCallback((e) => {
     const { name, value } = e.target;
     setAddForm(f => ({ ...f, [name]: value }));
   }, []);
 
-  const handleAddObject = useCallback((e) => {
+  const handleAddObject = useCallback(async (e) => {
     e.preventDefault();
-    const scene        = sceneRef.current;
-    const interactables = interactablesRef.current;
-    if (!scene) return;
-
     const { object, title, description, x, y, z, color } = addForm;
+    try {
+      const obj = await createObject({
+        shape: object,
+        title: title || object,
+        description,
+        x: parseFloat(x) || 0,
+        y: parseFloat(y) || 0,
+        z: parseFloat(z) || 0,
+        color,
+      });
+      const mesh = makeMesh(obj);
+      sceneRef.current?.add(mesh);
+      interactablesRef.current.push(mesh);
+      objectMeshesRef.current[obj.id] = mesh;
 
-    const geoMap = {
-      sphere:      () => new THREE.SphereGeometry(0.5, 32, 32),
-      cube:        () => new THREE.BoxGeometry(0.9, 0.9, 0.9),
-      tetrahedron: () => new THREE.TetrahedronGeometry(0.7),
-    };
-
-    const geo = (geoMap[object] || geoMap.sphere)();
-    const mat = new THREE.MeshStandardMaterial({
-      color:     new THREE.Color(color),
-      metalness: 0.3,
-      roughness: 0.6,
-    });
-
-    const mesh = new THREE.Mesh(geo, mat);
-    mesh.position.set(parseFloat(x) || 0, parseFloat(y) || 0, parseFloat(z) || 0);
-    mesh.userData = {
-      type:              object,
-      index:             0,
-      customTitle:       title || object,
-      customDescription: description,
-    };
-
-    scene.add(mesh);
-    interactables.push(mesh);
-
-    setAddMenuOpen(false);
-    setAddForm({ object: 'sphere', title: '', description: '', x: '0', y: '0', z: '0', color: '#4488ff' });
+      setAddMenuOpen(false);
+      setAddForm({ object: 'sphere', title: '', description: '', x: '0', y: '0', z: '0', color: '#4488ff' });
+    } catch (err) {
+      console.error('Failed to add object:', err);
+    }
   }, [addForm]);
 
+  // ── Three.js main effect ─────────────────────────────────────────────────
   useEffect(() => {
     const mount = mountRef.current;
 
@@ -171,19 +163,53 @@ function PhoneExplorer() {
     const camera = new THREE.PerspectiveCamera(70, mount.clientWidth / mount.clientHeight, 0.1, 200);
     camera.position.set(0, 0, 12);
 
-    const { scene, interactables } = buildScene();
-    sceneRef.current        = scene;
-    interactablesRef.current = interactables;
+    const scene = buildScene();
+    sceneRef.current = scene;
 
-    // --- Camera orientation ---
+    const linesGroup = new THREE.Group();
+    scene.add(linesGroup);
+    linesGroupRef.current = linesGroup;
+
+    // Load objects from API
+    (async () => {
+      try {
+        const objects = await fetchObjects();
+
+        for (const obj of objects) {
+          const mesh = makeMesh(obj);
+          scene.add(mesh);
+          interactablesRef.current.push(mesh);
+          objectMeshesRef.current[obj.id] = mesh;
+        }
+
+        // Draw relationship lines (deduplicated)
+        const drawn = new Set();
+        for (const obj of objects) {
+          for (const relId of obj.relationships ?? []) {
+            const key = [obj.id, relId].sort().join('-');
+            if (drawn.has(key)) continue;
+            drawn.add(key);
+            const meshA = objectMeshesRef.current[obj.id];
+            const meshB = objectMeshesRef.current[relId];
+            if (meshA && meshB) {
+              linesGroup.add(makeLine(meshA.position, meshB.position));
+            }
+          }
+        }
+      } catch (err) {
+        console.error('Failed to load scene objects:', err);
+      }
+    })();
+
+    // ── Camera orientation ─────────────────────────────────────────────────
     let yaw = 0, pitch = 0;
     const applyOrientation = () => {
       camera.quaternion.setFromEuler(new THREE.Euler(pitch, yaw, 0, 'YXZ'));
     };
     applyOrientation();
 
-    // --- Fly-to state ---
-    let flyTarget   = null;  // { pos, lookAt }
+    // ── Fly-to state ───────────────────────────────────────────────────────
+    let flyTarget   = null;
     let flyProgress = 0;
     const flyStartPos  = new THREE.Vector3();
     const flyStartQuat = new THREE.Quaternion();
@@ -191,36 +217,27 @@ function PhoneExplorer() {
     const startFly = (mesh) => {
       flyStartPos.copy(camera.position);
       flyStartQuat.copy(camera.quaternion);
-
       const objPos = mesh.position.clone();
-
-      // Compute stop distance so the object fills ~screen width
       const bbox = new THREE.Box3().setFromObject(mesh);
       const size = new THREE.Vector3();
       bbox.getSize(size);
       const halfSize = Math.max(size.x, size.y, size.z) / 2;
-
       const fovY = THREE.MathUtils.degToRad(camera.fov);
       const fovX = 2 * Math.atan(Math.tan(fovY / 2) * camera.aspect);
-      // Distance where halfSize fills half the horizontal FOV → object fills screen width
-      const stopDist = (halfSize / Math.tan(fovX / 2)) * 1.3; // 30% breathing room
-
-      // Approach along the current camera→object axis (never overshoot)
+      const stopDist = (halfSize / Math.tan(fovX / 2)) * 1.3;
       const dir = camera.position.clone().sub(objPos).normalize();
-      const targetPos = objPos.clone().addScaledVector(dir, stopDist);
-
-      flyTarget = { pos: targetPos, lookAt: objPos };
+      flyTarget   = { pos: objPos.clone().addScaledVector(dir, stopDist), lookAt: objPos };
       flyProgress = 0;
     };
 
-    // --- Highlight ---
+    // ── Highlight ──────────────────────────────────────────────────────────
     let highlighted = null;
     const setHighlight = (mesh, on) => {
       if (!mesh) return;
       mesh.material.emissive.set(on ? 0x444444 : 0x000000);
     };
 
-    // --- Raycaster ---
+    // ── Raycaster ──────────────────────────────────────────────────────────
     const raycaster = new THREE.Raycaster();
     const toNDC = (cx, cy) => {
       const rect = mount.getBoundingClientRect();
@@ -231,11 +248,15 @@ function PhoneExplorer() {
     };
 
     const handleTap = (cx, cy, isDouble) => {
-      const ndc  = toNDC(cx, cy);
+      const ndc = toNDC(cx, cy);
       raycaster.setFromCamera(ndc, camera);
-      const hits = raycaster.intersectObjects(interactables);
+      const hits = raycaster.intersectObjects(interactablesRef.current);
 
       if (hits.length === 0) {
+        if (linkingFromRef.current) {
+          linkingFromRef.current = null;
+          setLinkingFrom(null);
+        }
         setHighlight(highlighted, false);
         highlighted = null;
         selectedMeshRef.current = null;
@@ -244,24 +265,40 @@ function PhoneExplorer() {
       }
 
       const mesh = hits[0].object;
-      const { type, index, customTitle, customDescription } = mesh.userData;
-      const meta = OBJECT_META[type] || {};
+
+      // Link mode: connect this object to the pending one
+      if (linkingFromRef.current) {
+        const { id: fromId } = linkingFromRef.current;
+        const toId = mesh.userData.id;
+        if (fromId !== toId) {
+          createRelationRef.current?.(fromId, toId);
+        }
+        linkingFromRef.current = null;
+        setLinkingFrom(null);
+        setHighlight(highlighted, false);
+        highlighted = null;
+        selectedMeshRef.current = null;
+        dismissRef.current?.();
+        return;
+      }
+
+      const { customTitle, customDescription } = mesh.userData;
 
       setHighlight(highlighted, false);
       highlighted = mesh;
       setHighlight(highlighted, true);
       selectedMeshRef.current = mesh;
 
-      const displayTitle = customTitle || `${meta.title || type} ${index}`;
-      const displayDesc  = customDescription !== undefined ? customDescription : (meta.description || '');
-      setInfoPanel({ title: displayTitle, description: displayDesc });
+      setInfoPanel({
+        id:          mesh.userData.id,
+        title:       customTitle,
+        description: customDescription || '',
+      });
 
-      if (isDouble) {
-        startFly(mesh);
-      }
+      if (isDouble) startFly(mesh);
     };
 
-    // --- Touch handling ---
+    // ── Touch handling ─────────────────────────────────────────────────────
     let activeTouches = {};
     const LOOK_SPEED = 0.003;
     const MOVE_SPEED = 0.018;
@@ -283,7 +320,6 @@ function PhoneExplorer() {
         activeTouches[t.identifier] = { clientX: t.clientX, clientY: t.clientY };
       }
       const ids = Object.keys(activeTouches);
-
       if (ids.length === 1) {
         const t = activeTouches[ids[0]];
         tapStart    = { x: t.clientX, y: t.clientY, time: Date.now(), id: ids[0] };
@@ -306,7 +342,6 @@ function PhoneExplorer() {
         activeTouches[t.identifier] = { clientX: t.clientX, clientY: t.clientY };
       }
       const ids = Object.keys(activeTouches);
-
       if (ids.length === 1) {
         const cx = activeTouches[ids[0]].clientX;
         const cy = activeTouches[ids[0]].clientY;
@@ -379,13 +414,12 @@ function PhoneExplorer() {
     mount.addEventListener('click',       onMouseClick);
     mount.addEventListener('dblclick',    onDblClick);
 
-    // --- Strafe scrollbar ---
+    // ── Strafe bar ─────────────────────────────────────────────────────────
     const STRAFE_SPEED = 0.022;
     let strafeActiveId  = null;
     let strafeLastX     = null;
-
     const thumbEl  = () => strafeThumbRef.current;
-    const THUMB_MAX = 90; // max px the thumb travels from center
+    const THUMB_MAX = 90;
 
     const setThumbX = (px, animated) => {
       const el = thumbEl();
@@ -397,10 +431,8 @@ function PhoneExplorer() {
     let thumbOffset = 0;
 
     const onStrafeStart = (e) => {
-      // Let button taps pass through so React onClick fires
       if (e.target.closest('button')) return;
-      e.stopPropagation();
-      e.preventDefault();
+      e.stopPropagation(); e.preventDefault();
       const t = e.changedTouches[0];
       strafeActiveId = t.identifier;
       strafeLastX    = t.clientX;
@@ -410,8 +442,7 @@ function PhoneExplorer() {
 
     const onStrafeMove = (e) => {
       if (strafeActiveId === null) return;
-      e.stopPropagation();
-      e.preventDefault();
+      e.stopPropagation(); e.preventDefault();
       for (const t of e.changedTouches) {
         if (t.identifier !== strafeActiveId) continue;
         const dx = t.clientX - strafeLastX;
@@ -422,21 +453,18 @@ function PhoneExplorer() {
           const right = new THREE.Vector3(1, 0, 0).applyQuaternion(camera.quaternion);
           camera.position.addScaledVector(right, dx * STRAFE_SPEED);
         } else {
-          // vert: right = up, left = down (world Y axis)
           camera.position.y += dx * STRAFE_SPEED;
         }
       }
     };
 
     const onStrafeEnd = (e) => {
-      // If no drag was active (e.g. a button tap), let the browser fire click normally
       if (strafeActiveId === null) return;
-      e.stopPropagation();
-      e.preventDefault();
+      e.stopPropagation(); e.preventDefault();
       strafeActiveId = null;
       strafeLastX    = null;
       thumbOffset    = 0;
-      setThumbX(0, true); // snap back
+      setThumbX(0, true);
     };
 
     const strafeBar = strafeBarRef.current;
@@ -447,7 +475,6 @@ function PhoneExplorer() {
       strafeBar.addEventListener('touchcancel', onStrafeEnd,   { passive: false });
     }
 
-    // Desktop drag on strafe bar
     let strafeMouseDown = false;
     let strafeMouseLastX = null;
     const onStrafeMouseDown = (e) => {
@@ -487,8 +514,8 @@ function PhoneExplorer() {
     };
     window.addEventListener('resize', onResize);
 
-    // --- Panel position update (called each frame) ---
-    const tmpV  = new THREE.Vector3();
+    // ── Info-panel position (updated each frame) ───────────────────────────
+    const tmpV = new THREE.Vector3();
     const updatePanelPosition = () => {
       const panel = infoPanelRef.current;
       const mesh  = selectedMeshRef.current;
@@ -497,7 +524,6 @@ function PhoneExplorer() {
       tmpV.copy(mesh.position);
       tmpV.project(camera);
 
-      // If object is behind camera, hide panel
       if (tmpV.z > 1) { panel.style.display = 'none'; return; }
       panel.style.display = '';
 
@@ -505,24 +531,19 @@ function PhoneExplorer() {
       const h  = mount.clientHeight;
       const sx = ( tmpV.x * 0.5 + 0.5) * w;
       const sy = (-tmpV.y * 0.5 + 0.5) * h;
-
       const pw = panel.offsetWidth  || 220;
       const ph = panel.offsetHeight || 100;
       const GAP = 14;
 
-      let left = sx - pw / 2;
+      let left = Math.max(8, Math.min(w - pw - 8, sx - pw / 2));
       let top  = sy - ph - GAP;
-
-      // Clamp horizontally
-      left = Math.max(8, Math.min(w - pw - 8, left));
-      // If panel would clip top, flip it below the object
       if (top < 8) top = sy + GAP;
 
       panel.style.left = `${left}px`;
       panel.style.top  = `${top}px`;
     };
 
-    // --- Fly-to target quaternion helper ---
+    // ── Fly-to ─────────────────────────────────────────────────────────────
     const flyTargetQuat = new THREE.Quaternion();
     const flyM          = new THREE.Matrix4();
 
@@ -531,19 +552,14 @@ function PhoneExplorer() {
 
       if (flyTarget) {
         flyProgress = Math.min(flyProgress + 0.04, 1);
-        const t = 1 - Math.pow(1 - flyProgress, 3); // ease-out cubic
-
+        const t = 1 - Math.pow(1 - flyProgress, 3);
         camera.position.lerpVectors(flyStartPos, flyTarget.pos, t);
-
-        // Build target look-at quaternion
         flyM.lookAt(flyTarget.pos, flyTarget.lookAt, camera.up);
         flyTargetQuat.setFromRotationMatrix(flyM);
         camera.quaternion.slerpQuaternions(flyStartQuat, flyTargetQuat, t);
-
         if (flyProgress >= 1) {
           const euler = new THREE.Euler().setFromQuaternion(camera.quaternion, 'YXZ');
-          yaw   = euler.y;
-          pitch = euler.x;
+          yaw = euler.y; pitch = euler.x;
           flyTarget = null;
         }
       }
@@ -558,9 +574,9 @@ function PhoneExplorer() {
     return () => {
       cancelAnimationFrame(animId);
       clearTimeout(clickDebounce);
-      window.removeEventListener('resize',     onResize);
-      window.removeEventListener('mousemove',  onStrafeMouseMove);
-      window.removeEventListener('mouseup',    onStrafeMouseUp);
+      window.removeEventListener('resize',    onResize);
+      window.removeEventListener('mousemove', onStrafeMouseMove);
+      window.removeEventListener('mouseup',   onStrafeMouseUp);
       mount.removeEventListener('touchstart',  onTouchStart);
       mount.removeEventListener('touchmove',   onTouchMove);
       mount.removeEventListener('touchend',    onTouchEnd);
@@ -579,10 +595,10 @@ function PhoneExplorer() {
     };
   }, []);
 
+  // ── Render ─────────────────────────────────────────────────────────────────
   return (
     <div className="explorer-wrapper">
 
-      {/* canvas area — flex:1, fills everything above the strafe bar */}
       <div className="canvas-area">
         <div ref={mountRef} className="canvas-mount" />
 
@@ -600,15 +616,44 @@ function PhoneExplorer() {
           </div>
         )}
 
+        {/* Link-mode banner */}
+        {linkingFrom && (
+          <div className="link-banner">
+            Tap an object to link with <strong>{linkingFrom.title}</strong>
+            <button
+              className="link-cancel"
+              onClick={() => {
+                linkingFromRef.current = null;
+                setLinkingFrom(null);
+              }}
+            >
+              Cancel
+            </button>
+          </div>
+        )}
+
         {infoPanel && (
           <div className="info-panel" ref={infoPanelRef}>
             <button className="info-close" onClick={dismiss}>✕</button>
             <h2 className="info-title">{infoPanel.title}</h2>
             <p className="info-desc">{infoPanel.description}</p>
+            <button
+              className="info-link-btn"
+              onClick={() => {
+                const mesh = selectedMeshRef.current;
+                if (!mesh) return;
+                linkingFromRef.current = { id: infoPanel.id, mesh };
+                setLinkingFrom({ id: infoPanel.id, title: infoPanel.title });
+                dismiss();
+              }}
+            >
+              Link ⟶
+            </button>
           </div>
         )}
       </div>
 
+      {/* Add-object modal */}
       {addMenuOpen && (
         <div className="add-overlay" onClick={() => setAddMenuOpen(false)}>
           <div className="add-modal" onClick={e => e.stopPropagation()}>
@@ -655,7 +700,7 @@ function PhoneExplorer() {
         </div>
       )}
 
-      {/* strafe bar — fixed-height flex footer, always visible */}
+      {/* Strafe bar */}
       <div className="strafe-bar" ref={strafeBarRef}>
         <button
           className="bar-btn bar-btn--left"
