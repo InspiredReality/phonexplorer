@@ -93,12 +93,19 @@ function PhoneExplorer() {
   const selectedMeshRef = useRef(null);
   const dismissRef      = useRef(null);
   const strafeBarRef    = useRef(null);
-  const strafeThumbRef  = useRef(null);
+  const strafeThumbRef   = useRef(null);
+  const sceneRef         = useRef(null);
+  const interactablesRef = useRef([]);
 
   const [infoPanel, setInfoPanel]       = useState(null);
   const [hintsVisible, setHintsVisible] = useState(true);
   const [strafeMode, setStrafeMode]     = useState('hor'); // 'hor' | 'vert'
   const strafeModeRef                   = useRef('hor');
+
+  const [addMenuOpen, setAddMenuOpen] = useState(false);
+  const [addForm, setAddForm]         = useState({
+    object: 'sphere', title: '', description: '', x: '0', y: '0', z: '0', color: '#4488ff',
+  });
 
   // Keep strafeModeRef readable inside Three.js event handlers without re-creating them
   useEffect(() => { strafeModeRef.current = strafeMode; }, [strafeMode]);
@@ -110,6 +117,48 @@ function PhoneExplorer() {
 
   // Keep dismissRef in sync so the Three.js loop can call it
   useEffect(() => { dismissRef.current = dismiss; }, [dismiss]);
+
+  const handleFormChange = useCallback((e) => {
+    const { name, value } = e.target;
+    setAddForm(f => ({ ...f, [name]: value }));
+  }, []);
+
+  const handleAddObject = useCallback((e) => {
+    e.preventDefault();
+    const scene        = sceneRef.current;
+    const interactables = interactablesRef.current;
+    if (!scene) return;
+
+    const { object, title, description, x, y, z, color } = addForm;
+
+    const geoMap = {
+      sphere:      () => new THREE.SphereGeometry(0.5, 32, 32),
+      cube:        () => new THREE.BoxGeometry(0.9, 0.9, 0.9),
+      tetrahedron: () => new THREE.TetrahedronGeometry(0.7),
+    };
+
+    const geo = (geoMap[object] || geoMap.sphere)();
+    const mat = new THREE.MeshStandardMaterial({
+      color:     new THREE.Color(color),
+      metalness: 0.3,
+      roughness: 0.6,
+    });
+
+    const mesh = new THREE.Mesh(geo, mat);
+    mesh.position.set(parseFloat(x) || 0, parseFloat(y) || 0, parseFloat(z) || 0);
+    mesh.userData = {
+      type:              object,
+      index:             0,
+      customTitle:       title || object,
+      customDescription: description,
+    };
+
+    scene.add(mesh);
+    interactables.push(mesh);
+
+    setAddMenuOpen(false);
+    setAddForm({ object: 'sphere', title: '', description: '', x: '0', y: '0', z: '0', color: '#4488ff' });
+  }, [addForm]);
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -123,6 +172,8 @@ function PhoneExplorer() {
     camera.position.set(0, 0, 12);
 
     const { scene, interactables } = buildScene();
+    sceneRef.current        = scene;
+    interactablesRef.current = interactables;
 
     // --- Camera orientation ---
     let yaw = 0, pitch = 0;
@@ -193,15 +244,17 @@ function PhoneExplorer() {
       }
 
       const mesh = hits[0].object;
-      const { type, index } = mesh.userData;
-      const meta = OBJECT_META[type];
+      const { type, index, customTitle, customDescription } = mesh.userData;
+      const meta = OBJECT_META[type] || {};
 
       setHighlight(highlighted, false);
       highlighted = mesh;
       setHighlight(highlighted, true);
       selectedMeshRef.current = mesh;
 
-      setInfoPanel({ title: `${meta.title} ${index}`, description: meta.description });
+      const displayTitle = customTitle || `${meta.title || type} ${index}`;
+      const displayDesc  = customDescription !== undefined ? customDescription : (meta.description || '');
+      setInfoPanel({ title: displayTitle, description: displayDesc });
 
       if (isDouble) {
         startFly(mesh);
@@ -533,7 +586,9 @@ function PhoneExplorer() {
       <div className="canvas-area">
         <div ref={mountRef} className="canvas-mount" />
 
-        <h1 className="explorer-title">Phone Explorer</h1>
+        <h1 className="explorer-title" onClick={() => setAddMenuOpen(true)}>
+          Phone Explorer
+        </h1>
 
         {hintsVisible && (
           <div className="hint">
@@ -553,6 +608,52 @@ function PhoneExplorer() {
           </div>
         )}
       </div>
+
+      {addMenuOpen && (
+        <div className="add-overlay" onClick={() => setAddMenuOpen(false)}>
+          <div className="add-modal" onClick={e => e.stopPropagation()}>
+            <button className="add-modal-close" onClick={() => setAddMenuOpen(false)}>✕</button>
+            <h2 className="add-modal-heading">Add Object</h2>
+            <form className="add-modal-form" onSubmit={handleAddObject}>
+              <label className="add-field">
+                <span>Shape</span>
+                <select name="object" value={addForm.object} onChange={handleFormChange}>
+                  <option value="sphere">Sphere</option>
+                  <option value="cube">Cube</option>
+                  <option value="tetrahedron">Tetrahedron</option>
+                </select>
+              </label>
+              <label className="add-field">
+                <span>Title</span>
+                <input type="text" name="title" value={addForm.title} onChange={handleFormChange} placeholder="My Object" />
+              </label>
+              <label className="add-field">
+                <span>Description</span>
+                <textarea name="description" value={addForm.description} onChange={handleFormChange} rows={3} placeholder="Describe this object…" />
+              </label>
+              <div className="add-field-row">
+                <label className="add-field">
+                  <span>X</span>
+                  <input type="number" name="x" value={addForm.x} onChange={handleFormChange} step="0.5" />
+                </label>
+                <label className="add-field">
+                  <span>Y</span>
+                  <input type="number" name="y" value={addForm.y} onChange={handleFormChange} step="0.5" />
+                </label>
+                <label className="add-field">
+                  <span>Z</span>
+                  <input type="number" name="z" value={addForm.z} onChange={handleFormChange} step="0.5" />
+                </label>
+              </div>
+              <label className="add-field add-field--color">
+                <span>Color</span>
+                <input type="color" name="color" value={addForm.color} onChange={handleFormChange} />
+              </label>
+              <button type="submit" className="add-submit">Add to Scene</button>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* strafe bar — fixed-height flex footer, always visible */}
       <div className="strafe-bar" ref={strafeBarRef}>
