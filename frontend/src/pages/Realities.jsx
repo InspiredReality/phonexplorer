@@ -88,6 +88,7 @@ export default function Realities() {
   }
 
   async function deleteReality(id) {
+    // eslint-disable-next-line no-restricted-globals
     if (!confirm('Delete this Reality and all its contents?')) return
     await store.deleteReality(id)
   }

@@ -80,6 +80,7 @@ export default function OrgLevels() {
   }
 
   async function confirmDelete(orgOb) {
+    // eslint-disable-next-line no-restricted-globals
     if (!confirm(`Delete "${orgOb.name}" and all its children?`)) return
     await store.deleteOrgOb(orgOb.id, orgOb.parent_id, realityId)
     const pathIdx = selectedPath.findIndex(n => n.id === orgOb.id)
