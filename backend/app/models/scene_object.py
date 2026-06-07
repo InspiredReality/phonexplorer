@@ -4,7 +4,7 @@ from sqlalchemy import Float, String, Text
 from sqlalchemy.dialects.postgresql import ARRAY, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
-from database import Base
+from app.db import Base
 
 
 class SceneObject(Base):

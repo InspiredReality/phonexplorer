@@ -1,6 +1,4 @@
 """
-monday_client.py
-────────────────
 Async Monday.com GraphQL client.
 
 Fetches:
@@ -8,10 +6,10 @@ Fetches:
   • All item updates posted in the last N days
 
 Usage (standalone):
-    MONDAY_API_TOKEN=your_token python monday_client.py
+    MONDAY_API_TOKEN=your_token python -m app.services.monday_client
 
 Usage (as a module):
-    from services.monday_client import MondayClient
+    from app.services.monday_client import MondayClient
     async with MondayClient(token) as client:
         items   = await client.get_active_items()
         updates = await client.get_recent_updates(days=7)
@@ -34,8 +32,8 @@ load_dotenv()
 log = logging.getLogger(__name__)
 
 MONDAY_API_URL = "https://api.monday.com/v2"
-PAGE_DELAY_S   = 0.05   # small delay between paginated requests
-DEFAULT_PAGE_SIZE = 100  # max Monday allows per items_page call
+PAGE_DELAY_S   = 0.05
+DEFAULT_PAGE_SIZE = 100
 
 
 # ── GraphQL queries ────────────────────────────────────────────────────────────
@@ -100,7 +98,6 @@ query GetRecentUpdates($limit: Int!, $page: Int!, $from_date: ISO8601DateTime!, 
 }
 """
 
-# Batch-fetch item names + board info for a list of IDs (used to enrich updates).
 ITEM_NAMES_QUERY = """
 query GetItemNames($ids: [ID!]!) {
   items(ids: $ids) {
@@ -152,7 +149,6 @@ class MondayClient:
     # ── Low-level ────────────────────────────────────────────────────────────
 
     async def _gql(self, query: str, variables: dict | None = None) -> dict:
-        """Execute a GraphQL query; raise on HTTP or GraphQL errors."""
         payload: dict[str, Any] = {"query": query}
         if variables:
             payload["variables"] = variables
@@ -169,11 +165,6 @@ class MondayClient:
     # ── Active items ──────────────────────────────────────────────────────────
 
     async def get_active_items(self, page_size: int = DEFAULT_PAGE_SIZE) -> list[dict]:
-        """
-        Return all active items across every board, paginating via cursor.
-        Falls back to fetching all items filtered by state if the status
-        column rule is not available on some boards.
-        """
         items: list[dict] = []
         cursor: str | None = None
 
@@ -214,20 +205,12 @@ class MondayClient:
 
     # ── Recent updates ────────────────────────────────────────────────────────
 
-    async def get_recent_updates(
-        self,
-        days: int = 7,
-        page_size: int = 100,
-    ) -> list[dict]:
+    async def get_recent_updates(self, days: int = 7, page_size: int = 100) -> list[dict]:
         """
-        Return all updates posted within the last `days` days using the
-        root-level `updates` query with from_date / to_date filters.
+        Return all updates posted within the last `days` days.
 
         Per Monday.com docs: date-range filters are ONLY supported at the
         root `updates` level — not when updates is nested inside `boards`.
-
-        After fetching updates, item names and board info are enriched via
-        a separate batch query on unique item_ids.
         """
         to_dt   = datetime.now(timezone.utc)
         from_dt = to_dt - timedelta(days=days)
@@ -243,24 +226,18 @@ class MondayClient:
         while True:
             data = await self._gql(
                 RECENT_UPDATES_QUERY,
-                {
-                    "limit":     page_size,
-                    "page":      page,
-                    "from_date": from_date,
-                    "to_date":   to_date,
-                },
+                {"limit": page_size, "page": page, "from_date": from_date, "to_date": to_date},
             )
             batch = data.get("updates", [])
             log.info("Page %d: got %d updates", page, len(batch))
             all_updates.extend(batch)
 
             if len(batch) < page_size:
-                break  # last page
+                break
 
             page += 1
             await asyncio.sleep(PAGE_DELAY_S)
 
-        # Enrich with item name + board (batch lookup by unique item_ids)
         item_meta = await self._fetch_item_meta(
             list({u["item_id"] for u in all_updates if u.get("item_id")})
         )
@@ -273,20 +250,14 @@ class MondayClient:
         all_updates.sort(key=lambda u: u.get("created_at", ""), reverse=True)
         return all_updates
 
-    async def _fetch_item_meta(
-        self, item_ids: list[str], batch_size: int = 50
-    ) -> dict[str, dict]:
-        """Return {item_id: {name, board}} for a list of item IDs."""
+    async def _fetch_item_meta(self, item_ids: list[str], batch_size: int = 50) -> dict[str, dict]:
         meta: dict[str, dict] = {}
         for i in range(0, len(item_ids), batch_size):
             batch = item_ids[i : i + batch_size]
             try:
                 data = await self._gql(ITEM_NAMES_QUERY, {"ids": batch})
                 for item in data.get("items", []):
-                    meta[str(item["id"])] = {
-                        "name":  item.get("name", "—"),
-                        "board": item.get("board"),
-                    }
+                    meta[str(item["id"])] = {"name": item.get("name", "—"), "board": item.get("board")}
             except RuntimeError as exc:
                 log.warning("Item meta fetch failed for batch: %s", exc)
             await asyncio.sleep(PAGE_DELAY_S)
@@ -307,23 +278,20 @@ def _parse_dt(value: str | None) -> datetime | None:
 # ── CLI entry-point ────────────────────────────────────────────────────────────
 
 async def _main() -> None:
-    logging.basicConfig(
-        level=logging.INFO,
-        format="%(asctime)s  %(levelname)-8s  %(message)s",
-    )
+    logging.basicConfig(level=logging.INFO, format="%(asctime)s  %(levelname)-8s  %(message)s")
 
     token = os.environ.get("MONDAY_API_TOKEN")
     if not token:
         raise SystemExit("Set MONDAY_API_TOKEN in your environment or backend/.env")
 
-    async with MondayClient(token) as client:
+    async with MondayClient(token) as c:
         print("\n── Active Items ──────────────────────────────────")
-        items = await client.get_active_items()
+        items = await c.get_active_items()
         print(f"Total active items: {len(items)}")
         print(json.dumps(items[:3], indent=2, default=str))
 
         print("\n── Updates (last 7 days) ─────────────────────────")
-        updates = await client.get_recent_updates(days=7)
+        updates = await c.get_recent_updates(days=7)
         print(f"Total recent updates: {len(updates)}")
         print(json.dumps(updates[:3], indent=2, default=str))
 

@@ -9,7 +9,7 @@ from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 
-from services.monday_client import MondayClient
+from app.services.monday_client import MondayClient
 
 router = APIRouter(prefix="/api/monday", tags=["monday"])
 
@@ -38,9 +38,7 @@ async def active_items() -> dict[str, Any]:
 
 
 @router.get("/recent-updates")
-async def recent_updates(
-    days: int = Query(default=7, ge=1, le=90),
-) -> dict[str, Any]:
+async def recent_updates(days: int = Query(default=7, ge=1, le=90)) -> dict[str, Any]:
     """Return all item updates from the last N days (default 7)."""
     async with _client() as c:
         updates = await c.get_recent_updates(days=days)

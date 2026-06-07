@@ -1,8 +1,9 @@
 """
-Pydantic models for data ingest / manipulation payloads.
-Add new models here as you integrate external data sources.
+Pydantic schemas for data ingest / manipulation payloads.
+Add new schemas here as you integrate external data sources.
 """
 from typing import Any
+
 from pydantic import BaseModel
 
 

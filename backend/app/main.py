@@ -1,6 +1,6 @@
 """
-PhoneExplorer  –  FastAPI backend
-Run:  uvicorn main:app --reload --port 8000
+PhoneExplorer  –  FastAPI application
+Entry point: run.py (backend root)
 """
 from contextlib import asynccontextmanager
 
@@ -8,11 +8,11 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy import func, select
 
-from config import settings
-from database import Base, SessionLocal, engine
-from models.scene_object import SceneObject
-from routers import data, monday, objects
-from services.http_client import client
+from app.config import settings
+from app.db import Base, SessionLocal, engine
+from app.models.scene_object import SceneObject
+from app.routers import data, monday, objects
+from app.services.http_client import client
 
 
 # ── Seed data (mirrors the original hard-coded buildScene() positions) ─────────
@@ -64,11 +64,9 @@ for _shape, _color, _title_base, _desc, _count in _SHAPES:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # Create tables
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
-    # Seed if the table is empty
     async with SessionLocal() as db:
         count = await db.scalar(select(func.count()).select_from(SceneObject))
         if count == 0:

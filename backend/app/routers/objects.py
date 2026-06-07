@@ -5,17 +5,10 @@ from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database import SessionLocal
-from models.scene_object import SceneObject
+from app.core.deps import get_db
+from app.models.scene_object import SceneObject
 
 router = APIRouter(prefix="/api/objects", tags=["objects"])
-
-
-# ── DB dependency ─────────────────────────────────────────────────────────────
-
-async def get_db():
-    async with SessionLocal() as session:
-        yield session
 
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
