@@ -72,6 +72,7 @@ function PhoneExplorer() {
   const dismissRef      = useRef(null);
   const strafeBarRef    = useRef(null);
   const strafeThumbRef  = useRef(null);
+  const snapOrthoRef    = useRef(null);
 
   // Three.js scene bridges
   const sceneRef          = useRef(null);
@@ -227,6 +228,22 @@ function PhoneExplorer() {
       const stopDist = (halfSize / Math.tan(fovX / 2)) * 1.3;
       const dir = camera.position.clone().sub(objPos).normalize();
       flyTarget   = { pos: objPos.clone().addScaledVector(dir, stopDist), lookAt: objPos };
+      flyProgress = 0;
+    };
+
+    // ── Snap-to-ortho ──────────────────────────────────────────────────────
+    const SNAP_DIST = 15;
+    snapOrthoRef.current = (view) => {
+      const configs = {
+        front: { pos: new THREE.Vector3(0, 0, SNAP_DIST),  lookAt: new THREE.Vector3(0, 0, 0) },
+        top:   { pos: new THREE.Vector3(0, SNAP_DIST, 0),  lookAt: new THREE.Vector3(0, 0, 0), up: new THREE.Vector3(0, 0, -1) },
+        side:  { pos: new THREE.Vector3(-SNAP_DIST, 0, 0), lookAt: new THREE.Vector3(0, 0, 0) },
+      };
+      const cfg = configs[view];
+      if (!cfg) return;
+      flyStartPos.copy(camera.position);
+      flyStartQuat.copy(camera.quaternion);
+      flyTarget   = { pos: cfg.pos, lookAt: cfg.lookAt, up: cfg.up };
       flyProgress = 0;
     };
 
@@ -554,7 +571,7 @@ function PhoneExplorer() {
         flyProgress = Math.min(flyProgress + 0.04, 1);
         const t = 1 - Math.pow(1 - flyProgress, 3);
         camera.position.lerpVectors(flyStartPos, flyTarget.pos, t);
-        flyM.lookAt(flyTarget.pos, flyTarget.lookAt, camera.up);
+        flyM.lookAt(flyTarget.pos, flyTarget.lookAt, flyTarget.up ?? camera.up);
         flyTargetQuat.setFromRotationMatrix(flyM);
         camera.quaternion.slerpQuaternions(flyStartQuat, flyTargetQuat, t);
         if (flyProgress >= 1) {
@@ -615,6 +632,35 @@ function PhoneExplorer() {
             <span>double tap = focus</span>
           </div>
         )}
+
+        {/* Snap-to-ortho panel */}
+        <div className="snap-panel">
+          <span className="snap-label">Snap to</span>
+          <button
+            className="snap-btn"
+            title="Front view — facing along Z axis"
+            onClick={() => snapOrthoRef.current?.('front')}
+          >
+            <span className="snap-axis">Z</span>
+            <span className="snap-view">front</span>
+          </button>
+          <button
+            className="snap-btn"
+            title="Top view — facing down Y axis"
+            onClick={() => snapOrthoRef.current?.('top')}
+          >
+            <span className="snap-axis">Y</span>
+            <span className="snap-view">top</span>
+          </button>
+          <button
+            className="snap-btn"
+            title="Side view — facing along X axis"
+            onClick={() => snapOrthoRef.current?.('side')}
+          >
+            <span className="snap-axis">X</span>
+            <span className="snap-view">side</span>
+          </button>
+        </div>
 
         {/* Link-mode banner */}
         {linkingFrom && (
