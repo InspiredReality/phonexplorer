@@ -64,14 +64,18 @@ for _shape, _color, _title_base, _desc, _count in _SHAPES:
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
+    import logging
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
 
-    async with SessionLocal() as db:
-        count = await db.scalar(select(func.count()).select_from(SceneObject))
-        if count == 0:
-            db.add_all(SceneObject(**row) for row in _SEED_OBJECTS)
-            await db.commit()
+        async with SessionLocal() as db:
+            count = await db.scalar(select(func.count()).select_from(SceneObject))
+            if count == 0:
+                db.add_all(SceneObject(**row) for row in _SEED_OBJECTS)
+                await db.commit()
+    except Exception as exc:
+        logging.error("DB startup error — app running without database: %s", exc)
 
     yield
 
