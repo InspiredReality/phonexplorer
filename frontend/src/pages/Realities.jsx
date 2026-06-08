@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useRealitiesStore } from '../store/realities'
 import { useTagsStore } from '../store/tags'
 import { getUploadUrl } from '../services/api'
+import { INPUT } from '../styles/constants'
 
 export default function Realities() {
   const navigate = useNavigate()
@@ -101,8 +102,6 @@ export default function Realities() {
       setTagSearch(''); setShowTagDropdown(false)
     } catch { /* ignore */ }
   }
-
-  const INPUT = "bg-neutral-800 border border-neutral-600 rounded-lg px-3 py-2 text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-indigo-500 w-full"
 
   if (loading) return <div className="flex justify-center py-12"><div className="animate-spin w-8 h-8 border-2 border-indigo-500 border-t-transparent rounded-full" /></div>
 

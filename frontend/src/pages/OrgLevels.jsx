@@ -3,6 +3,7 @@ import { useParams, useNavigate } from 'react-router-dom'
 import { useRealitiesStore } from '../store/realities'
 import OrgObPanel from '../components/OrgObPanel'
 import OrgBreadcrumb from '../components/OrgBreadcrumb'
+import { INPUT } from '../styles/constants'
 
 export default function OrgLevels() {
   const { id } = useParams()
@@ -93,8 +94,6 @@ export default function OrgLevels() {
     return <div className="text-center py-20 text-red-400">{store.error}</div>
   if (!store.currentReality)
     return <div className="text-center py-20 text-neutral-400">Reality not found.</div>
-
-  const INPUT = "bg-neutral-700 border border-neutral-600 rounded-lg px-3 py-2 text-sm text-white placeholder-neutral-500 focus:outline-none focus:border-indigo-500 w-full"
 
   return (
     <div className="fixed inset-x-0 bottom-0 top-16 bg-neutral-900 text-white flex flex-col z-10">
