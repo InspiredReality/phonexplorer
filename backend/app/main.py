@@ -4,14 +4,17 @@ Entry point: run.py (backend root)
 """
 from contextlib import asynccontextmanager
 
+from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 from sqlalchemy import func, select
 
 from app.config import settings
 from app.db import Base, SessionLocal, engine
 from app.models.scene_object import SceneObject
-from app.routers import data, monday, objects
+from app.models import sticker as _sticker_models  # noqa: F401 — registers Image/Tag with Base
+from app.routers import data, monday, objects, stickers, admin_stickers
 from app.services.http_client import client
 
 
@@ -101,6 +104,9 @@ app.add_middleware(
 app.include_router(data.router)
 app.include_router(monday.router)
 app.include_router(objects.router)
+app.include_router(stickers.router)
+app.include_router(admin_stickers.router)
+app.mount("/static", StaticFiles(directory=str(Path(__file__).parent / "static")), name="static")
 
 
 @app.get("/health")

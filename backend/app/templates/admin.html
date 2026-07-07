@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Sticker Admin</title>
+  <link rel="stylesheet" href="/static/admin.css" />
+</head>
+<body>
+  <header>
+    <h1>Sticker Admin</h1>
+    <div class="header-actions">
+      <button id="syncBtn">Sync images from GitHub</button>
+      <span id="syncStatus"></span>
+    </div>
+  </header>
+
+  <form class="search-bar" method="get" action="/admin">
+    <input
+      type="text"
+      name="tag"
+      placeholder="Filter by tag..."
+      value="{{ filter_tag }}"
+      list="tag-list"
+    />
+    <datalist id="tag-list">
+      {% for t in all_tags %}
+      <option value="{{ t.name }}">{{ t.name }} ({{ t.count }})</option>
+      {% endfor %}
+    </datalist>
+    <button type="submit">Filter</button>
+    {% if filter_tag %}
+    <a href="/admin" class="clear-link">Clear</a>
+    {% endif %}
+  </form>
+
+  <p class="count">
+    Showing {{ images | length }} image(s)
+    {% if filter_tag %} tagged "{{ filter_tag }}"{% endif %}
+  </p>
+
+  <div class="grid">
+    {% for img in images %}
+    <div class="card {% if img.tags | length == 0 %}untagged{% endif %}" data-id="{{ img.id }}">
+      <div class="img-wrap">
+        <img src="{{ img.url }}" alt="{{ img.filename }}" loading="lazy" />
+      </div>
+      <div class="filename">{{ img.filename }}</div>
+      <div class="tags" id="tags-{{ img.id }}">
+        {% for tag in img.tags %}
+        <span class="chip">
+          {{ tag.name }}
+          <button class="remove-tag" data-image="{{ img.id }}" data-tag="{{ tag.name }}" title="Remove tag">×</button>
+        </span>
+        {% endfor %}
+        {% if img.tags | length == 0 %}
+        <span class="no-tags">untagged</span>
+        {% endif %}
+      </div>
+      <div class="add-tag-row">
+        <input
+          type="text"
+          class="add-tag-input"
+          placeholder="Add tag…"
+          list="tag-list"
+          data-image="{{ img.id }}"
+        />
+        <button class="add-tag-btn" data-image="{{ img.id }}">+</button>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+
+  <script>
+    const TOKEN = prompt("Enter admin token (leave blank if already set in cookie)") || "";
+
+    function authHeaders() {
+      return { "Authorization": `Bearer ${TOKEN}`, "Content-Type": "application/json" };
+    }
+
+    // Sync button
+    document.getElementById("syncBtn").addEventListener("click", async () => {
+      const status = document.getElementById("syncStatus");
+      status.textContent = "Syncing…";
+      try {
+        const res = await fetch("/admin/sync-images", { method: "POST", headers: authHeaders() });
+        if (!res.ok) throw new Error(await res.text());
+        const data = await res.json();
+        status.textContent = `Done — ${data.added} new image(s) added (${data.total} total).`;
+      } catch (e) {
+        status.textContent = "Error: " + e.message;
+      }
+    });
+
+    // Remove tag chips
+    document.querySelectorAll(".remove-tag").forEach(btn => {
+      btn.addEventListener("click", async () => {
+        const imageId = btn.dataset.image;
+        const tag = btn.dataset.tag;
+        const res = await fetch(`/admin/images/${imageId}/tags/${encodeURIComponent(tag)}`, {
+          method: "DELETE",
+          headers: authHeaders(),
+        });
+        if (res.ok) {
+          btn.closest(".chip").remove();
+          refreshUntagged(imageId);
+        } else {
+          alert("Failed to remove tag: " + await res.text());
+        }
+      });
+    });
+
+    // Add tag inputs
+    document.querySelectorAll(".add-tag-btn").forEach(btn => {
+      btn.addEventListener("click", () => submitTag(btn.dataset.image));
+    });
+
+    document.querySelectorAll(".add-tag-input").forEach(input => {
+      input.addEventListener("keydown", e => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          submitTag(input.dataset.image);
+        }
+      });
+    });
+
+    async function submitTag(imageId) {
+      const input = document.querySelector(`.add-tag-input[data-image="${imageId}"]`);
+      const tag = input.value.trim().toLowerCase();
+      if (!tag) return;
+
+      const res = await fetch(`/admin/images/${imageId}/tags`, {
+        method: "POST",
+        headers: authHeaders(),
+        body: JSON.stringify({ tags: [tag] }),
+      });
+      if (!res.ok) {
+        alert("Failed to add tag: " + await res.text());
+        return;
+      }
+
+      input.value = "";
+      const tagsDiv = document.getElementById(`tags-${imageId}`);
+      // Remove "untagged" placeholder if present
+      const noTags = tagsDiv.querySelector(".no-tags");
+      if (noTags) noTags.remove();
+
+      const chip = document.createElement("span");
+      chip.className = "chip";
+      chip.innerHTML = `${tag} <button class="remove-tag" data-image="${imageId}" data-tag="${tag}" title="Remove tag">×</button>`;
+      chip.querySelector(".remove-tag").addEventListener("click", async () => {
+        const r = await fetch(`/admin/images/${imageId}/tags/${encodeURIComponent(tag)}`, {
+          method: "DELETE",
+          headers: authHeaders(),
+        });
+        if (r.ok) {
+          chip.remove();
+          refreshUntagged(imageId);
+        }
+      });
+      tagsDiv.appendChild(chip);
+      document.querySelector(`.card[data-id="${imageId}"]`).classList.remove("untagged");
+    }
+
+    function refreshUntagged(imageId) {
+      const tagsDiv = document.getElementById(`tags-${imageId}`);
+      const chips = tagsDiv.querySelectorAll(".chip");
+      const card = document.querySelector(`.card[data-id="${imageId}"]`);
+      if (chips.length === 0) {
+        card.classList.add("untagged");
+        const span = document.createElement("span");
+        span.className = "no-tags";
+        span.textContent = "untagged";
+        tagsDiv.appendChild(span);
+      }
+    }
+  </script>
+</body>
+</html>

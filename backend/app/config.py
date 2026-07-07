@@ -17,6 +17,13 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("DATABASE_URL_RAW", "DATABASE_URL"),
     )
 
+    # Sticker API
+    admin_token: str = ""
+    github_repo: str = "InspiredReality/inspiredrealityservice"
+    github_branch: str = "main"
+    github_token: str = ""
+    jsdelivr_base: str = "https://cdn.jsdelivr.net/gh/InspiredReality/inspiredrealityservice@main/images/"
+
     @property
     def allowed_origins(self) -> list[str]:
         return [o.strip() for o in self.allowed_origins_raw.split(",") if o.strip()]
