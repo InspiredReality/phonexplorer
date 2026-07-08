@@ -114,6 +114,8 @@ async def remove_tag_from_image(db: AsyncSession, image_id: int, tag_name: str) 
 async def upsert_image(db: AsyncSession, filename: str, url: str) -> tuple[Image, bool]:
     existing = (await db.execute(select(Image).where(Image.filename == filename))).scalar_one_or_none()
     if existing:
+        if existing.url != url:
+            existing.url = url
         return existing, False
     img = Image(filename=filename, url=url)
     db.add(img)

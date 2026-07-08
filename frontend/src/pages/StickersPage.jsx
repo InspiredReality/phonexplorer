@@ -6,7 +6,7 @@ const BASE = import.meta.env.VITE_API_URL ?? '';
 const PAGE_SIZE = 50;
 
 async function apiFetchTags() {
-  const res = await fetch(`${BASE}/tags`);
+  const res = await fetch(`${BASE}/api/stickers/tags`);
   if (!res.ok) throw new Error('Failed to fetch tags');
   return res.json();
 }
@@ -14,7 +14,7 @@ async function apiFetchTags() {
 async function apiFetchStickers({ tags = [], mode = 'or', limit = PAGE_SIZE, offset = 0 } = {}) {
   const params = new URLSearchParams({ mode, limit, offset });
   if (tags.length) params.set('tags', tags.join(','));
-  const res = await fetch(`${BASE}/stickers?${params}`);
+  const res = await fetch(`${BASE}/api/stickers?${params}`);
   if (!res.ok) throw new Error('Failed to fetch stickers');
   return res.json();
 }
@@ -22,7 +22,7 @@ async function apiFetchStickers({ tags = [], mode = 'or', limit = PAGE_SIZE, off
 async function apiFetchRandom({ tags = [], mode = 'or' } = {}) {
   const params = new URLSearchParams({ mode });
   if (tags.length) params.set('tags', tags.join(','));
-  const res = await fetch(`${BASE}/stickers/random?${params}`);
+  const res = await fetch(`${BASE}/api/stickers/random?${params}`);
   if (res.status === 404) return null;
   if (!res.ok) throw new Error('Failed to fetch random sticker');
   return res.json();
