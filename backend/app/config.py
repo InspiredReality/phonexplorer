@@ -22,7 +22,8 @@ class Settings(BaseSettings):
     github_repo: str = "InspiredReality/inspiredrealityservice"
     github_branch: str = "main"
     github_token: str = ""
-    jsdelivr_base: str = "https://cdn.jsdelivr.net/gh/InspiredReality/inspiredrealityservice@main/images/"
+    # media.githubusercontent.com resolves LFS objects; jsDelivr serves the pointer text
+    image_cdn_base: str = "https://media.githubusercontent.com/media/InspiredReality/inspiredrealityservice/main/images/"
 
     @property
     def allowed_origins(self) -> list[str]:

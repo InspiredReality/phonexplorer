@@ -50,3 +50,13 @@
   background: #6366f1;
   color: #ffffff;
 }
+
+.home-btn--stickers {
+  border-color: #7c3aed;
+  color: #a78bfa;
+}
+
+.home-btn--stickers:hover {
+  background: #7c3aed;
+  color: #ffffff;
+}

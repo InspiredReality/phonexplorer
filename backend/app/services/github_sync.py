@@ -17,7 +17,7 @@ async def sync_images_from_github(db: AsyncSession) -> dict:
 
     added = 0
     total = 0
-    base = settings.jsdelivr_base.rstrip("/") + "/"
+    base = settings.image_cdn_base.rstrip("/") + "/"
     for item in contents:
         if item["type"] != "file" or not item["name"].lower().endswith(".png"):
             continue
