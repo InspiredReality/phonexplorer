@@ -50,3 +50,13 @@
   background: #6366f1;
   color: #ffffff;
 }
+
+.home-btn--deep {
+  border-color: #10b981;
+  color: #10b981;
+}
+
+.home-btn--deep:hover {
+  background: #10b981;
+  color: #ffffff;
+}
