@@ -97,6 +97,23 @@ async def add_tags_to_image(db: AsyncSession, image_id: int, tag_names: list[str
     return image
 
 
+async def add_tags_to_images(db: AsyncSession, image_ids: list[int], tag_names: list[str]) -> list[int]:
+    names = [n.strip().lower() for n in tag_names if n.strip()]
+    if not image_ids or not names:
+        return []
+    tags = [await get_or_create_tag(db, name) for name in names]
+    images = (await db.execute(
+        select(Image).options(selectinload(Image.tags)).where(Image.id.in_(image_ids))
+    )).scalars().all()
+    for image in images:
+        existing = {t.name for t in image.tags}
+        for tag in tags:
+            if tag.name not in existing:
+                image.tags.append(tag)
+    await db.commit()
+    return [img.id for img in images]
+
+
 async def remove_tag_from_image(db: AsyncSession, image_id: int, tag_name: str) -> bool:
     tag = (await db.execute(select(Tag).where(Tag.name == tag_name.strip().lower()))).scalar_one_or_none()
     if not tag:

@@ -39,16 +39,28 @@
     {% if filter_tag %} tagged "{{ filter_tag }}"{% endif %}
   </p>
 
+  <div class="bulk-bar">
+    <span id="selectedCount">0 selected</span>
+    <input type="text" id="bulkTagInput" placeholder="Tag to apply…" list="tag-list" disabled />
+    <button id="bulkApplyBtn" disabled>Apply to selected</button>
+    <button id="bulkClearBtn" disabled>Clear selection</button>
+    <span id="bulkStatus"></span>
+  </div>
+
   <div class="grid">
     {% for img in images %}
     <div class="card {% if img.tags | length == 0 %}untagged{% endif %}" data-id="{{ img.id }}">
+      <label class="select-row">
+        <input type="checkbox" class="select-checkbox" data-image="{{ img.id }}" />
+        select
+      </label>
       <div class="img-wrap">
         <img src="{{ img.url }}" alt="{{ img.filename }}" loading="lazy" />
       </div>
       <div class="filename">{{ img.filename }}</div>
       <div class="tags" id="tags-{{ img.id }}">
         {% for tag in img.tags %}
-        <span class="chip">
+        <span class="chip" data-tag="{{ tag.name }}">
           {{ tag.name }}
           <button class="remove-tag" data-image="{{ img.id }}" data-tag="{{ tag.name }}" title="Remove tag">×</button>
         </span>
@@ -147,6 +159,83 @@
 
       const chip = document.createElement("span");
       chip.className = "chip";
+      chip.dataset.tag = tag;
+      chip.innerHTML = `${tag} <button class="remove-tag" data-image="${imageId}" data-tag="${tag}" title="Remove tag">×</button>`;
+      chip.querySelector(".remove-tag").addEventListener("click", async () => {
+        const r = await fetch(`/admin/images/${imageId}/tags/${encodeURIComponent(tag)}`, {
+          method: "DELETE",
+          headers: authHeaders(),
+        });
+        if (r.ok) {
+          chip.remove();
+          refreshUntagged(imageId);
+        }
+      });
+      tagsDiv.appendChild(chip);
+      document.querySelector(`.card[data-id="${imageId}"]`).classList.remove("untagged");
+    }
+
+    // Bulk selection + tagging
+    const selected = new Set();
+    const selectedCount = document.getElementById("selectedCount");
+    const bulkTagInput = document.getElementById("bulkTagInput");
+    const bulkApplyBtn = document.getElementById("bulkApplyBtn");
+    const bulkClearBtn = document.getElementById("bulkClearBtn");
+    const bulkStatus = document.getElementById("bulkStatus");
+
+    function updateBulkBar() {
+      selectedCount.textContent = `${selected.size} selected`;
+      const enabled = selected.size > 0;
+      bulkTagInput.disabled = !enabled;
+      bulkApplyBtn.disabled = !enabled;
+      bulkClearBtn.disabled = !enabled;
+    }
+
+    document.querySelectorAll(".select-checkbox").forEach(cb => {
+      cb.addEventListener("change", () => {
+        const id = cb.dataset.image;
+        if (cb.checked) selected.add(id); else selected.delete(id);
+        cb.closest(".card").classList.toggle("selected", cb.checked);
+        updateBulkBar();
+      });
+    });
+
+    bulkClearBtn.addEventListener("click", () => {
+      selected.clear();
+      document.querySelectorAll(".select-checkbox").forEach(cb => { cb.checked = false; });
+      document.querySelectorAll(".card.selected").forEach(c => c.classList.remove("selected"));
+      updateBulkBar();
+    });
+
+    bulkApplyBtn.addEventListener("click", async () => {
+      const tag = bulkTagInput.value.trim().toLowerCase();
+      if (!tag || selected.size === 0) return;
+      bulkStatus.textContent = "Applying…";
+      try {
+        const res = await fetch("/admin/images/bulk-tags", {
+          method: "POST",
+          headers: authHeaders(),
+          body: JSON.stringify({ image_ids: Array.from(selected).map(Number), tags: [tag] }),
+        });
+        if (!res.ok) throw new Error(await res.text());
+        const data = await res.json();
+        data.updated.forEach(imageId => addChipToCard(imageId, tag));
+        bulkStatus.textContent = `Tagged ${data.updated.length} image(s) with "${tag}".`;
+        bulkTagInput.value = "";
+      } catch (e) {
+        bulkStatus.textContent = "Error: " + e.message;
+      }
+    });
+
+    function addChipToCard(imageId, tag) {
+      const tagsDiv = document.getElementById(`tags-${imageId}`);
+      if (!tagsDiv || tagsDiv.querySelector(`.chip[data-tag="${tag}"]`)) return;
+      const noTags = tagsDiv.querySelector(".no-tags");
+      if (noTags) noTags.remove();
+
+      const chip = document.createElement("span");
+      chip.className = "chip";
+      chip.dataset.tag = tag;
       chip.innerHTML = `${tag} <button class="remove-tag" data-image="${imageId}" data-tag="${tag}" title="Remove tag">×</button>`;
       chip.querySelector(".remove-tag").addEventListener("click", async () => {
         const r = await fetch(`/admin/images/${imageId}/tags/${encodeURIComponent(tag)}`, {
