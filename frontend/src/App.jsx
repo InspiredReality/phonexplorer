@@ -3,6 +3,7 @@ import Home from './pages/Home';
 import PhoneExplorer from './pages/PhoneExplorer';
 import MondayPage from './pages/MondayPage';
 import DeepQuestionnaire from './pages/DeepQuestionnaire';
+import Stickers from './pages/Stickers';
 
 import Realities from './pages/Realities'
 import OrgLevels  from './pages/OrgLevels'
@@ -15,6 +16,7 @@ function App() {
         <Route path="/explorer" element={<PhoneExplorer />} />
         <Route path="/monday" element={<MondayPage />} />
         <Route path="/deep" element={<DeepQuestionnaire />} />
+        <Route path="/stickers" element={<Stickers />} />
 
         <Route path="/realities"    element={<Realities />} />
         <Route path="/realities/:id" element={<OrgLevels />} />
