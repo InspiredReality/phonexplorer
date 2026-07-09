@@ -27,6 +27,11 @@ class AddTagsRequest(BaseModel):
     tags: list[str]
 
 
+class BulkAddTagsRequest(BaseModel):
+    image_ids: list[int]
+    tags: list[str]
+
+
 @router.get("/admin", response_class=HTMLResponse)
 async def admin_page(
     request: Request,
@@ -61,6 +66,16 @@ async def add_tags(
     if not image:
         raise HTTPException(status_code=404, detail="Image not found")
     return {"id": image.id, "tags": [t.name for t in image.tags]}
+
+
+@router.post("/admin/images/bulk-tags")
+async def bulk_add_tags(
+    body: BulkAddTagsRequest,
+    db: AsyncSession = Depends(get_db),
+    _: None = Depends(require_admin),
+):
+    updated = await sticker_crud.add_tags_to_images(db, body.image_ids, body.tags)
+    return {"updated": updated}
 
 
 @router.delete("/admin/images/{image_id}/tags/{tag_name}", status_code=204)

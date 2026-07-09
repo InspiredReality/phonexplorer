@@ -19,6 +19,9 @@ function Home() {
         <button className="home-btn home-btn--deep" onClick={() => navigate('/deep')}>
           deep
         </button>
+        <button className="home-btn home-btn--stickers" onClick={() => navigate('/stickers')}>
+          stickers
+        </button>
       </div>
     </div>
   );

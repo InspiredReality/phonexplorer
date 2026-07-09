@@ -22,7 +22,10 @@ class Settings(BaseSettings):
     github_repo: str = "InspiredReality/inspiredrealityservice"
     github_branch: str = "main"
     github_token: str = ""
-    jsdelivr_base: str = "https://cdn.jsdelivr.net/gh/InspiredReality/inspiredrealityservice@main/images/"
+    # jsDelivr's GitHub CDN - free, unlimited bandwidth, edge-cached. Requires
+    # images/* to be plain committed files, not Git LFS pointers (jsDelivr
+    # doesn't resolve LFS).
+    image_cdn_base: str = "https://cdn.jsdelivr.net/gh/InspiredReality/inspiredrealityservice@main/images/"
 
     @property
     def allowed_origins(self) -> list[str]:

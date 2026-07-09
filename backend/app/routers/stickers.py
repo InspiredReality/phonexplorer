@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.db import SessionLocal
 from app.services import sticker_crud
 
-router = APIRouter(tags=["stickers"])
+router = APIRouter(prefix="/api", tags=["stickers"])
 
 
 async def get_db():
@@ -61,6 +61,6 @@ async def random_sticker(
     return ImageOut.from_orm(image)
 
 
-@router.get("/tags", response_model=list[TagOut])
+@router.get("/stickers/tags", response_model=list[TagOut])
 async def list_tags(db: AsyncSession = Depends(get_db)):
     return [TagOut(**r) for r in await sticker_crud.get_all_tags_with_counts(db)]
