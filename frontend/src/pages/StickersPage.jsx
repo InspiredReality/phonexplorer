@@ -35,6 +35,7 @@ export default function Stickers() {
   const [activeTab, setActiveTab] = useState('finder');
 
   const [tags, setTags] = useState([]);
+  const [tagSearch, setTagSearch] = useState('');
   const [selectedTags, setSelectedTags] = useState([]);
   const [mode, setMode] = useState('or');
   const [view, setView] = useState('random');
@@ -57,6 +58,15 @@ export default function Stickers() {
     setSelectedTags((prev) =>
       prev.includes(name) ? prev.filter((t) => t !== name) : [...prev, name]
     );
+
+  const filteredTags = tags.filter((t) => t.name.includes(tagSearch.trim().toLowerCase()));
+
+  const handleTagSearchKeyDown = (e) => {
+    if (e.key === 'Enter' && filteredTags.length === 1) {
+      toggleTag(filteredTags[0].name);
+      setTagSearch('');
+    }
+  };
 
   const handleRandom = useCallback(async () => {
     setRandomLoading(true);
@@ -110,8 +120,27 @@ export default function Stickers() {
           <label><input type="radio" value="and" checked={mode === 'and'} onChange={() => setMode('and')} /> All tags</label>
         </div>
 
+        {selectedTags.length > 0 && (
+          <div className="selected-tags-row">
+            {selectedTags.map((name) => (
+              <button key={name} className="selected-tag-chip" onClick={() => toggleTag(name)}>
+                {name} <span className="selected-tag-remove">×</span>
+              </button>
+            ))}
+          </div>
+        )}
+
+        <input
+          type="text"
+          className="tag-search-input"
+          placeholder="Search tags…"
+          value={tagSearch}
+          onChange={(e) => setTagSearch(e.target.value)}
+          onKeyDown={handleTagSearchKeyDown}
+        />
+
         <div className="tag-cloud">
-          {tags.map((t) => (
+          {filteredTags.map((t) => (
             <button
               key={t.name}
               className={`tag-pill ${selectedTags.includes(t.name) ? 'active' : ''}`}
@@ -120,6 +149,9 @@ export default function Stickers() {
               {t.name} <span className="tag-pill-count">{t.count}</span>
             </button>
           ))}
+          {tagSearch && filteredTags.length === 0 && (
+            <span className="tag-search-empty">No tags match "{tagSearch}"</span>
+          )}
         </div>
 
         <div className="action-row">
