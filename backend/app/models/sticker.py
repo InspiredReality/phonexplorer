@@ -15,6 +15,7 @@ class Image(Base):
 
     id = Column(Integer, primary_key=True)
     filename = Column(Text, unique=True, nullable=False)
+    name = Column(Text, nullable=True)
     url = Column(Text, nullable=False)
     created_at = Column(TIMESTAMP, server_default=func.now())
 

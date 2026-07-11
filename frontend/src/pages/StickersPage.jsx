@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import NameThisPanel from './NameThisPanel';
 import './StickersPage.css';
 
 const BASE = import.meta.env.VITE_API_URL ?? '';
@@ -30,6 +31,8 @@ async function apiFetchRandom({ tags = [], mode = 'or' } = {}) {
 
 export default function Stickers() {
   const navigate = useNavigate();
+
+  const [activeTab, setActiveTab] = useState('finder');
 
   const [tags, setTags] = useState([]);
   const [selectedTags, setSelectedTags] = useState([]);
@@ -92,6 +95,15 @@ export default function Stickers() {
         <h1 className="stickers-title">Sticker Finder</h1>
       </header>
 
+      <div className="tab-row">
+        <button className={`tab-btn ${activeTab === 'finder' ? 'active' : ''}`} onClick={() => setActiveTab('finder')}>Sticker Finder</button>
+        <button className={`tab-btn ${activeTab === 'name-this' ? 'active' : ''}`} onClick={() => setActiveTab('name-this')}>Name This</button>
+      </div>
+
+      {activeTab === 'name-this' ? (
+        <NameThisPanel />
+      ) : (
+        <>
       <section className="stickers-controls">
         <div className="mode-row">
           <label><input type="radio" value="or" checked={mode === 'or'} onChange={() => setMode('or')} /> Any tag</label>
@@ -168,6 +180,8 @@ export default function Stickers() {
           </div>
         )}
       </main>
+        </>
+      )}
     </div>
   );
 }

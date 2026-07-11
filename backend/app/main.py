@@ -8,13 +8,14 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 
 from app.config import settings
 from app.db import Base, SessionLocal, engine
 from app.models.scene_object import SceneObject
 from app.models import sticker as _sticker_models  # noqa: F401 — registers Image/Tag with Base
 from app.routers import data, monday, objects, stickers, admin_stickers
+from app.services import github_sync
 from app.services.http_client import client
 
 
@@ -71,6 +72,9 @@ async def lifespan(app: FastAPI):
     try:
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+            # create_all only creates missing tables — it won't add columns to
+            # tables that already existed before this column was introduced.
+            await conn.execute(text("ALTER TABLE images ADD COLUMN IF NOT EXISTS name TEXT"))
 
         async with SessionLocal() as db:
             count = await db.scalar(select(func.count()).select_from(SceneObject))
@@ -79,6 +83,13 @@ async def lifespan(app: FastAPI):
                 await db.commit()
     except Exception as exc:
         logging.error("DB startup error — app running without database: %s", exc)
+
+    try:
+        async with SessionLocal() as db:
+            result = await github_sync.sync_images_from_github(db)
+            logging.info("Sticker sync on startup: %s", result)
+    except Exception as exc:
+        logging.error("Sticker sync on startup failed: %s", exc)
 
     yield
 

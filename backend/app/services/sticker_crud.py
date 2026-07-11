@@ -53,6 +53,7 @@ async def get_images(
     mode: str = "or",
     limit: int = 50,
     offset: int = 0,
+    untagged_only: bool = False,
 ) -> tuple[list[Image], int]:
     stmt = select(Image).options(selectinload(Image.tags))
     count_stmt = select(func.count()).select_from(Image)
@@ -61,6 +62,10 @@ async def get_images(
         if subq is not None:
             stmt = stmt.where(Image.id.in_(subq))
             count_stmt = count_stmt.where(Image.id.in_(subq))
+    if untagged_only:
+        tagged_ids = select(image_tags.c.image_id).distinct().subquery()
+        stmt = stmt.where(Image.id.notin_(select(tagged_ids.c.image_id)))
+        count_stmt = count_stmt.where(Image.id.notin_(select(tagged_ids.c.image_id)))
     total = (await db.execute(count_stmt)).scalar_one()
     images = (await db.execute(stmt.order_by(Image.id).limit(limit).offset(offset))).scalars().all()
     return images, total
@@ -126,6 +131,18 @@ async def remove_tag_from_image(db: AsyncSession, image_id: int, tag_name: str) 
     )
     await db.commit()
     return True
+
+
+async def rename_image(db: AsyncSession, image_id: int, name: str) -> Image | None:
+    image = (await db.execute(
+        select(Image).options(selectinload(Image.tags)).where(Image.id == image_id)
+    )).scalar_one_or_none()
+    if not image:
+        return None
+    image.name = name.strip() or None
+    await db.commit()
+    await db.refresh(image)
+    return image
 
 
 async def upsert_image(db: AsyncSession, filename: str, url: str) -> tuple[Image, bool]:
