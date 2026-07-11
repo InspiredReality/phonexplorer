@@ -129,6 +129,45 @@
 }
 .mode-row label { display: flex; align-items: center; gap: 0.4rem; cursor: pointer; }
 
+.selected-tags-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 0.75rem;
+}
+
+.selected-tag-chip {
+  background: #2a2a3e;
+  border: 1px solid #7c3aed;
+  color: #a78bfa;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+}
+.selected-tag-chip:hover { border-color: #a78bfa; color: #fff; }
+.selected-tag-remove { font-size: 0.9rem; line-height: 1; }
+
+.tag-search-input {
+  display: block;
+  width: 100%;
+  max-width: 320px;
+  background: #1a1a1a;
+  border: 1px solid #2a2a2a;
+  color: #e0e0e0;
+  padding: 0.5rem 0.9rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  margin-bottom: 0.75rem;
+}
+.tag-search-input:focus { outline: none; border-color: #7c3aed; }
+.tag-search-input::placeholder { color: #555; }
+
+.tag-search-empty { font-size: 0.8rem; color: #555; font-style: italic; }
+
 .tag-cloud {
   display: flex;
   flex-wrap: wrap;
