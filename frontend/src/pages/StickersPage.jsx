@@ -161,7 +161,7 @@ export default function Stickers() {
 
         <div className="action-row">
           <button className={`view-btn ${view === 'random' ? 'active' : ''}`} onClick={() => setView('random')}>Random</button>
-          <button className={`view-btn ${view === 'grid' ? 'active' : ''}`} onClick={handleShowGrid}>All matches</button>
+          <button className={`view-btn ${view === 'grid' ? 'active' : ''}`} onClick={handleShowGrid}>Search Tags</button>
           {selectedTags.length > 0 && (
             <button className="clear-btn" onClick={() => setSelectedTags([])}>Clear filters</button>
           )}
