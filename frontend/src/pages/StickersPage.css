@@ -117,6 +117,13 @@
 
 .no-tags { font-size: 0.7rem; color: #7c3aed; font-style: italic; }
 
+.name-this-grid {
+  display: grid;
+  grid-template-columns: 1fr;
+  gap: 0.75rem;
+  max-width: 420px;
+}
+
 /* Controls */
 .stickers-controls { margin-bottom: 1.5rem; }
 

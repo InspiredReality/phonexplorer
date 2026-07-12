@@ -196,7 +196,7 @@ export default function NameThisPanel() {
       {stickers.length > 0 && (
         <>
           <p className="result-count">{total} sticker{total !== 1 ? 's' : ''}</p>
-          <div className="sticker-grid">
+          <div className="name-this-grid">
             {stickers.map((s) => (
               <StickerCard
                 key={s.id}
