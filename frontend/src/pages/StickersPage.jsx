@@ -96,7 +96,12 @@ export default function Stickers() {
     }
   }, [selectedTags, mode, offset]);
 
-  const handleShowGrid = () => { setView('grid'); loadGrid(true); };
+  const handleShowGrid = () => setView('grid');
+
+  useEffect(() => {
+    if (view === 'grid') loadGrid(true);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [view, mode, selectedTags]);
 
   return (
     <div className="stickers-page">
@@ -116,8 +121,8 @@ export default function Stickers() {
         <>
       <section className="stickers-controls">
         <div className="mode-row">
-          <label><input type="radio" value="or" checked={mode === 'or'} onChange={() => setMode('or')} /> Any tag</label>
-          <label><input type="radio" value="and" checked={mode === 'and'} onChange={() => setMode('and')} /> All tags</label>
+          <label><input type="radio" value="or" checked={mode === 'or'} onChange={() => setMode('or')} /> Any tag (or)</label>
+          <label><input type="radio" value="and" checked={mode === 'and'} onChange={() => setMode('and')} /> All tag (and)</label>
         </div>
 
         {selectedTags.length > 0 && (
