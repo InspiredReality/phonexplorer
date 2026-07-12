@@ -84,6 +84,7 @@ function StickerCard({ sticker, isAdmin, onAddTag, onRename }) {
             value={nameDraft}
             onChange={(e) => setNameDraft(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && submitName()}
+            onFocus={(e) => e.target.select()}
             disabled={savingName}
           />
           <button className="name-save-btn" onClick={submitName} disabled={savingName || nameDraft.trim() === sticker.name}>
