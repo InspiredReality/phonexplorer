@@ -19,7 +19,9 @@ class Image(Base):
     url = Column(Text, nullable=False)
     created_at = Column(TIMESTAMP, server_default=func.now())
 
-    tags = relationship("Tag", secondary=image_tags, back_populates="images", lazy="selectin")
+    # Fully-qualified path: a second, unrelated Tag class (app.models.tag.Tag,
+    # for reality labels) is also registered on this declarative base.
+    tags = relationship("app.models.sticker.Tag", secondary=image_tags, back_populates="images", lazy="selectin")
 
 
 class Tag(Base):
