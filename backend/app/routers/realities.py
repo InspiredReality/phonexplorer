@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.core.deps import get_db
 from app.models.org_ob import OrgOb
@@ -192,6 +193,9 @@ async def list_top_level_org_obs(reality_id: int, db: AsyncSession = Depends(get
     await _get_reality(reality_id, db)
     rows = await db.execute(
         select(OrgOb)
+        # Two levels: immediate children (for include_children=True) plus their
+        # own children, needed just to compute each child's children_count.
+        .options(selectinload(OrgOb.children).selectinload(OrgOb.children))
         .where(OrgOb.reality_id == reality_id, OrgOb.parent_id.is_(None))
         .order_by(OrgOb.order_index)
     )

@@ -21,13 +21,15 @@ class Reality(Base):
     updated_at  = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
 
     org_obs = relationship(
-        "OrgOb",
+        "app.models.org_ob.OrgOb",
         back_populates="reality",
         cascade="all, delete-orphan",
         lazy="selectin",
     )
+    # Fully-qualified path: a second, unrelated Tag class (app.models.sticker.Tag)
+    # is also registered on this declarative base, so the bare name "Tag" is ambiguous.
     tags = relationship(
-        "Tag",
+        "app.models.tag.Tag",
         secondary=reality_tags,
         back_populates="realities",
         lazy="selectin",
