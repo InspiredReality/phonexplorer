@@ -4,10 +4,25 @@ import './MondayPage.css';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
-async function fetchJSON(path) {
-  const res = await fetch(`${API_BASE}${path}`);
-  if (!res.ok) throw new Error(`${res.status} ${res.statusText}`);
+async function fetchJSON(path, options) {
+  const res = await fetch(`${API_BASE}${path}`, options);
+  if (!res.ok) {
+    let detail = `${res.status} ${res.statusText}`;
+    try {
+      const body = await res.json();
+      detail = body.detail || detail;
+    } catch { /* ignore non-JSON error body */ }
+    throw new Error(detail);
+  }
   return res.json();
+}
+
+async function postJSON(path, data) {
+  return fetchJSON(path, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(data),
+  });
 }
 
 function useMonday() {
@@ -190,6 +205,83 @@ function RecentUpdatesTable({ updates, loading, error, onRetry }) {
   );
 }
 
+function NewTaskModal({ onClose, onCreated }) {
+  const [name, setName]             = useState('');
+  const [customer, setCustomer]     = useState('');
+  const [technology, setTechnology] = useState('');
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError]           = useState(null);
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (!name.trim()) return;
+    setSubmitting(true);
+    setError(null);
+    try {
+      await postJSON('/api/monday/prioritized-implementation-tasks', {
+        name: name.trim(),
+        customer: customer.trim(),
+        technology: technology.trim(),
+      });
+      onCreated();
+      onClose();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  return (
+    <div className="modal-overlay" onClick={onClose}>
+      <form className="modal" onClick={(e) => e.stopPropagation()} onSubmit={handleSubmit}>
+        <h2 className="modal__title">New Task</h2>
+        <p className="modal__subtitle">Creates an item on the Prioritized Implementation Tasks board.</p>
+
+        <label className="modal__field">
+          <span>Task name *</span>
+          <input
+            autoFocus
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="e.g. Additional CMDB Ingest"
+            maxLength={255}
+          />
+        </label>
+
+        <label className="modal__field">
+          <span>Customer</span>
+          <input
+            value={customer}
+            onChange={(e) => setCustomer(e.target.value)}
+            placeholder="Customer"
+          />
+        </label>
+
+        <label className="modal__field">
+          <span>Technology</span>
+          <input
+            value={technology}
+            onChange={(e) => setTechnology(e.target.value)}
+            placeholder="Technology"
+          />
+        </label>
+
+        {error && <p className="modal__error">{error}</p>}
+
+        <div className="modal__actions">
+          <button type="button" className="btn btn--ghost" onClick={onClose} disabled={submitting}>
+            Cancel
+          </button>
+          <button type="submit" className="btn btn--primary" disabled={!name.trim() || submitting}>
+            {submitting ? 'Creating…' : 'Create Task'}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 function formatDate(iso) {
@@ -213,6 +305,7 @@ function stripHtml(html) {
 export default function MondayPage() {
   const navigate = useNavigate();
   const { tasks, updates, loadingT, loadingU, errorT, errorU, loadTasks, loadUpdates } = useMonday();
+  const [showNewTask, setShowNewTask] = useState(false);
 
   return (
     <div className="monday-page">
@@ -222,6 +315,9 @@ export default function MondayPage() {
           <span className="monday-dot" />
           Monday
         </h1>
+        <button className="btn btn--primary new-task-btn" onClick={() => setShowNewTask(true)}>
+          + New Task
+        </button>
       </header>
 
       <main className="monday-main">
@@ -238,6 +334,10 @@ export default function MondayPage() {
           onRetry={loadUpdates}
         />
       </main>
+
+      {showNewTask && (
+        <NewTaskModal onClose={() => setShowNewTask(false)} onCreated={loadTasks} />
+      )}
     </div>
   );
 }

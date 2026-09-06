@@ -108,6 +108,42 @@ query GetItemNames($ids: [ID!]!) {
 }
 """
 
+BOARDS_QUERY = """
+query GetBoards($limit: Int!, $page: Int!) {
+  boards(limit: $limit, page: $page) {
+    id
+    name
+  }
+}
+"""
+
+BOARD_COLUMNS_QUERY = """
+query GetBoardColumns($boardId: [ID!]!) {
+  boards(ids: $boardId) {
+    id
+    name
+    columns {
+      id
+      title
+      type
+    }
+  }
+}
+"""
+
+CREATE_ITEM_MUTATION = """
+mutation CreateItem($boardId: ID!, $itemName: String!, $columnValues: JSON) {
+  create_item(
+    board_id: $boardId
+    item_name: $itemName
+    column_values: $columnValues
+  ) {
+    id
+    name
+  }
+}
+"""
+
 
 # ── Client ─────────────────────────────────────────────────────────────────────
 
@@ -262,6 +298,84 @@ class MondayClient:
                 log.warning("Item meta fetch failed for batch: %s", exc)
             await asyncio.sleep(PAGE_DELAY_S)
         return meta
+
+    # ── Item creation ─────────────────────────────────────────────────────────
+
+    async def find_board_by_name(self, name: str, page_size: int = 100, max_pages: int = 20) -> dict | None:
+        """Case-insensitive lookup of a board by exact name. Returns {"id", "name"} or None."""
+        target = name.strip().lower()
+        for page in range(1, max_pages + 1):
+            data = await self._gql(BOARDS_QUERY, {"limit": page_size, "page": page})
+            boards = data.get("boards", [])
+            for board in boards:
+                if board["name"].strip().lower() == target:
+                    return board
+            if len(boards) < page_size:
+                break
+            await asyncio.sleep(PAGE_DELAY_S)
+        return None
+
+    async def get_board_columns(self, board_id: str) -> list[dict]:
+        """Return [{"id", "title", "type"}, ...] for the given board."""
+        data = await self._gql(BOARD_COLUMNS_QUERY, {"boardId": [board_id]})
+        boards = data.get("boards", [])
+        return boards[0]["columns"] if boards else []
+
+    async def create_item(
+        self, board_id: str, item_name: str, column_values: dict[str, Any] | None = None
+    ) -> dict:
+        """Create an item on a board. column_values keys are column IDs (not titles)."""
+        variables: dict[str, Any] = {"boardId": board_id, "itemName": item_name}
+        if column_values:
+            # Monday's `column_values` argument is typed JSON but the API expects
+            # an escaped JSON *string*, not a raw object, even when passed as a
+            # GraphQL variable.
+            variables["columnValues"] = json.dumps(column_values)
+        data = await self._gql(CREATE_ITEM_MUTATION, variables)
+        return data["create_item"]
+
+    async def create_item_by_board_name(
+        self,
+        board_name: str,
+        item_name: str,
+        field_values: dict[str, str] | None = None,
+    ) -> dict:
+        """
+        Create an item on a board looked up by name, mapping human-readable
+        field names (matched case-insensitively against column titles, e.g.
+        "Customer", "Technology") to the board's actual column IDs.
+
+        Fields that don't match any column on the board are silently skipped
+        so this stays resilient to board layout changes.
+        """
+        board = await self.find_board_by_name(board_name)
+        if not board:
+            raise LookupError(f'Monday board "{board_name}" not found')
+
+        column_values: dict[str, Any] = {}
+        if field_values:
+            columns = await self.get_board_columns(board["id"])
+            columns_by_title = {c["title"].strip().lower(): c for c in columns}
+            for field_name, value in field_values.items():
+                if not value:
+                    continue
+                column = columns_by_title.get(field_name.strip().lower())
+                if not column:
+                    log.warning(
+                        'No column titled "%s" found on board "%s" — skipping',
+                        field_name, board_name,
+                    )
+                    continue
+                # Status/dropdown columns need {"label": ...}; everything else
+                # (text, long_text, ...) takes the plain string.
+                if column["type"] in ("color", "status", "dropdown"):
+                    column_values[column["id"]] = {"label": value}
+                else:
+                    column_values[column["id"]] = value
+
+        item = await self.create_item(board["id"], item_name, column_values)
+        item["board"] = board
+        return item
 
 
 # ── Utilities ──────────────────────────────────────────────────────────────────
