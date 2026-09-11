@@ -109,6 +109,28 @@
   background: rgba(255, 255, 255, 0.12);
 }
 
+.assign-hint {
+  position: absolute;
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.assign-hint span {
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 0.68rem;
+  font-family: sans-serif;
+  letter-spacing: 0.04em;
+  background: rgba(0, 0, 0, 0.45);
+  padding: 4px 10px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
 @media (max-width: 640px) {
   .assign-wrapper {
     flex-direction: column;
