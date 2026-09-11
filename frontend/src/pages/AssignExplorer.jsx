@@ -653,18 +653,6 @@ function AssignExplorer() {
 
   return (
     <div className="assign-wrapper">
-      <div className="assign-sidebar">
-        {PHASE_LABELS.map((label, idx) => (
-          <button
-            key={label}
-            className={`assign-side-btn assign-side-btn--phase${idx + 1}${phase === idx + 1 ? ' is-active' : ''}`}
-            onClick={() => handlePhase(idx + 1)}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
-
       <div className="assign-viewport">
         <div ref={mountRef} className="assign-canvas-mount" />
         <h1 className="assign-title" onClick={() => navigate('/')}>
@@ -689,6 +677,18 @@ function AssignExplorer() {
             />
           </div>
         )}
+      </div>
+
+      <div className="assign-bottombar">
+        {PHASE_LABELS.map((label, idx) => (
+          <button
+            key={label}
+            className={`assign-side-btn assign-side-btn--phase${idx + 1}${phase === idx + 1 ? ' is-active' : ''}`}
+            onClick={() => handlePhase(idx + 1)}
+          >
+            {label}
+          </button>
+        ))}
       </div>
     </div>
   );

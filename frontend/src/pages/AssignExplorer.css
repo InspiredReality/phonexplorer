@@ -1,34 +1,32 @@
 .assign-wrapper {
   display: flex;
-  flex-direction: row;
-  width: 100vw;
-  height: 100vh;
-  height: 100dvh;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
   background: #0a0a0a;
   overflow: hidden;
 }
 
-/* ── Left sidebar: three buttons stacked vertically ── */
-.assign-sidebar {
+/* ── Bottom bar: three phase buttons in a row ── */
+.assign-bottombar {
   flex-shrink: 0;
-  width: 240px;
   display: flex;
-  flex-direction: column;
-  justify-content: center;
+  flex-direction: row;
   align-items: stretch;
-  gap: 18px;
-  padding: 24px;
+  gap: 14px;
+  padding: 16px 24px;
   background: #111122;
-  border-right: 2px solid rgba(255, 255, 255, 0.12);
+  border-top: 2px solid rgba(255, 255, 255, 0.12);
   z-index: 10;
 }
 
 .assign-side-btn {
-  padding: 16px 14px;
-  font-size: 0.82rem;
-  line-height: 1.35;
+  flex: 1;
+  padding: 14px;
+  font-size: 0.8rem;
+  line-height: 1.3;
   letter-spacing: 0.01em;
-  text-align: left;
+  text-align: center;
   background: transparent;
   color: #ffffff;
   border: 2px solid #ffffff;
@@ -191,18 +189,8 @@
 }
 
 @media (max-width: 640px) {
-  .assign-wrapper {
-    flex-direction: column;
-  }
-
-  .assign-sidebar {
-    width: auto;
-    flex-direction: row;
-    border-right: none;
-    border-bottom: 2px solid rgba(255, 255, 255, 0.12);
-  }
-
-  .assign-side-btn {
-    flex: 1;
+  .assign-bottombar {
+    padding: 10px 12px;
+    gap: 8px;
   }
 }
