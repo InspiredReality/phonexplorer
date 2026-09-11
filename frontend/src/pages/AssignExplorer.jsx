@@ -13,15 +13,13 @@ const GRID_SPACING    = 1.55;
 const TOP_LIFT        = 1.9;
 const BOTTOM_DROP     = 1.0;
 const HALO_PAD_CUBE   = 0.35;
-const SPHERE_SPACING  = 0.34;
 const SPHERE_RADIUS   = 0.1;
 const HALO_PAD_SPHERE = 0.16;
-const SPHERE_COLS       = 4;
-const SPHERE_BLUE_ROWS  = 8;
-const SPHERE_BLACK_ROWS = 4;
-const SPHERE_ROWS       = SPHERE_BLUE_ROWS + SPHERE_BLACK_ROWS; // 12 rows
-const NUM_SPHERES       = SPHERE_COLS * SPHERE_ROWS;            // 48 total
-const SPHERE_GROUP_GAP  = 0.55; // extra vertical gap separating the two findings halos
+const SPHERE_UNIT       = 0.34;  // spacing between neighboring sphere centers within a block
+const BLOCK_SERVER_N    = 3;     // Server Team: 3 x 3 x 3 = 27 spheres, sits on top
+const BLOCK_APP_N       = 4;     // App Team: 4 x 4 x 4 = 64 spheres, drops to the bottom
+const SPHERE_BLOCK_GAP  = 0.5;   // vertical gap separating the two cube-blocks
+const SPHERE_PAD        = 0.14;  // clearance between the sphere formation and the thick cube's wall
 const TARGET_CUBE     = 0; // front-top-left cube (layer 0, row 0, col 0)
 const LEG_MS          = 1300;
 const LEG_HOLD_MS     = 500;
@@ -70,18 +68,43 @@ function gridPos(i, grouped) {
   return { x, y, z };
 }
 
-function sphereLocalPos(i) {
-  const row = Math.floor(i / SPHERE_COLS);
-  const col = i % SPHERE_COLS;
-  const isBlack   = row >= SPHERE_BLUE_ROWS;
-  const gap       = isBlack ? SPHERE_GROUP_GAP : 0;
-  const centerRow = (SPHERE_ROWS - 1) / 2;
-  return {
-    x: (col - (SPHERE_COLS - 1) / 2) * SPHERE_SPACING,
-    y: (centerRow - row) * SPHERE_SPACING - gap,
-    z: 0,
-  };
+// An n x n x n cube of sphere positions, centered on the given Y and on
+// X/Z=0, giving the findings formation real depth instead of a flat grid.
+function cubeBlockPositions(n, centerY) {
+  const half = (n - 1) / 2;
+  const pts = [];
+  for (let ix = 0; ix < n; ix++) {
+    for (let iy = 0; iy < n; iy++) {
+      for (let iz = 0; iz < n; iz++) {
+        pts.push({
+          x: (ix - half) * SPHERE_UNIT,
+          y: (iy - half) * SPHERE_UNIT + centerY,
+          z: (iz - half) * SPHERE_UNIT,
+        });
+      }
+    }
+  }
+  return pts;
 }
+
+const SERVER_HALF_Y = (BLOCK_SERVER_N - 1) / 2 * SPHERE_UNIT;
+const APP_HALF_Y    = (BLOCK_APP_N - 1) / 2 * SPHERE_UNIT;
+const SERVER_CENTER_Y =  (SERVER_HALF_Y + SPHERE_BLOCK_GAP / 2); // goes up
+const APP_CENTER_Y    = -(APP_HALF_Y + SPHERE_BLOCK_GAP / 2);    // drops down
+
+// index 0..26 = Server Team (blue, top); 27..90 = App Team (black, bottom)
+const SERVER_LOCAL_POSITIONS = cubeBlockPositions(BLOCK_SERVER_N, SERVER_CENTER_Y);
+const APP_LOCAL_POSITIONS    = cubeBlockPositions(BLOCK_APP_N, APP_CENTER_Y);
+const SPHERE_LOCAL_POSITIONS = [...SERVER_LOCAL_POSITIONS, ...APP_LOCAL_POSITIONS];
+const NUM_SPHERES   = SPHERE_LOCAL_POSITIONS.length; // 91
+const BLUE_SPHERES  = Array.from({ length: SERVER_LOCAL_POSITIONS.length }, (_, i) => i);
+const BLACK_SPHERES = Array.from({ length: APP_LOCAL_POSITIONS.length }, (_, i) => i + SERVER_LOCAL_POSITIONS.length);
+
+// The thick cube outline has to grow enough to enclose every sphere.
+const SPHERE_HALF_EXTENT = Math.max(
+  ...SPHERE_LOCAL_POSITIONS.map(p => Math.max(Math.abs(p.x), Math.abs(p.y), Math.abs(p.z)))
+) + SPHERE_RADIUS + SPHERE_PAD;
+const EXPANDED_CUBE_SIZE = 2 * SPHERE_HALF_EXTENT;
 
 function boundsOf(indices, positions, halfSize, pad) {
   const xs = indices.map(i => positions[i].x);
@@ -283,7 +306,11 @@ function AssignExplorer() {
     const cubeEdges = Array.from({ length: NUM_CUBES }, () => makeCubeOutline(CUBE_SIZE, COLOR_LINE));
     cubeEdges.forEach(e => scene.add(e));
 
-    const targetEdgeThick = makeCubeThickEdges(CUBE_SIZE, CUBE_EDGE_THICK_RADIUS, COLOR_LINE);
+    const targetEdgeThick = makeCubeThickEdges(
+      EXPANDED_CUBE_SIZE,
+      CUBE_EDGE_THICK_RADIUS * (EXPANDED_CUBE_SIZE / CUBE_SIZE),
+      COLOR_LINE
+    );
     scene.add(targetEdgeThick);
 
     const haloTeamBlue  = makeHalo(COLOR_BLUE);
@@ -315,23 +342,20 @@ function AssignExplorer() {
     const teamWhiteBoundsGrouped = boundsOf(BOTTOM_INDICES, groupedPositions, CUBE_SIZE / 2, HALO_PAD_CUBE);
 
     const targetCubePos = groupedPositions[TARGET_CUBE];
-    const sphereWorlds  = Array.from({ length: NUM_SPHERES }, (_, i) => {
-      const p = sphereLocalPos(i);
-      return { x: p.x + targetCubePos.x, y: p.y + targetCubePos.y, z: p.z + targetCubePos.z + 0.35 };
-    });
-    const BLUE_SPHERES  = Array.from({ length: SPHERE_BLUE_ROWS * SPHERE_COLS }, (_, i) => i);
-    const BLACK_SPHERES = Array.from({ length: SPHERE_BLACK_ROWS * SPHERE_COLS }, (_, i) => i + BLUE_SPHERES.length);
+    const sphereWorlds  = SPHERE_LOCAL_POSITIONS.map((p) => ({
+      x: p.x + targetCubePos.x, y: p.y + targetCubePos.y, z: p.z + targetCubePos.z,
+    }));
     const findBlueBounds  = boundsOf(BLUE_SPHERES, sphereWorlds, SPHERE_RADIUS, HALO_PAD_SPHERE);
     const findBlackBounds = boundsOf(BLACK_SPHERES, sphereWorlds, SPHERE_RADIUS, HALO_PAD_SPHERE);
 
     const viewDir = DEFAULT_CAM_POS.clone().sub(DEFAULT_LOOKAT).normalize();
     const zoomCamPos = new THREE.Vector3(targetCubePos.x, targetCubePos.y, targetCubePos.z)
-      .add(viewDir.multiplyScalar(2.8));
+      .add(viewDir.multiplyScalar(2.8 * (EXPANDED_CUBE_SIZE / CUBE_SIZE)));
     const zoomLookAt = new THREE.Vector3(targetCubePos.x, targetCubePos.y, targetCubePos.z);
 
     const HALO_TEAM_Z = GRID_SPACING + 0.5;
     const LABEL_TEAM_Z = HALO_TEAM_Z + 0.15;
-    const HALO_FIND_Z = targetCubePos.z + 0.25;
+    const HALO_FIND_Z = targetCubePos.z + EXPANDED_CUBE_SIZE / 2 + 0.1;
     const LABEL_FIND_Z = HALO_FIND_Z + 0.1;
 
     const V1 = { x: 1, y: 1, z: 1 };
