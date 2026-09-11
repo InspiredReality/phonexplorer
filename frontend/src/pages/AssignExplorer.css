@@ -1,0 +1,129 @@
+.assign-wrapper {
+  display: flex;
+  flex-direction: row;
+  width: 100vw;
+  height: 100vh;
+  height: 100dvh;
+  background: #0a0a0a;
+  overflow: hidden;
+}
+
+/* ── Left sidebar: three buttons stacked vertically ── */
+.assign-sidebar {
+  flex-shrink: 0;
+  width: 180px;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: stretch;
+  gap: 16px;
+  padding: 24px;
+  background: #111122;
+  border-right: 2px solid rgba(255, 255, 255, 0.12);
+  z-index: 10;
+}
+
+.assign-side-btn {
+  padding: 16px 12px;
+  font-size: 0.95rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  background: transparent;
+  color: #ffffff;
+  border: 2px solid #ffffff;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, opacity 0.2s;
+  font-family: sans-serif;
+}
+
+.assign-side-btn:hover:not(:disabled) {
+  background: #ffffff;
+  color: #0a0a0a;
+}
+
+.assign-side-btn:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.assign-side-btn--play {
+  border-color: #10b981;
+  color: #10b981;
+}
+.assign-side-btn--play:hover:not(:disabled) {
+  background: #10b981;
+  color: #ffffff;
+}
+
+.assign-side-btn--pause {
+  border-color: #f6287e;
+  color: #f6287e;
+}
+.assign-side-btn--pause:hover:not(:disabled) {
+  background: #f6287e;
+  color: #ffffff;
+}
+
+.assign-side-btn--reset {
+  border-color: #6366f1;
+  color: #6366f1;
+}
+.assign-side-btn--reset:hover:not(:disabled) {
+  background: #6366f1;
+  color: #ffffff;
+}
+
+/* ── Right side: window into the Phone Explorer three.js scene ── */
+.assign-viewport {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  background: #111122;
+}
+
+.assign-canvas-mount {
+  position: absolute;
+  inset: 0;
+}
+
+.assign-title {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #ffffff;
+  font-size: 1.1rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin: 0;
+  z-index: 10;
+  font-family: sans-serif;
+  white-space: nowrap;
+  cursor: pointer;
+  padding: 4px 12px;
+  border-radius: 6px;
+  transition: background 0.15s;
+}
+
+.assign-title:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+@media (max-width: 640px) {
+  .assign-wrapper {
+    flex-direction: column;
+  }
+
+  .assign-sidebar {
+    width: auto;
+    flex-direction: row;
+    border-right: none;
+    border-bottom: 2px solid rgba(255, 255, 255, 0.12);
+  }
+
+  .assign-side-btn {
+    flex: 1;
+  }
+}
