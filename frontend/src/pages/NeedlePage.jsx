@@ -36,7 +36,7 @@ export default function NeedlePage() {
 
       <div className="needle-viewport">
         <needle-engine
-          src="/Needle.glb"
+          src="/Needle%201.glb"
           camera-controls
           background-color="transparent"
           environment-image="studio"
