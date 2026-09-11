@@ -11,12 +11,12 @@
 /* ── Left sidebar: three buttons stacked vertically ── */
 .assign-sidebar {
   flex-shrink: 0;
-  width: 180px;
+  width: 240px;
   display: flex;
   flex-direction: column;
   justify-content: center;
   align-items: stretch;
-  gap: 16px;
+  gap: 18px;
   padding: 24px;
   background: #111122;
   border-right: 2px solid rgba(255, 255, 255, 0.12);
@@ -24,53 +24,51 @@
 }
 
 .assign-side-btn {
-  padding: 16px 12px;
-  font-size: 0.95rem;
-  letter-spacing: 0.12em;
-  text-transform: uppercase;
+  padding: 16px 14px;
+  font-size: 0.82rem;
+  line-height: 1.35;
+  letter-spacing: 0.01em;
+  text-align: left;
   background: transparent;
   color: #ffffff;
   border: 2px solid #ffffff;
-  border-radius: 8px;
+  border-radius: 10px;
   cursor: pointer;
   transition: background 0.2s, color 0.2s, opacity 0.2s;
   font-family: sans-serif;
 }
 
-.assign-side-btn:hover:not(:disabled) {
-  background: #ffffff;
-  color: #0a0a0a;
+.assign-side-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
 }
 
-.assign-side-btn:disabled {
-  opacity: 0.35;
-  cursor: default;
-}
-
-.assign-side-btn--play {
+.assign-side-btn--phase1 {
   border-color: #10b981;
   color: #10b981;
 }
-.assign-side-btn--play:hover:not(:disabled) {
+.assign-side-btn--phase1:hover,
+.assign-side-btn--phase1.is-active {
   background: #10b981;
   color: #ffffff;
 }
 
-.assign-side-btn--pause {
-  border-color: #f6287e;
-  color: #f6287e;
-}
-.assign-side-btn--pause:hover:not(:disabled) {
-  background: #f6287e;
-  color: #ffffff;
-}
-
-.assign-side-btn--reset {
+.assign-side-btn--phase2 {
   border-color: #6366f1;
   color: #6366f1;
 }
-.assign-side-btn--reset:hover:not(:disabled) {
+.assign-side-btn--phase2:hover,
+.assign-side-btn--phase2.is-active {
   background: #6366f1;
+  color: #ffffff;
+}
+
+.assign-side-btn--phase3 {
+  border-color: #f6287e;
+  color: #f6287e;
+}
+.assign-side-btn--phase3:hover,
+.assign-side-btn--phase3.is-active {
+  background: #f6287e;
   color: #ffffff;
 }
 
@@ -109,6 +107,28 @@
 
 .assign-title:hover {
   background: rgba(255, 255, 255, 0.12);
+}
+
+.assign-hint {
+  position: absolute;
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.assign-hint span {
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 0.68rem;
+  font-family: sans-serif;
+  letter-spacing: 0.04em;
+  background: rgba(0, 0, 0, 0.45);
+  padding: 4px 10px;
+  border-radius: 4px;
+  white-space: nowrap;
 }
 
 @media (max-width: 640px) {
