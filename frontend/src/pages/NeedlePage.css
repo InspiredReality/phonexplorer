@@ -41,13 +41,52 @@
   background: rgba(6, 182, 212, 0.14);
 }
 
-.needle-side-btn:first-child {
+.needle-side-btn--back {
   border-color: #ffffff;
   color: #ffffff;
 }
 
-.needle-side-btn:first-child:hover {
+.needle-side-btn--back:hover {
   background: rgba(255, 255, 255, 0.14);
+}
+
+.needle-side-btn.is-active {
+  background: rgba(6, 182, 212, 0.3);
+  border-color: #06b6d4;
+  color: #ffffff;
+}
+
+.needle-side-btn--anim1 {
+  border-color: #10b981;
+  color: #10b981;
+}
+
+.needle-side-btn--anim1:hover,
+.needle-side-btn--anim1.is-active {
+  background: rgba(16, 185, 129, 0.3);
+  color: #ffffff;
+}
+
+.needle-side-btn--anim2 {
+  border-color: #f59e0b;
+  color: #f59e0b;
+}
+
+.needle-side-btn--anim2:hover,
+.needle-side-btn--anim2.is-active {
+  background: rgba(245, 158, 11, 0.3);
+  color: #ffffff;
+}
+
+.needle-side-btn--anim3 {
+  border-color: #8b5cf6;
+  color: #8b5cf6;
+}
+
+.needle-side-btn--anim3:hover,
+.needle-side-btn--anim3.is-active {
+  background: rgba(139, 92, 246, 0.3);
+  color: #ffffff;
 }
 
 /* Right viewport: 3D canvas */
