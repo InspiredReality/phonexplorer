@@ -4,6 +4,7 @@ import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
 import './AssignExplorer.css';
 
+const NUM_CUBES       = 27; // 3 x 3 x 3
 const CUBE_SIZE       = 0.95;
 const TILE_SPACING    = CUBE_SIZE;       // sub-cubes touch edge-to-edge, tiling the source cube's silhouette
 const SOURCE_SIZE     = CUBE_SIZE * 3;
@@ -14,18 +15,14 @@ const HALO_PAD_CUBE   = 0.35;
 const SPHERE_SPACING  = 0.34;
 const SPHERE_RADIUS   = 0.1;
 const HALO_PAD_SPHERE = 0.16;
-const TARGET_CUBE     = 0;
-const ANIM_MS         = 1500;
+const TARGET_CUBE     = 0; // front-top-left cube (layer 0, row 0, col 0)
+const LEG_MS          = 1300;
+const LEG_HOLD_MS     = 500;
 
 const COLOR_LINE  = '#dfe7ff';
 const COLOR_BLUE  = '#4f8cff';
 const COLOR_WHITE = '#f1f5f9';
 const COLOR_BLACK = '#5b6472';
-
-const TOP_INDICES    = [0, 1, 2, 3, 4, 5];
-const BOTTOM_INDICES = [6, 7, 8];
-const BLUE_SPHERES   = [0, 1, 2, 3, 4, 5, 6, 7];
-const BLACK_SPHERES  = [8, 9, 10, 11];
 
 const PHASE_LABELS = [
   'Sources ingest assets with findings',
@@ -35,25 +32,40 @@ const PHASE_LABELS = [
 
 // ── Layout math (module-level, pure) ────────────────────────────────────────
 
+function cubeCoord(i) {
+  const layer = Math.floor(i / 9);
+  const rem   = i % 9;
+  return { layer, row: Math.floor(rem / 3), col: rem % 3 };
+}
+
+const TOP_INDICES    = [];
+const BOTTOM_INDICES = [];
+for (let i = 0; i < NUM_CUBES; i++) {
+  (cubeCoord(i).row < 2 ? TOP_INDICES : BOTTOM_INDICES).push(i);
+}
+
 function tilePos(i) {
-  const row = Math.floor(i / 3);
-  const col = i % 3;
-  return { x: (col - 1) * TILE_SPACING, y: (1 - row) * TILE_SPACING, z: 0 };
+  const { layer, row, col } = cubeCoord(i);
+  return {
+    x: (col - 1) * TILE_SPACING,
+    y: (1 - row) * TILE_SPACING,
+    z: (1 - layer) * TILE_SPACING,
+  };
 }
 
 function gridPos(i, grouped) {
-  const row = Math.floor(i / 3);
-  const col = i % 3;
+  const { layer, row, col } = cubeCoord(i);
   const x = (col - 1) * GRID_SPACING;
   let y = (1 - row) * GRID_SPACING;
   if (grouped) y += row < 2 ? TOP_LIFT : -BOTTOM_DROP;
-  return { x, y, z: 0 };
+  const z = (1 - layer) * GRID_SPACING;
+  return { x, y, z };
 }
 
 function sphereLocalPos(i) {
   const row = Math.floor(i / 4);
   const col = i % 4;
-  return { x: (col - 1.5) * SPHERE_SPACING, y: (1 - row) * SPHERE_SPACING, z: 0.05 };
+  return { x: (col - 1.5) * SPHERE_SPACING, y: (1 - row) * SPHERE_SPACING, z: 0 };
 }
 
 function boundsOf(indices, positions, halfSize, pad) {
@@ -129,7 +141,7 @@ function makeTextSprite(text, color, worldWidth) {
 function AssignExplorer() {
   const navigate = useNavigate();
   const mountRef = useRef(null);
-  const goToPhaseRef = useRef(null);
+  const goToStageRef = useRef(null);
   const [phase, setPhase] = useState(0);
 
   useEffect(() => {
@@ -148,8 +160,9 @@ function AssignExplorer() {
     scene.add(dirLight);
 
     const camera = new THREE.PerspectiveCamera(50, mount.clientWidth / mount.clientHeight, 0.1, 100);
-    const DEFAULT_CAM_POS = new THREE.Vector3(4.4, 2.7, 8.1);
-    const DEFAULT_LOOKAT  = new THREE.Vector3(0, 0.5, 0);
+    const DEFAULT_CAM_POS = new THREE.Vector3(5.6, 3.4, 10.6);
+    const DEFAULT_LOOKAT  = new THREE.Vector3(0, 0.4, 0);
+    const OVERVIEW_CAM_POS = new THREE.Vector3(6.6, 4.0, 12.8);
     camera.position.copy(DEFAULT_CAM_POS);
 
     const controls = new OrbitControls(camera, renderer.domElement);
@@ -157,7 +170,7 @@ function AssignExplorer() {
     controls.dampingFactor = 0.08;
     controls.enablePan = false;
     controls.minDistance = 2;
-    controls.maxDistance = 26;
+    controls.maxDistance = 30;
     controls.target.copy(DEFAULT_LOOKAT);
     controls.update();
 
@@ -165,7 +178,7 @@ function AssignExplorer() {
     const source = makeCubeOutline(SOURCE_SIZE, COLOR_LINE);
     scene.add(source);
 
-    const cubes = Array.from({ length: 9 }, () => makeCubeOutline(CUBE_SIZE, COLOR_LINE));
+    const cubes = Array.from({ length: NUM_CUBES }, () => makeCubeOutline(CUBE_SIZE, COLOR_LINE));
     cubes.forEach(c => scene.add(c));
 
     const haloTeamBlue  = makeHalo(COLOR_BLUE);
@@ -186,63 +199,125 @@ function AssignExplorer() {
     scene.add(labelServerFindings, labelAppFindings);
 
     // ── Layout ─────────────────────────────────────────────────────────────
-    const groupedPositions = Array.from({ length: 9 }, (_, i) => gridPos(i, true));
-    const teamBlueBounds   = boundsOf(TOP_INDICES, groupedPositions, CUBE_SIZE / 2, HALO_PAD_CUBE);
-    const teamWhiteBounds  = boundsOf(BOTTOM_INDICES, groupedPositions, CUBE_SIZE / 2, HALO_PAD_CUBE);
+    const flatPositions    = Array.from({ length: NUM_CUBES }, (_, i) => gridPos(i, false));
+    const groupedPositions = Array.from({ length: NUM_CUBES }, (_, i) => gridPos(i, true));
+    const teamBlueBoundsFlat     = boundsOf(TOP_INDICES, flatPositions, CUBE_SIZE / 2, HALO_PAD_CUBE);
+    const teamWhiteBoundsFlat    = boundsOf(BOTTOM_INDICES, flatPositions, CUBE_SIZE / 2, HALO_PAD_CUBE);
+    const teamBlueBoundsGrouped  = boundsOf(TOP_INDICES, groupedPositions, CUBE_SIZE / 2, HALO_PAD_CUBE);
+    const teamWhiteBoundsGrouped = boundsOf(BOTTOM_INDICES, groupedPositions, CUBE_SIZE / 2, HALO_PAD_CUBE);
 
     const targetCubePos = groupedPositions[TARGET_CUBE];
     const sphereWorlds  = Array.from({ length: 12 }, (_, i) => {
       const p = sphereLocalPos(i);
-      return { x: p.x + targetCubePos.x, y: p.y + targetCubePos.y, z: p.z };
+      return { x: p.x + targetCubePos.x, y: p.y + targetCubePos.y, z: p.z + targetCubePos.z + 0.35 };
     });
+    const BLUE_SPHERES  = [0, 1, 2, 3, 4, 5, 6, 7];
+    const BLACK_SPHERES = [8, 9, 10, 11];
     const findBlueBounds  = boundsOf(BLUE_SPHERES, sphereWorlds, SPHERE_RADIUS, HALO_PAD_SPHERE);
     const findBlackBounds = boundsOf(BLACK_SPHERES, sphereWorlds, SPHERE_RADIUS, HALO_PAD_SPHERE);
 
     const viewDir = DEFAULT_CAM_POS.clone().sub(DEFAULT_LOOKAT).normalize();
     const zoomCamPos = new THREE.Vector3(targetCubePos.x, targetCubePos.y, targetCubePos.z)
-      .add(viewDir.multiplyScalar(2.6));
+      .add(viewDir.multiplyScalar(2.8));
     const zoomLookAt = new THREE.Vector3(targetCubePos.x, targetCubePos.y, targetCubePos.z);
+
+    const HALO_TEAM_Z = GRID_SPACING + 0.5;
+    const LABEL_TEAM_Z = HALO_TEAM_Z + 0.15;
+    const HALO_FIND_Z = targetCubePos.z + 0.25;
+    const LABEL_FIND_Z = HALO_FIND_Z + 0.1;
 
     const V1 = { x: 1, y: 1, z: 1 };
     const V0 = { x: 0, y: 0, z: 0 };
 
-    function phaseTarget(p) {
-      const t = { camera: { pos: DEFAULT_CAM_POS, lookAt: DEFAULT_LOOKAT } };
+    // ── Stage keyframe legs (each partial-diff except a stage's first leg,
+    //    which is a full snapshot of that stage's opening tableau) ──────────
 
-      t.source = { pos: { x: 0, y: 0, z: 0 }, opacity: p === 0 ? 1 : 0 };
-
-      for (let i = 0; i < 9; i++) {
-        const pos = p === 0 ? tilePos(i) : gridPos(i, p >= 2);
-        let opacity = p === 0 ? 0 : 1;
-        if (p === 3) opacity = i === TARGET_CUBE ? 0.12 : 0;
-        t[`cube${i}`] = { pos, opacity };
-      }
-
-      const showTeamHalos = p === 2;
-      t.haloTeamBlue  = { pos: { x: teamBlueBounds.cx, y: teamBlueBounds.cy, z: -0.1 }, scale: { x: teamBlueBounds.rx, y: teamBlueBounds.ry, z: 1 }, opacity: showTeamHalos ? 0.55 : 0 };
-      t.haloTeamWhite = { pos: { x: teamWhiteBounds.cx, y: teamWhiteBounds.cy, z: -0.1 }, scale: { x: teamWhiteBounds.rx, y: teamWhiteBounds.ry, z: 1 }, opacity: showTeamHalos ? 0.45 : 0 };
-      t.labelServerTeam = { pos: { x: teamBlueBounds.cx, y: teamBlueBounds.cy + teamBlueBounds.ry + 0.45, z: 0.2 }, opacity: showTeamHalos ? 1 : 0 };
-      t.labelCloudTeam  = { pos: { x: teamWhiteBounds.cx, y: teamWhiteBounds.cy - teamWhiteBounds.ry - 0.45, z: 0.2 }, opacity: showTeamHalos ? 1 : 0 };
-
-      const showSpheres = p === 3;
-      for (let i = 0; i < 12; i++) {
-        t[`sphere${i}`] = { pos: sphereWorlds[i], scale: showSpheres ? V1 : V0, opacity: showSpheres ? 1 : 0 };
-      }
-      t.haloFindBlue  = { pos: { x: findBlueBounds.cx, y: findBlueBounds.cy, z: -0.05 }, scale: { x: findBlueBounds.rx, y: findBlueBounds.ry, z: 1 }, opacity: showSpheres ? 0.55 : 0 };
-      t.haloFindBlack = { pos: { x: findBlackBounds.cx, y: findBlackBounds.cy, z: -0.05 }, scale: { x: findBlackBounds.rx, y: findBlackBounds.ry, z: 1 }, opacity: showSpheres ? 0.7 : 0 };
-      t.labelServerFindings = { pos: { x: findBlueBounds.cx, y: findBlueBounds.cy + findBlueBounds.ry + 0.3, z: 0.2 }, opacity: showSpheres ? 1 : 0 };
-      t.labelAppFindings    = { pos: { x: findBlackBounds.cx, y: findBlackBounds.cy - findBlackBounds.ry - 0.3, z: 0.2 }, opacity: showSpheres ? 1 : 0 };
-
-      if (p === 2) t.camera = { pos: new THREE.Vector3(5.1, 3.1, 9.6), lookAt: new THREE.Vector3(0, 0.5, 0) };
-      if (p === 3) t.camera = { pos: zoomCamPos, lookAt: zoomLookAt };
-
-      return t;
+    function neutralState() {
+      const s = {};
+      s.source = { pos: { x: 0, y: 0, z: 0 }, opacity: 0 };
+      for (let i = 0; i < NUM_CUBES; i++) s[`cube${i}`] = { pos: tilePos(i), opacity: 0 };
+      s.haloTeamBlue  = { pos: { x: 0, y: 0, z: HALO_TEAM_Z }, scale: { x: 0.001, y: 0.001, z: 1 }, opacity: 0 };
+      s.haloTeamWhite = { pos: { x: 0, y: 0, z: HALO_TEAM_Z }, scale: { x: 0.001, y: 0.001, z: 1 }, opacity: 0 };
+      s.labelServerTeam = { pos: { x: 0, y: 0, z: LABEL_TEAM_Z }, opacity: 0 };
+      s.labelCloudTeam  = { pos: { x: 0, y: 0, z: LABEL_TEAM_Z }, opacity: 0 };
+      for (let i = 0; i < 12; i++) s[`sphere${i}`] = { pos: sphereWorlds[i], scale: V0, opacity: 0 };
+      s.haloFindBlue  = { pos: { x: 0, y: 0, z: HALO_FIND_Z }, scale: { x: 0.001, y: 0.001, z: 1 }, opacity: 0 };
+      s.haloFindBlack = { pos: { x: 0, y: 0, z: HALO_FIND_Z }, scale: { x: 0.001, y: 0.001, z: 1 }, opacity: 0 };
+      s.labelServerFindings = { pos: { x: 0, y: 0, z: LABEL_FIND_Z }, opacity: 0 };
+      s.labelAppFindings    = { pos: { x: 0, y: 0, z: LABEL_FIND_Z }, opacity: 0 };
+      return s;
     }
 
-    const registry = {
-      source, haloTeamBlue, haloTeamWhite, labelServerTeam, labelCloudTeam,
-      haloFindBlue, haloFindBlack, labelServerFindings, labelAppFindings,
-    };
+    function withOverrides(base, overrides) {
+      const out = { ...base };
+      for (const key in overrides) out[key] = { ...out[key], ...overrides[key] };
+      return out;
+    }
+
+    function stage1Legs() {
+      const leg1 = withOverrides(neutralState(), {
+        source: { opacity: 1 },
+      });
+      leg1.camera = { pos: DEFAULT_CAM_POS, lookAt: DEFAULT_LOOKAT };
+
+      const leg2 = { source: { opacity: 0 } };
+      for (let i = 0; i < NUM_CUBES; i++) leg2[`cube${i}`] = { pos: gridPos(i, false), opacity: 1 };
+
+      return [leg1, leg2];
+    }
+
+    function stage2Legs() {
+      const leg1 = neutralState();
+      for (let i = 0; i < NUM_CUBES; i++) leg1[`cube${i}`] = { pos: gridPos(i, false), opacity: 1 };
+      leg1.camera = { pos: DEFAULT_CAM_POS, lookAt: DEFAULT_LOOKAT };
+
+      const leg2 = {
+        haloTeamBlue:  { pos: { x: teamBlueBoundsFlat.cx, y: teamBlueBoundsFlat.cy, z: HALO_TEAM_Z }, scale: { x: teamBlueBoundsFlat.rx, y: teamBlueBoundsFlat.ry, z: 1 }, opacity: 0.55 },
+        haloTeamWhite: { pos: { x: teamWhiteBoundsFlat.cx, y: teamWhiteBoundsFlat.cy, z: HALO_TEAM_Z }, scale: { x: teamWhiteBoundsFlat.rx, y: teamWhiteBoundsFlat.ry, z: 1 }, opacity: 0.45 },
+        labelServerTeam: { pos: { x: teamBlueBoundsFlat.cx, y: teamBlueBoundsFlat.cy + teamBlueBoundsFlat.ry + 0.45, z: LABEL_TEAM_Z }, opacity: 1 },
+        labelCloudTeam:  { pos: { x: teamWhiteBoundsFlat.cx, y: teamWhiteBoundsFlat.cy - teamWhiteBoundsFlat.ry - 0.45, z: LABEL_TEAM_Z }, opacity: 1 },
+      };
+
+      const leg3 = {
+        haloTeamBlue:  { pos: { x: teamBlueBoundsGrouped.cx, y: teamBlueBoundsGrouped.cy, z: HALO_TEAM_Z }, scale: { x: teamBlueBoundsGrouped.rx, y: teamBlueBoundsGrouped.ry, z: 1 } },
+        haloTeamWhite: { pos: { x: teamWhiteBoundsGrouped.cx, y: teamWhiteBoundsGrouped.cy, z: HALO_TEAM_Z }, scale: { x: teamWhiteBoundsGrouped.rx, y: teamWhiteBoundsGrouped.ry, z: 1 } },
+        labelServerTeam: { pos: { x: teamBlueBoundsGrouped.cx, y: teamBlueBoundsGrouped.cy + teamBlueBoundsGrouped.ry + 0.45, z: LABEL_TEAM_Z } },
+        labelCloudTeam:  { pos: { x: teamWhiteBoundsGrouped.cx, y: teamWhiteBoundsGrouped.cy - teamWhiteBoundsGrouped.ry - 0.45, z: LABEL_TEAM_Z } },
+      };
+      for (let i = 0; i < NUM_CUBES; i++) leg3[`cube${i}`] = { pos: gridPos(i, true) };
+
+      return [leg1, leg2, leg3];
+    }
+
+    function stage3Legs() {
+      const leg1 = neutralState();
+      for (let i = 0; i < NUM_CUBES; i++) leg1[`cube${i}`] = { pos: gridPos(i, true), opacity: 1 };
+      leg1.haloTeamBlue  = { pos: { x: teamBlueBoundsGrouped.cx, y: teamBlueBoundsGrouped.cy, z: HALO_TEAM_Z }, scale: { x: teamBlueBoundsGrouped.rx, y: teamBlueBoundsGrouped.ry, z: 1 }, opacity: 0.55 };
+      leg1.haloTeamWhite = { pos: { x: teamWhiteBoundsGrouped.cx, y: teamWhiteBoundsGrouped.cy, z: HALO_TEAM_Z }, scale: { x: teamWhiteBoundsGrouped.rx, y: teamWhiteBoundsGrouped.ry, z: 1 }, opacity: 0.45 };
+      leg1.labelServerTeam = { pos: { x: teamBlueBoundsGrouped.cx, y: teamBlueBoundsGrouped.cy + teamBlueBoundsGrouped.ry + 0.45, z: LABEL_TEAM_Z }, opacity: 1 };
+      leg1.labelCloudTeam  = { pos: { x: teamWhiteBoundsGrouped.cx, y: teamWhiteBoundsGrouped.cy - teamWhiteBoundsGrouped.ry - 0.45, z: LABEL_TEAM_Z }, opacity: 1 };
+      leg1.camera = { pos: OVERVIEW_CAM_POS, lookAt: DEFAULT_LOOKAT };
+
+      const leg2 = { haloTeamBlue: { opacity: 0 }, haloTeamWhite: { opacity: 0 }, labelServerTeam: { opacity: 0 }, labelCloudTeam: { opacity: 0 } };
+      for (let i = 0; i < NUM_CUBES; i++) {
+        leg2[`cube${i}`] = { opacity: i === TARGET_CUBE ? 0.12 : 0 };
+      }
+      leg2.camera = { pos: zoomCamPos, lookAt: zoomLookAt };
+
+      const leg3 = {};
+      for (let i = 0; i < 12; i++) leg3[`sphere${i}`] = { pos: sphereWorlds[i], scale: V1, opacity: 1 };
+
+      const leg4 = {
+        haloFindBlue:  { pos: { x: findBlueBounds.cx, y: findBlueBounds.cy, z: HALO_FIND_Z }, scale: { x: findBlueBounds.rx, y: findBlueBounds.ry, z: 1 }, opacity: 0.55 },
+        haloFindBlack: { pos: { x: findBlackBounds.cx, y: findBlackBounds.cy, z: HALO_FIND_Z }, scale: { x: findBlackBounds.rx, y: findBlackBounds.ry, z: 1 }, opacity: 0.7 },
+        labelServerFindings: { pos: { x: findBlueBounds.cx, y: findBlueBounds.cy + findBlueBounds.ry + 0.3, z: LABEL_FIND_Z }, opacity: 1 },
+        labelAppFindings:    { pos: { x: findBlackBounds.cx, y: findBlackBounds.cy - findBlackBounds.ry - 0.3, z: LABEL_FIND_Z }, opacity: 1 },
+      };
+
+      return [leg1, leg2, leg3, leg4];
+    }
+
+    const registry = { source, haloTeamBlue, haloTeamWhite, labelServerTeam, labelCloudTeam, haloFindBlue, haloFindBlack, labelServerFindings, labelAppFindings };
     cubes.forEach((c, i) => { registry[`cube${i}`] = c; });
     spheres.forEach((s, i) => { registry[`sphere${i}`] = s; });
 
@@ -256,17 +331,25 @@ function AssignExplorer() {
         obj.material.opacity = to.opacity;
       });
     };
-    applyImmediate(phaseTarget(0));
+    applyImmediate(withOverrides(neutralState(), { source: { opacity: 1 } }));
 
     let transition = null; // { from, to, start }
+    let queue = [];
 
-    goToPhaseRef.current = (p) => {
+    const startLeg = (to, holdMs) => {
       const from = { camera: { pos: camera.position.clone(), lookAt: controls.target.clone() } };
       Object.keys(registry).forEach((key) => {
         const obj = registry[key];
         from[key] = { pos: obj.position.clone(), scale: obj.scale.clone(), opacity: obj.material.opacity };
       });
-      transition = { from, to: phaseTarget(p), start: performance.now() };
+      transition = { from, to, start: performance.now() + holdMs };
+    };
+
+    goToStageRef.current = (stageNum) => {
+      const legsBuilders = { 1: stage1Legs, 2: stage2Legs, 3: stage3Legs };
+      const legs = legsBuilders[stageNum]();
+      queue = legs.slice(1);
+      startLeg(legs[0], 0);
     };
 
     const onResize = () => {
@@ -281,7 +364,7 @@ function AssignExplorer() {
       animId = requestAnimationFrame(animate);
 
       if (transition) {
-        const t  = Math.min((now - transition.start) / ANIM_MS, 1);
+        const t  = Math.max(0, Math.min((now - transition.start) / LEG_MS, 1));
         const te = easeInOutCubic(t);
 
         Object.keys(transition.to).forEach((key) => {
@@ -289,11 +372,13 @@ function AssignExplorer() {
           const obj  = registry[key];
           const from = transition.from[key];
           const to   = transition.to[key];
-          obj.position.set(
-            lerp(from.pos.x, to.pos.x, te),
-            lerp(from.pos.y, to.pos.y, te),
-            lerp(from.pos.z, to.pos.z, te),
-          );
+          if (to.pos) {
+            obj.position.set(
+              lerp(from.pos.x, to.pos.x, te),
+              lerp(from.pos.y, to.pos.y, te),
+              lerp(from.pos.z, to.pos.z, te),
+            );
+          }
           if (to.scale) {
             obj.scale.set(
               lerp(from.scale.x, to.scale.x, te),
@@ -301,23 +386,30 @@ function AssignExplorer() {
               lerp(from.scale.z, to.scale.z, te),
             );
           }
-          obj.material.opacity = lerp(from.opacity, to.opacity, te);
+          if (to.opacity !== undefined) {
+            obj.material.opacity = lerp(from.opacity, to.opacity, te);
+          }
         });
 
-        const camFrom = transition.from.camera;
-        const camTo   = transition.to.camera;
-        camera.position.set(
-          lerp(camFrom.pos.x, camTo.pos.x, te),
-          lerp(camFrom.pos.y, camTo.pos.y, te),
-          lerp(camFrom.pos.z, camTo.pos.z, te),
-        );
-        controls.target.set(
-          lerp(camFrom.lookAt.x, camTo.lookAt.x, te),
-          lerp(camFrom.lookAt.y, camTo.lookAt.y, te),
-          lerp(camFrom.lookAt.z, camTo.lookAt.z, te),
-        );
+        if (transition.to.camera) {
+          const camFrom = transition.from.camera;
+          const camTo   = transition.to.camera;
+          camera.position.set(
+            lerp(camFrom.pos.x, camTo.pos.x, te),
+            lerp(camFrom.pos.y, camTo.pos.y, te),
+            lerp(camFrom.pos.z, camTo.pos.z, te),
+          );
+          controls.target.set(
+            lerp(camFrom.lookAt.x, camTo.lookAt.x, te),
+            lerp(camFrom.lookAt.y, camTo.lookAt.y, te),
+            lerp(camFrom.lookAt.z, camTo.lookAt.z, te),
+          );
+        }
 
-        if (t >= 1) transition = null;
+        if (t >= 1) {
+          transition = null;
+          if (queue.length) startLeg(queue.shift(), LEG_HOLD_MS);
+        }
       }
 
       controls.update();
@@ -336,7 +428,7 @@ function AssignExplorer() {
 
   const handlePhase = (p) => {
     setPhase(p);
-    goToPhaseRef.current?.(p);
+    goToStageRef.current?.(p);
   };
 
   return (
