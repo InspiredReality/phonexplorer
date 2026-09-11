@@ -8,6 +8,7 @@ import StickersPage from './pages/StickersPage';
 
 import Realities from './pages/Realities'
 import OrgLevels  from './pages/OrgLevels'
+import NeedlePage from './pages/NeedlePage'
 
 function App() {
   return (
@@ -22,6 +23,7 @@ function App() {
 
         <Route path="/realities"    element={<Realities />} />
         <Route path="/realities/:id" element={<OrgLevels />} />
+        <Route path="/needle" element={<NeedlePage />} />
       </Routes>
     </Router>
   );

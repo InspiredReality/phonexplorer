@@ -80,3 +80,13 @@
   background: #7c3aed;
   color: #ffffff;
 }
+
+.home-btn--needle {
+  border-color: #06b6d4;
+  color: #06b6d4;
+}
+
+.home-btn--needle:hover {
+  background: #06b6d4;
+  color: #ffffff;
+}

@@ -25,6 +25,9 @@ function Home() {
         <button className="home-btn home-btn--stickers" onClick={() => navigate('/stickers')}>
           stickers
         </button>
+        <button className="home-btn home-btn--needle" onClick={() => navigate('/needle')}>
+          needle
+        </button>
       </div>
     </div>
   );
