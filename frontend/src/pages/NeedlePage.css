@@ -1,34 +1,83 @@
-.needle-container {
-  position: fixed;
-  top: 0;
-  left: 0;
+.needle-wrapper {
+  display: flex;
+  flex-direction: row;
   width: 100vw;
   height: 100vh;
-  background: #1a1a1a;
+  height: 100dvh;
+  background: #0a0a0a;
+  overflow: hidden;
+}
+
+/* Left sidebar: buttons stacked vertically */
+.needle-sidebar {
+  flex-shrink: 0;
+  width: 240px;
   display: flex;
   flex-direction: column;
+  justify-content: center;
+  align-items: stretch;
+  gap: 18px;
+  padding: 24px;
+  background: #111122;
+  border-right: 2px solid rgba(255, 255, 255, 0.12);
+  z-index: 10;
 }
 
-.needle-back-btn {
-  position: absolute;
-  top: 20px;
-  left: 20px;
-  z-index: 100;
-  padding: 12px 24px;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 8px;
-  color: white;
-  font-size: 16px;
+.needle-side-btn {
+  padding: 16px 14px;
+  font-size: 0.82rem;
+  line-height: 1.35;
+  letter-spacing: 0.01em;
+  text-align: left;
+  background: transparent;
+  color: #ffffff;
+  border: 2px solid #06b6d4;
+  border-radius: 10px;
   cursor: pointer;
-  transition: all 0.3s ease;
-  backdrop-filter: blur(10px);
+  transition: background 0.2s, color 0.2s, opacity 0.2s;
+  font-family: sans-serif;
 }
 
-.needle-back-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
-  border-color: rgba(255, 255, 255, 0.4);
-  transform: translateX(-2px);
+.needle-side-btn:hover {
+  background: rgba(6, 182, 212, 0.14);
+}
+
+.needle-side-btn:first-child {
+  border-color: #ffffff;
+  color: #ffffff;
+}
+
+.needle-side-btn:first-child:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+/* Right viewport: 3D canvas */
+.needle-viewport {
+  position: relative;
+  flex-grow: 1;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.needle-title {
+  position: absolute;
+  top: 32px;
+  left: 32px;
+  margin: 0;
+  font-size: 2.2rem;
+  font-weight: 200;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+  transition: color 0.2s;
+  z-index: 5;
+  user-select: none;
+}
+
+.needle-title:hover {
+  color: #06b6d4;
 }
 
 needle-engine {

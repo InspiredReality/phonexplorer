@@ -18,17 +18,32 @@ export default function NeedlePage() {
   }, [context]);
 
   return (
-    <div className="needle-container">
-      <button className="needle-back-btn" onClick={() => navigate('/')}>
-        ← Back
-      </button>
-      <needle-engine
-        src="/Needle.glb"
-        camera-controls
-        background-color="transparent"
-        environment-image="studio"
-        contact-shadows
-      ></needle-engine>
+    <div className="needle-wrapper">
+      <div className="needle-sidebar">
+        <button className="needle-side-btn" onClick={() => navigate('/')}>
+          ← Back to Home
+        </button>
+        <button className="needle-side-btn">
+          Option 1
+        </button>
+        <button className="needle-side-btn">
+          Option 2
+        </button>
+        <button className="needle-side-btn">
+          Option 3
+        </button>
+      </div>
+
+      <div className="needle-viewport">
+        <needle-engine
+          src="/Needle.glb"
+          camera-controls
+          background-color="transparent"
+          environment-image="studio"
+          contact-shadows
+        ></needle-engine>
+        <h1 className="needle-title">Needle</h1>
+      </div>
     </div>
   );
 }
