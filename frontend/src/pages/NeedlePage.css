@@ -1,9 +1,8 @@
 .needle-wrapper {
   display: flex;
   flex-direction: row;
-  width: 100vw;
-  height: 100vh;
-  height: 100dvh;
+  width: 100%;
+  height: 100%;
   background: #0a0a0a;
   overflow: hidden;
 }
