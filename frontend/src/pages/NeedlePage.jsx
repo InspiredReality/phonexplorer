@@ -23,7 +23,7 @@ export default function NeedlePage() {
         ← Back
       </button>
       <needle-engine
-        src="/Needle.glb"
+        src="/Needle%201.glb"
         camera-controls
         background-color="transparent"
         environment-image="studio"
