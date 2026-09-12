@@ -1,32 +1,121 @@
-.needle-container {
-  position: relative;
+.needle-wrapper {
+  display: flex;
+  flex-direction: row;
   width: 100%;
   height: 100%;
-  background: #1a1a1a;
+  background: #0a0a0a;
+  overflow: hidden;
+}
+
+/* Left sidebar: buttons stacked vertically */
+.needle-sidebar {
+  flex-shrink: 0;
+  width: 240px;
   display: flex;
   flex-direction: column;
+  justify-content: center;
+  align-items: stretch;
+  gap: 18px;
+  padding: 24px;
+  background: #111122;
+  border-right: 2px solid rgba(255, 255, 255, 0.12);
+  z-index: 10;
 }
 
-.needle-back-btn {
-  position: absolute;
-  top: 20px;
-  left: 20px;
-  z-index: 100;
-  padding: 12px 24px;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 8px;
-  color: white;
-  font-size: 16px;
+.needle-side-btn {
+  padding: 16px 14px;
+  font-size: 0.82rem;
+  line-height: 1.35;
+  letter-spacing: 0.01em;
+  text-align: left;
+  background: transparent;
+  color: #ffffff;
+  border: 2px solid #06b6d4;
+  border-radius: 10px;
   cursor: pointer;
-  transition: all 0.3s ease;
-  backdrop-filter: blur(10px);
+  transition: background 0.2s, color 0.2s, opacity 0.2s;
+  font-family: sans-serif;
 }
 
-.needle-back-btn:hover {
-  background: rgba(255, 255, 255, 0.2);
-  border-color: rgba(255, 255, 255, 0.4);
-  transform: translateX(-2px);
+.needle-side-btn:hover {
+  background: rgba(6, 182, 212, 0.14);
+}
+
+.needle-side-btn--back {
+  border-color: #ffffff;
+  color: #ffffff;
+}
+
+.needle-side-btn--back:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.needle-side-btn.is-active {
+  background: rgba(6, 182, 212, 0.3);
+  border-color: #06b6d4;
+  color: #ffffff;
+}
+
+.needle-side-btn--anim1 {
+  border-color: #10b981;
+  color: #10b981;
+}
+
+.needle-side-btn--anim1:hover,
+.needle-side-btn--anim1.is-active {
+  background: rgba(16, 185, 129, 0.3);
+  color: #ffffff;
+}
+
+.needle-side-btn--anim2 {
+  border-color: #f59e0b;
+  color: #f59e0b;
+}
+
+.needle-side-btn--anim2:hover,
+.needle-side-btn--anim2.is-active {
+  background: rgba(245, 158, 11, 0.3);
+  color: #ffffff;
+}
+
+.needle-side-btn--anim3 {
+  border-color: #8b5cf6;
+  color: #8b5cf6;
+}
+
+.needle-side-btn--anim3:hover,
+.needle-side-btn--anim3.is-active {
+  background: rgba(139, 92, 246, 0.3);
+  color: #ffffff;
+}
+
+/* Right viewport: 3D canvas */
+.needle-viewport {
+  position: relative;
+  flex-grow: 1;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
+.needle-title {
+  position: absolute;
+  top: 32px;
+  left: 32px;
+  margin: 0;
+  font-size: 2.2rem;
+  font-weight: 200;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.85);
+  cursor: pointer;
+  transition: color 0.2s;
+  z-index: 5;
+  user-select: none;
+}
+
+.needle-title:hover {
+  color: #06b6d4;
 }
 
 needle-engine {
