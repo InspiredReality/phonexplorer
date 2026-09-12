@@ -24,12 +24,18 @@ export default function NeedlePage() {
     });
   }, []);
 
-  // Reflect state changes the 3D scene reports back (e.g. once an animation starts).
+  // Reflect state changes the 3D scene reports back: highlight as soon as a
+  // transition starts, and log once it actually finishes.
   useEffect(() => {
     const el = document.querySelector('needle-engine');
-    const onChanged = (evt) => setActiveState(evt.detail?.code ?? null);
-    el?.addEventListener('app-state-changed', onChanged);
-    return () => el?.removeEventListener('app-state-changed', onChanged);
+    const onStarted = (evt) => setActiveState(evt.detail?.code ?? null);
+    const onComplete = (evt) => console.log('Scene finished transitioning to', evt.detail?.code);
+    el?.addEventListener('app-state-started', onStarted);
+    el?.addEventListener('app-state-complete', onComplete);
+    return () => {
+      el?.removeEventListener('app-state-started', onStarted);
+      el?.removeEventListener('app-state-complete', onComplete);
+    };
   }, []);
 
   const handleState = (code) => {
