@@ -1,66 +1,44 @@
 import { useEffect, useState } from 'react';
-import { onInitialized } from '@needle-tools/engine';
+import { onStart, findObjectOfType } from '@needle-tools/engine';
 import '@needle-tools/engine';
 import { useNavigate } from 'react-router-dom';
+import { AppStateController } from '../scripts/AppStateController';
 import './NeedlePage.css';
 
-const ANIMATION_LABELS = [
-  'Animation 1',
-  'Animation 2',
-  'Animation 3',
+const STATES = [
+  { code: 'STATE_1', label: 'Animation 1', className: 'needle-side-btn--anim1' },
+  { code: 'STATE_2', label: 'Animation 2', className: 'needle-side-btn--anim2' },
+  { code: 'STATE_3', label: 'Animation 3', className: 'needle-side-btn--anim3' },
 ];
 
 export default function NeedlePage() {
-  const [context, setContext] = useState(null);
-  const [activeAnimation, setActiveAnimation] = useState(1);
-  const [animations, setAnimations] = useState([]);
+  const [activeState, setActiveState] = useState(null);
   const navigate = useNavigate();
 
+  // Make sure the scene has a controller waiting to receive state codes.
   useEffect(() => {
-    return onInitialized(ctx => setContext(ctx));
-  }, []);
-
-  useEffect(() => {
-    if (!context) return;
-    console.log('Scene ready', context.scene);
-
-    // Find all animation clips in the loaded scene
-    const foundAnimations = [];
-    context.scene.traverse((object) => {
-      if (object.animations && object.animations.length > 0) {
-        foundAnimations.push(...object.animations);
+    return onStart((ctx) => {
+      if (!findObjectOfType(AppStateController, ctx)) {
+        ctx.scene.addComponent(AppStateController);
       }
     });
+  }, []);
 
-    // Also check the context for animations
-    if (context.mainCameraComponent?.gameObject?.animations) {
-      foundAnimations.push(...context.mainCameraComponent.gameObject.animations);
-    }
+  // Reflect state changes the 3D scene reports back (e.g. once an animation starts).
+  useEffect(() => {
+    const el = document.querySelector('needle-engine');
+    const onChanged = (evt) => setActiveState(evt.detail?.code ?? null);
+    el?.addEventListener('app-state-changed', onChanged);
+    return () => el?.removeEventListener('app-state-changed', onChanged);
+  }, []);
 
-    console.log('Found animations:', foundAnimations);
-    setAnimations(foundAnimations);
-  }, [context]);
-
-  const handleAnimation = (animIndex) => {
-    setActiveAnimation(animIndex);
-
-    if (!context || !animations.length) {
-      console.warn('No context or animations available');
+  const handleState = (code) => {
+    const controller = findObjectOfType(AppStateController);
+    if (!controller) {
+      console.warn('AppStateController not ready yet');
       return;
     }
-
-    // Play the animation at the specified index
-    const anim = animations[animIndex - 1];
-    if (anim) {
-      console.log('Playing animation:', anim.name);
-      // Use Needle's animation system to play the animation
-      if (context.mainCameraComponent?.gameObject) {
-        const animator = context.mainCameraComponent.gameObject.getComponent('Animator');
-        if (animator) {
-          animator.play(anim.name);
-        }
-      }
-    }
+    controller.setState(code);
   };
 
   return (
@@ -69,11 +47,11 @@ export default function NeedlePage() {
         <button className="needle-side-btn needle-side-btn--back" onClick={() => navigate('/')}>
           ← Back to Home
         </button>
-        {ANIMATION_LABELS.map((label, idx) => (
+        {STATES.map(({ code, label, className }) => (
           <button
-            key={label}
-            className={`needle-side-btn needle-side-btn--anim${idx + 1}${activeAnimation === idx + 1 ? ' is-active' : ''}`}
-            onClick={() => handleAnimation(idx + 1)}
+            key={code}
+            className={`needle-side-btn ${className}${activeState === code ? ' is-active' : ''}`}
+            onClick={() => handleState(code)}
           >
             {label}
           </button>
