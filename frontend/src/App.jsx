@@ -9,6 +9,7 @@ import StickersPage from './pages/StickersPage';
 import Realities from './pages/Realities'
 import OrgLevels  from './pages/OrgLevels'
 import NeedlePage from './pages/NeedlePage'
+import DripPage from './pages/DripPage'
 import ConfigTest from './pages/ConfigTest'
 
 // Assign/Needle now size to their parent (100%) so they can be embedded
@@ -30,6 +31,7 @@ function App() {
         <Route path="/realities"    element={<Realities />} />
         <Route path="/realities/:id" element={<OrgLevels />} />
         <Route path="/needle" element={<div style={fullViewport}><NeedlePage /></div>} />
+        <Route path="/drip" element={<div style={fullViewport}><DripPage /></div>} />
         <Route path="/config-test" element={<ConfigTest />} />
       </Routes>
     </Router>

@@ -28,6 +28,9 @@ function Home() {
         <button className="home-btn home-btn--needle" onClick={() => navigate('/needle')}>
           needle
         </button>
+        <button className="home-btn home-btn--drip" onClick={() => navigate('/drip')}>
+          drip
+        </button>
         <button className="home-btn home-btn--config-test" onClick={() => navigate('/config-test')}>
           config test
         </button>
