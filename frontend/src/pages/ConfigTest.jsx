@@ -4,19 +4,25 @@ import Accordion from '@mui/material/Accordion';
 import AccordionSummary from '@mui/material/AccordionSummary';
 import AccordionDetails from '@mui/material/AccordionDetails';
 import NeedlePage from './NeedlePage';
+import DripPage from './DripPage';
 import AssignExplorer from './AssignExplorer';
 import './ConfigTest.css';
+
+// `embedded` hides Drip's own Back to Home button/sidebar — this frame
+// already has its own Back button and accordion controls.
+const EmbeddedDripPage = () => <DripPage embedded />;
 
 // Each module renders inside its own accordion, mounted only while expanded
 // so two Three.js/Needle-Engine scenes aren't both running when collapsed.
 const MODULES = [
   { id: 'needle', label: 'Needle', Component: NeedlePage },
+  { id: 'drip', label: 'Drip', Component: EmbeddedDripPage },
   { id: 'assign', label: 'Assign', Component: AssignExplorer },
 ];
 
 function ConfigTest() {
   const navigate = useNavigate();
-  const [expanded, setExpanded] = useState({ needle: false, assign: false });
+  const [expanded, setExpanded] = useState({ needle: false, drip: false, assign: false });
 
   const handleChange = (id) => (_event, isExpanded) => {
     setExpanded((prev) => ({ ...prev, [id]: isExpanded }));
