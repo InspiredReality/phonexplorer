@@ -123,3 +123,39 @@ needle-engine {
   height: 100%;
   display: block;
 }
+
+/* Phone portrait: no room for a side column — drop the sidebar out of the
+   layout entirely and float just the Back button over the 3D viewport. */
+@media (max-width: 600px) and (orientation: portrait) {
+  .needle-sidebar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: auto;
+    height: auto;
+    flex-direction: row;
+    justify-content: flex-start;
+    padding: 14px;
+    background: transparent;
+    border-right: none;
+    z-index: 1000;
+  }
+
+  .needle-sidebar .needle-side-btn:not(.needle-side-btn--back) {
+    display: none;
+  }
+
+  .needle-side-btn--back {
+    padding: 10px 16px;
+    font-size: 0.78rem;
+    border-radius: 8px;
+    background: rgba(10, 10, 10, 0.6);
+    backdrop-filter: blur(6px);
+  }
+
+  .needle-title {
+    top: 64px;
+    left: 20px;
+    font-size: 1.5rem;
+  }
+}
