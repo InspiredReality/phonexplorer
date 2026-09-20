@@ -14,7 +14,7 @@ from app.config import settings
 from app.db import Base, SessionLocal, engine
 from app.models.scene_object import SceneObject
 from app.models import sticker as _sticker_models  # noqa: F401 — registers Image/Tag with Base
-from app.routers import data, monday, objects, org_obs, realities, stickers, tags, admin_stickers
+from app.routers import bets, data, monday, objects, org_obs, realities, stickers, tags, admin_stickers
 from app.services import github_sync
 from app.services.http_client import client
 
@@ -120,6 +120,7 @@ app.include_router(admin_stickers.router)
 app.include_router(realities.router)
 app.include_router(tags.router)
 app.include_router(org_obs.router)
+app.include_router(bets.router)
 app.mount("/static", StaticFiles(directory=str(Path(__file__).parent / "static")), name="static")
 
 _UPLOADS_DIR = Path("uploads")
