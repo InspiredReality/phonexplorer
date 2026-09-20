@@ -65,13 +65,23 @@
 }
 
 .bets-table-label {
-  width: 35%;
-  padding: 12px 16px;
-  color: rgba(255, 255, 255, 0.75);
-  font-size: 0.85rem;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-  white-space: nowrap;
+  width: 45%;
+  padding: 10px 16px;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.82rem;
+  letter-spacing: 0.02em;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.bets-team-logo {
+  flex-shrink: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: rgba(255, 255, 255, 0.06);
 }
 
 .bets-table-input-cell {
@@ -106,9 +116,15 @@
   }
 
   .bets-table-label {
-    width: 40%;
-    padding: 10px;
-    font-size: 0.75rem;
+    width: 44%;
+    padding: 8px 10px;
+    font-size: 0.72rem;
+    gap: 8px;
+  }
+
+  .bets-team-logo {
+    width: 26px;
+    height: 26px;
   }
 
   .bets-table-input-cell {

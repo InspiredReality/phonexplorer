@@ -5,12 +5,25 @@ import AccordionSummary from '@mui/material/AccordionSummary';
 import AccordionDetails from '@mui/material/AccordionDetails';
 import './BetsPage.css';
 
-const WEEK_COUNT = 10;
-const LEG_COUNT = 10;
-const STORAGE_KEY = 'phonexplorer-bets-tracker-v1';
+const WEEK_COUNT = 15;
+const STORAGE_KEY = 'phonexplorer-bets-tracker-v2';
+
+// Logo files live in public/team-logos/<id>.png — replace any of them in
+// place (same filename) to swap in a better version later.
+const TEAMS = [
+  { id: 'octagone', name: 'Octagone' },
+  { id: 'otoshi-nakamoto', name: 'O₿toshi Nakamoto' },
+  { id: 'front-gate-dragon', name: 'Front Gate Dragon' },
+  { id: 'ceedeez-chocolate-ballz', name: 'CeeDeez Chocolate Ballz' },
+  { id: 'michaels-neat-team', name: "Michael's Neat Team" },
+  { id: 'last-dart', name: 'Last Dart' },
+  { id: 'creed', name: 'Creed' },
+  { id: 'king-of-the-north', name: 'King Of The North' },
+  { id: 'lord-of-lakengren', name: 'Lord of Lakengren' },
+  { id: 'sportins-squad', name: 'Sportins Squad' },
+].map((team) => ({ ...team, logo: `/team-logos/${team.id}.png` }));
 
 const WEEKS = Array.from({ length: WEEK_COUNT }, (_, i) => `week${i + 1}`);
-const LEGS = Array.from({ length: LEG_COUNT }, (_, i) => `leg${i + 1}`);
 
 function loadEntries() {
   try {
@@ -32,10 +45,10 @@ function BetsPage() {
     setExpanded((prev) => ({ ...prev, [weekId]: isExpanded }));
   };
 
-  const handleLegChange = (weekId, legId) => (event) => {
+  const handleTeamChange = (weekId, teamId) => (event) => {
     const value = event.target.value;
     setEntries((prev) => {
-      const next = { ...prev, [weekId]: { ...prev[weekId], [legId]: value } };
+      const next = { ...prev, [weekId]: { ...prev[weekId], [teamId]: value } };
       try {
         localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
       } catch {
@@ -76,15 +89,25 @@ function BetsPage() {
             <AccordionDetails sx={{ p: 0 }}>
               <table className="bets-table">
                 <tbody>
-                  {LEGS.map((legId, legIdx) => (
-                    <tr key={legId}>
-                      <td className="bets-table-label">Leg {legIdx + 1}</td>
+                  {TEAMS.map((team) => (
+                    <tr key={team.id}>
+                      <td className="bets-table-label">
+                        <img
+                          className="bets-team-logo"
+                          src={team.logo}
+                          alt=""
+                          width={32}
+                          height={32}
+                          loading="lazy"
+                        />
+                        <span>{team.name}</span>
+                      </td>
                       <td className="bets-table-input-cell">
                         <input
                           type="text"
                           className="bets-table-input"
-                          value={entries[weekId]?.[legId] ?? ''}
-                          onChange={handleLegChange(weekId, legId)}
+                          value={entries[weekId]?.[team.id] ?? ''}
+                          onChange={handleTeamChange(weekId, team.id)}
                           placeholder="Enter pick..."
                         />
                       </td>
