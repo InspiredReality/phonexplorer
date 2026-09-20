@@ -2,8 +2,16 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 100vh;
+  /* min-height (not height) lets the page grow and scroll when the button
+     list is taller than the viewport, instead of centering it inside a
+     fixed box and clipping the top/bottom buttons off screen. 100dvh
+     (where supported) also accounts for mobile browsers showing/hiding
+     their address bar, instead of 100vh's stale "chrome hidden" height. */
+  min-height: 100vh;
+  min-height: 100dvh;
   background: #0a0a0a;
+  padding: 32px 16px;
+  box-sizing: border-box;
 }
 
 .home-buttons {
