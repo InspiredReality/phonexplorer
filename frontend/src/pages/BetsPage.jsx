@@ -1,12 +1,14 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Accordion from '@mui/material/Accordion';
 import AccordionSummary from '@mui/material/AccordionSummary';
 import AccordionDetails from '@mui/material/AccordionDetails';
+import api from '../services/api';
 import './BetsPage.css';
 
 const WEEK_COUNT = 15;
 const STORAGE_KEY = 'phonexplorer-bets-tracker-v2';
+const SAVE_DEBOUNCE_MS = 500;
 
 // Logo files live in public/team-logos/<id>.png — replace any of them in
 // place (same filename) to swap in a better version later.
@@ -32,7 +34,7 @@ const STATUS_CONFIG = {
   loss: { symbol: '✕', label: 'Loss', className: 'bets-status--loss' },
 };
 
-function loadEntries() {
+function loadLocalEntries() {
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     return raw ? JSON.parse(raw) : {};
@@ -41,11 +43,11 @@ function loadEntries() {
   }
 }
 
-function persistEntries(data) {
+function persistLocalEntries(data) {
   try {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   } catch {
-    // e.g. private browsing / storage quota — entry stays in memory only
+    // e.g. private browsing / storage quota — used only as a local cache anyway
   }
 }
 
@@ -58,54 +60,114 @@ function normalizeCell(raw) {
   return { pick: '', status: 'pending' };
 }
 
+function weekNumber(weekId) {
+  return Number(weekId.slice(4));
+}
+
+function saveCellToBackend(weekId, teamId, patch) {
+  return api.put(`/api/bets/${weekNumber(weekId)}/${teamId}`, patch);
+}
+
 function BetsPage() {
   const navigate = useNavigate();
   const [expanded, setExpanded] = useState(() =>
     Object.fromEntries(WEEKS.map((weekId) => [weekId, false]))
   );
-  const [entries, setEntries] = useState(loadEntries);
+  const [entries, setEntries] = useState(loadLocalEntries);
+  const [loadError, setLoadError] = useState(null);
+  const pickSaveTimers = useRef({});
 
-  const handleAccordionChange = (weekId) => (_event, isExpanded) => {
-    setExpanded((prev) => ({ ...prev, [weekId]: isExpanded }));
+  // Backend is the source of truth once it answers. Anything that only
+  // exists in this browser's localStorage (from before the backend existed)
+  // gets pushed up once so it isn't silently lost.
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const { data } = await api.get('/api/bets');
+        if (cancelled) return;
+        let backendEntries = data.entries || {};
+
+        const local = loadLocalEntries();
+        const migrations = [];
+        for (const weekId of Object.keys(local)) {
+          for (const teamId of Object.keys(local[weekId] || {})) {
+            if (backendEntries[weekId]?.[teamId]) continue; // backend already has this cell
+            const cell = normalizeCell(local[weekId][teamId]);
+            if (!cell.pick && cell.status === 'pending') continue; // nothing worth migrating
+            migrations.push(saveCellToBackend(weekId, teamId, cell));
+            backendEntries = {
+              ...backendEntries,
+              [weekId]: { ...backendEntries[weekId], [teamId]: cell },
+            };
+          }
+        }
+        if (migrations.length) await Promise.allSettled(migrations);
+        if (cancelled) return;
+
+        setEntries(backendEntries);
+        persistLocalEntries(backendEntries);
+        setLoadError(null);
+      } catch (err) {
+        console.error('Failed to load bet entries from backend', err);
+        if (!cancelled) {
+          setLoadError('Could not reach the server — showing picks saved on this device only.');
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const updateCell = (weekId, teamId, patch) => {
+    setEntries((prev) => {
+      const cell = normalizeCell(prev[weekId]?.[teamId]);
+      const next = {
+        ...prev,
+        [weekId]: { ...prev[weekId], [teamId]: { ...cell, ...patch } },
+      };
+      persistLocalEntries(next);
+      return next;
+    });
   };
 
   const handlePickChange = (weekId, teamId) => (event) => {
     const value = event.target.value;
-    setEntries((prev) => {
-      const cell = normalizeCell(prev[weekId]?.[teamId]);
-      const next = {
-        ...prev,
-        [weekId]: { ...prev[weekId], [teamId]: { ...cell, pick: value } },
-      };
-      persistEntries(next);
-      return next;
-    });
+    updateCell(weekId, teamId, { pick: value });
+
+    const key = `${weekId}:${teamId}`;
+    clearTimeout(pickSaveTimers.current[key]);
+    pickSaveTimers.current[key] = setTimeout(() => {
+      saveCellToBackend(weekId, teamId, { pick: value }).catch((err) =>
+        console.error('Failed to save pick', weekId, teamId, err)
+      );
+    }, SAVE_DEBOUNCE_MS);
   };
 
   const handleStatusCycle = (weekId, teamId) => () => {
-    setEntries((prev) => {
-      const cell = normalizeCell(prev[weekId]?.[teamId]);
-      const nextStatus = STATUS_CYCLE[(STATUS_CYCLE.indexOf(cell.status) + 1) % STATUS_CYCLE.length];
-      const next = {
-        ...prev,
-        [weekId]: { ...prev[weekId], [teamId]: { ...cell, status: nextStatus } },
-      };
-      persistEntries(next);
-      return next;
-    });
+    const cell = normalizeCell(entries[weekId]?.[teamId]);
+    const nextStatus = STATUS_CYCLE[(STATUS_CYCLE.indexOf(cell.status) + 1) % STATUS_CYCLE.length];
+    updateCell(weekId, teamId, { status: nextStatus });
+    saveCellToBackend(weekId, teamId, { status: nextStatus }).catch((err) =>
+      console.error('Failed to save status', weekId, teamId, err)
+    );
   };
 
   return (
     <div className="bets-page">
       <button className="bets-back-btn" onClick={() => navigate('/')}>← Back</button>
       <h1 className="bets-heading">Bets</h1>
+      {loadError && <p className="bets-load-error">{loadError}</p>}
 
       <div className="bets-accordions">
         {WEEKS.map((weekId, weekIdx) => (
           <Accordion
             key={weekId}
             expanded={!!expanded[weekId]}
-            onChange={handleAccordionChange(weekId)}
+            onChange={(_event, isExpanded) => setExpanded((prev) => ({ ...prev, [weekId]: isExpanded }))}
             disableGutters
             sx={{
               bgcolor: '#111122',
