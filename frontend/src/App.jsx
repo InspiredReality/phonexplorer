@@ -11,6 +11,7 @@ import OrgLevels  from './pages/OrgLevels'
 import NeedlePage from './pages/NeedlePage'
 import DripPage from './pages/DripPage'
 import ConfigTest from './pages/ConfigTest'
+import BetsPage from './pages/BetsPage'
 
 // Assign/Needle now size to their parent (100%) so they can be embedded
 // (e.g. inside the Config Test accordions) — give them a full-viewport
@@ -33,6 +34,7 @@ function App() {
         <Route path="/needle" element={<div style={fullViewport}><NeedlePage /></div>} />
         <Route path="/drip" element={<div style={fullViewport}><DripPage /></div>} />
         <Route path="/config-test" element={<ConfigTest />} />
+        <Route path="/bets" element={<BetsPage />} />
       </Routes>
     </Router>
   );

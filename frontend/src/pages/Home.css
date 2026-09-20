@@ -118,3 +118,13 @@
   background: #f97316;
   color: #ffffff;
 }
+
+.home-btn--bets {
+  border-color: #facc15;
+  color: #facc15;
+}
+
+.home-btn--bets:hover {
+  background: #facc15;
+  color: #0a0a0a;
+}
