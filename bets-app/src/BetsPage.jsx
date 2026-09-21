@@ -209,15 +209,17 @@ export default function BetsPage() {
                         />
                       </td>
                       <td className="bets-table-status-cell">
-                        <button
-                          type="button"
-                          className={`bets-status-btn ${status.className}`}
-                          onClick={handleStatusCycle(weekId, team.id)}
-                          title={`${status.label} — click to change`}
-                          aria-label={`${team.name} status: ${status.label}. Click to change.`}
-                        >
-                          {status.symbol}
-                        </button>
+                        {cell.pick.trim() && (
+                          <button
+                            type="button"
+                            className={`bets-status-btn ${status.className}`}
+                            onClick={handleStatusCycle(weekId, team.id)}
+                            title={`${status.label} — click to change`}
+                            aria-label={`${team.name} status: ${status.label}. Click to change.`}
+                          >
+                            {status.symbol}
+                          </button>
+                        )}
                       </td>
                     </tr>
                   );
