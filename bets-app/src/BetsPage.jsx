@@ -170,7 +170,7 @@ export default function BetsPage() {
 
   return (
     <div className="bets-page">
-      <h1 className="bets-heading">Bets</h1>
+      <h1 className="bets-heading">Chuggler Bets</h1>
       {loadError && <p className="bets-load-error">{loadError}</p>}
 
       <div className="bets-accordions">
