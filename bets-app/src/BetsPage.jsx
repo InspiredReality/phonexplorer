@@ -174,12 +174,14 @@ export default function BetsPage() {
     );
   };
 
-  // Tallied across every week with data, not just the currently-visible
-  // ones — a future week simply has nothing to count yet.
+  // Only tally weeks that are actually visible right now. Weeks beyond
+  // activeWeek may still hold leftover data (e.g. from before week
+  // visibility was restricted) that shouldn't count toward a season total
+  // no one can currently see or edit.
   const standings = TEAMS.map((team) => {
     let wins = 0;
     let submissions = 0;
-    for (const weekId of WEEKS) {
+    for (const weekId of WEEKS.slice(0, activeWeek)) {
       const cell = normalizeCell(entries[weekId]?.[team.id]);
       if (cell.pick.trim()) submissions += 1;
       if (cell.status === 'won') wins += 1;
