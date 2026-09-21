@@ -183,8 +183,12 @@ export default function BetsPage() {
     let submissions = 0;
     for (const weekId of WEEKS.slice(0, activeWeek)) {
       const cell = normalizeCell(entries[weekId]?.[team.id]);
-      if (cell.pick.trim()) submissions += 1;
-      if (cell.status === 'won') wins += 1;
+      const hasPick = !!cell.pick.trim();
+      if (hasPick) submissions += 1;
+      // Require a visible pick too — clearing the pick text intentionally
+      // keeps the underlying status (see handlePickChange), so without this
+      // a cleared-out week could still count as a "win" with nothing to show for it.
+      if (hasPick && cell.status === 'won') wins += 1;
     }
     return { ...team, wins, submissions };
   });
