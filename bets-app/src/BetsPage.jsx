@@ -86,6 +86,10 @@ export default function BetsPage() {
     Object.fromEntries(WEEKS.map((weekId) => [weekId, false]))
   );
   const [entries, setEntries] = useState(loadLocalEntries);
+  const [locks, setLocks] = useState({});
+  // Default to only Week 1 visible until the real value loads, so a future
+  // week never flashes on screen even briefly.
+  const [activeWeek, setActiveWeek] = useState(1);
   const [loadError, setLoadError] = useState(null);
   const pickSaveTimers = useRef({});
 
@@ -119,6 +123,8 @@ export default function BetsPage() {
         if (cancelled) return;
 
         setEntries(backendEntries);
+        setLocks(data.locks || {});
+        setActiveWeek(data.season?.active_week ?? 1);
         persistLocalEntries(backendEntries);
         setLoadError(null);
       } catch (err) {
@@ -170,64 +176,69 @@ export default function BetsPage() {
 
   return (
     <div className="bets-page">
-      <h1 className="bets-heading">Bets</h1>
+      <h1 className="bets-heading">Chuggler Bets</h1>
       {loadError && <p className="bets-load-error">{loadError}</p>}
 
       <div className="bets-accordions">
-        {WEEKS.map((weekId, weekIdx) => (
-          <WeekAccordion
-            key={weekId}
-            label={`Week ${weekIdx + 1}`}
-            expanded={!!expanded[weekId]}
-            onToggle={() => setExpanded((prev) => ({ ...prev, [weekId]: !prev[weekId] }))}
-          >
-            <table className="bets-table">
-              <tbody>
-                {TEAMS.map((team) => {
-                  const cell = normalizeCell(entries[weekId]?.[team.id]);
-                  const status = STATUS_CONFIG[cell.status];
-                  return (
-                    <tr key={team.id}>
-                      <td className="bets-table-label">
-                        <img
-                          className="bets-team-logo"
-                          src={team.logo}
-                          alt=""
-                          width={32}
-                          height={32}
-                          loading="lazy"
-                        />
-                        <span>{team.name}</span>
-                      </td>
-                      <td className="bets-table-input-cell">
-                        <input
-                          type="text"
-                          className="bets-table-input"
-                          value={cell.pick}
-                          onChange={handlePickChange(weekId, team.id)}
-                          placeholder="Enter pick..."
-                        />
-                      </td>
-                      <td className="bets-table-status-cell">
-                        {cell.pick.trim() && (
-                          <button
-                            type="button"
-                            className={`bets-status-btn ${status.className}`}
-                            onClick={handleStatusCycle(weekId, team.id)}
-                            title={`${status.label} — click to change`}
-                            aria-label={`${team.name} status: ${status.label}. Click to change.`}
-                          >
-                            {status.symbol}
-                          </button>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </WeekAccordion>
-        ))}
+        {WEEKS.slice(0, activeWeek).map((weekId, weekIdx) => {
+          const locked = !!locks[weekId];
+          return (
+            <WeekAccordion
+              key={weekId}
+              label={`Week ${weekIdx + 1}${locked ? ' 🔒' : ''}`}
+              expanded={!!expanded[weekId]}
+              onToggle={() => setExpanded((prev) => ({ ...prev, [weekId]: !prev[weekId] }))}
+            >
+              <table className="bets-table">
+                <tbody>
+                  {TEAMS.map((team) => {
+                    const cell = normalizeCell(entries[weekId]?.[team.id]);
+                    const status = STATUS_CONFIG[cell.status];
+                    return (
+                      <tr key={team.id}>
+                        <td className="bets-table-label">
+                          <img
+                            className="bets-team-logo"
+                            src={team.logo}
+                            alt=""
+                            width={32}
+                            height={32}
+                            loading="lazy"
+                          />
+                          <span>{team.name}</span>
+                        </td>
+                        <td className="bets-table-input-cell">
+                          <input
+                            type="text"
+                            className="bets-table-input"
+                            value={cell.pick}
+                            onChange={handlePickChange(weekId, team.id)}
+                            placeholder="Enter pick..."
+                            disabled={locked}
+                          />
+                        </td>
+                        <td className="bets-table-status-cell">
+                          {cell.pick.trim() && (
+                            <button
+                              type="button"
+                              className={`bets-status-btn ${status.className}`}
+                              onClick={handleStatusCycle(weekId, team.id)}
+                              title={`${status.label}${locked ? ' (locked)' : ' — click to change'}`}
+                              aria-label={`${team.name} status: ${status.label}.${locked ? '' : ' Click to change.'}`}
+                              disabled={locked}
+                            >
+                              {status.symbol}
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </WeekAccordion>
+          );
+        })}
       </div>
     </div>
   );
