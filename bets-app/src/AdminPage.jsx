@@ -98,6 +98,24 @@ export default function AdminPage() {
     }
   };
 
+  const handleCleanup = async () => {
+    const confirmed = window.confirm(
+      'Delete every stale entry: empty picks with a leftover status, and anything sitting in a ' +
+        'week that isn\'t visible yet. This cannot be undone. Continue?'
+    );
+    if (!confirmed) return;
+
+    setStatus('Cleaning up…');
+    try {
+      const { data } = await api.post('/api/bets/cleanup', undefined, { headers: authHeader });
+      setStatus(`Deleted ${data.deleted} stale entr${data.deleted === 1 ? 'y' : 'ies'}.`);
+      loadData();
+    } catch (err) {
+      if (handle401(err)) return;
+      setStatus('Failed: ' + err.message);
+    }
+  };
+
   if (!token || authError) {
     return (
       <div className="admin-page">
@@ -168,6 +186,17 @@ export default function AdminPage() {
             );
           })}
         </div>
+      </section>
+
+      <section className="admin-section">
+        <h2>Data cleanup</h2>
+        <p className="admin-hint">
+          Removes entries that shouldn't count: an empty pick with a leftover won/loss status from
+          before it was cleared, and anything sitting in a week that isn't visible yet.
+        </p>
+        <button type="button" className="admin-cleanup-btn" onClick={handleCleanup}>
+          Clean up stale entries
+        </button>
       </section>
     </div>
   );

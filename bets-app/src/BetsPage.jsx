@@ -198,6 +198,7 @@ export default function BetsPage() {
       <h1 className="bets-heading">Chuggler Bets</h1>
       {loadError && <p className="bets-load-error">{loadError}</p>}
 
+      <h2 className="bets-section-heading">Low Score Parlays</h2>
       <div className="bets-accordions">
         {WEEKS.slice(0, activeWeek).map((weekId, weekIdx) => {
           const locked = !!locks[weekId];
@@ -220,8 +221,8 @@ export default function BetsPage() {
                             className="bets-team-logo"
                             src={team.logo}
                             alt=""
-                            width={32}
-                            height={32}
+                            width={48}
+                            height={48}
                             loading="lazy"
                           />
                           <span>{team.name}</span>
@@ -261,7 +262,7 @@ export default function BetsPage() {
       </div>
 
       <div className="bets-standings">
-        <h2 className="bets-standings-heading">Standings</h2>
+        <h2 className="bets-section-heading">Season Contributions</h2>
         <table className="bets-standings-table">
           <thead>
             <tr>
@@ -278,8 +279,8 @@ export default function BetsPage() {
                     className="bets-team-logo"
                     src={team.logo}
                     alt=""
-                    width={28}
-                    height={28}
+                    width={48}
+                    height={48}
                     loading="lazy"
                   />
                   <span>{team.name}</span>

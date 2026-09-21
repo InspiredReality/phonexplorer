@@ -102,8 +102,8 @@
 
 .bets-team-logo {
   flex-shrink: 0;
-  width: 32px;
-  height: 32px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
   object-fit: cover;
   background: rgba(255, 255, 255, 0.06);
@@ -200,13 +200,14 @@
   margin: 28px auto 0;
 }
 
-.bets-standings-heading {
+.bets-section-heading {
+  max-width: 960px;
+  margin: 0 auto 10px;
   color: #ffffff;
   font-size: 0.95rem;
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
-  margin: 0 0 10px;
 }
 
 .bets-standings-table {
@@ -272,8 +273,8 @@
   }
 
   .bets-team-logo {
-    width: 24px;
-    height: 24px;
+    width: 36px;
+    height: 36px;
   }
 
   .bets-table-input-cell {
