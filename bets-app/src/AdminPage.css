@@ -1,0 +1,147 @@
+.admin-page {
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: #0a0a0a;
+  padding: 24px;
+  box-sizing: border-box;
+  font-family: sans-serif;
+  color: #ffffff;
+  max-width: 640px;
+  margin: 0 auto;
+}
+
+.admin-heading {
+  font-size: 1.4rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-align: center;
+  margin: 16px 0 24px;
+}
+
+.admin-token-form {
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+}
+
+.admin-token-form input {
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  color: #ffffff;
+  font-size: 0.9rem;
+}
+
+.admin-token-form button {
+  padding: 10px 18px;
+  background: transparent;
+  color: #facc15;
+  border: 2px solid #facc15;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.admin-token-form button:hover {
+  background: #facc15;
+  color: #0a0a0a;
+}
+
+.admin-error {
+  color: #fca5a5;
+  text-align: center;
+  margin-top: 12px;
+  font-size: 0.85rem;
+}
+
+.admin-status {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.85rem;
+  margin-bottom: 16px;
+}
+
+.admin-section {
+  background: #111122;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 8px;
+  padding: 18px;
+  margin-bottom: 18px;
+}
+
+.admin-section h2 {
+  margin: 0 0 12px;
+  font-size: 0.95rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.admin-field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  font-size: 0.82rem;
+  color: rgba(255, 255, 255, 0.7);
+  margin-bottom: 12px;
+}
+
+.admin-field input {
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  color: #ffffff;
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+
+.admin-field input:focus {
+  outline: none;
+  border-color: #facc15;
+}
+
+.admin-save-btn {
+  padding: 10px 18px;
+  background: transparent;
+  color: #22c55e;
+  border: 2px solid #22c55e;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.admin-save-btn:hover {
+  background: #22c55e;
+  color: #0a0a0a;
+}
+
+.admin-hint {
+  font-size: 0.78rem;
+  color: rgba(255, 255, 255, 0.5);
+  margin: 8px 0 0;
+}
+
+.admin-lock-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+  gap: 8px;
+  margin-top: 12px;
+}
+
+.admin-lock-btn {
+  padding: 10px 8px;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 0.82rem;
+}
+
+.admin-lock-btn.is-locked {
+  border-color: #ef4444;
+  color: #fca5a5;
+  background: rgba(239, 68, 68, 0.1);
+}

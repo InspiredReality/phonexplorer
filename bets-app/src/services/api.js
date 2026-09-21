@@ -6,6 +6,7 @@ async function request(path, options = {}) {
     let detail = res.statusText;
     try { detail = (await res.json()).detail || detail; } catch {}
     const err = new Error(detail);
+    err.status = res.status;
     err.response = { data: { detail } };
     throw err;
   }
@@ -14,10 +15,10 @@ async function request(path, options = {}) {
 
 const api = {
   get: (path) => request(path),
-  put: (path, body) =>
+  put: (path, body, opts = {}) =>
     request(path, {
       method: 'PUT',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', ...opts.headers },
       body: JSON.stringify(body),
     }),
 };
