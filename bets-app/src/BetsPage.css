@@ -102,8 +102,8 @@
 
 .bets-team-logo {
   flex-shrink: 0;
-  width: 32px;
-  height: 32px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
   object-fit: cover;
   background: rgba(255, 255, 255, 0.06);
@@ -195,9 +195,74 @@
   background: rgba(239, 68, 68, 0.15);
 }
 
+.bets-standings {
+  max-width: 960px;
+  margin: 28px auto 0;
+}
+
+.bets-section-heading {
+  max-width: 960px;
+  margin: 0 auto 10px;
+  color: #ffffff;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.bets-standings-table {
+  width: 100%;
+  border-collapse: collapse;
+  background: #111122;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
+.bets-standings-table th {
+  text-align: left;
+  padding: 10px 12px;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.bets-standings-table th:not(.bets-standings-team-header),
+.bets-standings-table td:not(.bets-standings-team) {
+  text-align: center;
+  width: 96px;
+}
+
+.bets-standings-table td {
+  padding: 8px 12px;
+  font-size: 0.85rem;
+}
+
+.bets-standings-table tr:not(:last-child) td {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.bets-standings-team {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
 @media (max-width: 640px) {
   .bets-page {
     padding: 16px;
+  }
+
+  .bets-standings-table th,
+  .bets-standings-table td {
+    padding: 8px 6px;
+    font-size: 0.72rem;
+  }
+
+  .bets-standings-table th:not(.bets-standings-team-header),
+  .bets-standings-table td:not(.bets-standings-team) {
+    width: 64px;
   }
 
   .bets-table-label {
@@ -208,8 +273,8 @@
   }
 
   .bets-team-logo {
-    width: 24px;
-    height: 24px;
+    width: 36px;
+    height: 36px;
   }
 
   .bets-table-input-cell {

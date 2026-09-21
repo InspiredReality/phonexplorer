@@ -3,7 +3,7 @@ from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, Header, HTTPException
 from pydantic import BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import delete, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
@@ -106,6 +106,26 @@ async def update_season_config(
     await db.commit()
     await db.refresh(cfg)
     return _season_dict(cfg)
+
+
+@router.post("/cleanup")
+async def cleanup_stale_entries(db: AsyncSession = Depends(get_db), _: None = Depends(_require_admin)):
+    """Delete entries that are stale by construction: an empty pick with a
+    leftover status from before the pick was cleared (see BetsPage.jsx's
+    handlePickChange, which never touches status), and anything sitting in a
+    week that isn't visible yet. Both are otherwise invisible in the UI but
+    were still being counted in the standings."""
+    cfg = await _get_or_create_season_config(db)
+    today = datetime.now(EASTERN).date()
+    active_week = _compute_active_week(cfg.season_start, cfg.forced_active_week, today)
+
+    result = await db.execute(
+        delete(BetEntry).where(
+            or_(BetEntry.pick == "", BetEntry.pick.is_(None), BetEntry.week > active_week)
+        )
+    )
+    await db.commit()
+    return {"deleted": result.rowcount, "active_week": active_week}
 
 
 @router.put("/{week}/lock")

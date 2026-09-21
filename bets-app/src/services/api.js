@@ -21,6 +21,12 @@ const api = {
       headers: { 'Content-Type': 'application/json', ...opts.headers },
       body: JSON.stringify(body),
     }),
+  post: (path, body, opts = {}) =>
+    request(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...opts.headers },
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    }),
 };
 
 export default api;

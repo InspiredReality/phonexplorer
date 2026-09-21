@@ -174,11 +174,31 @@ export default function BetsPage() {
     );
   };
 
+  // Only tally weeks that are actually visible right now. Weeks beyond
+  // activeWeek may still hold leftover data (e.g. from before week
+  // visibility was restricted) that shouldn't count toward a season total
+  // no one can currently see or edit.
+  const standings = TEAMS.map((team) => {
+    let wins = 0;
+    let submissions = 0;
+    for (const weekId of WEEKS.slice(0, activeWeek)) {
+      const cell = normalizeCell(entries[weekId]?.[team.id]);
+      const hasPick = !!cell.pick.trim();
+      if (hasPick) submissions += 1;
+      // Require a visible pick too — clearing the pick text intentionally
+      // keeps the underlying status (see handlePickChange), so without this
+      // a cleared-out week could still count as a "win" with nothing to show for it.
+      if (hasPick && cell.status === 'won') wins += 1;
+    }
+    return { ...team, wins, submissions };
+  });
+
   return (
     <div className="bets-page">
       <h1 className="bets-heading">Chuggler Bets</h1>
       {loadError && <p className="bets-load-error">{loadError}</p>}
 
+      <h2 className="bets-section-heading">Low Score Parlays</h2>
       <div className="bets-accordions">
         {WEEKS.slice(0, activeWeek).map((weekId, weekIdx) => {
           const locked = !!locks[weekId];
@@ -201,8 +221,8 @@ export default function BetsPage() {
                             className="bets-team-logo"
                             src={team.logo}
                             alt=""
-                            width={32}
-                            height={32}
+                            width={48}
+                            height={48}
                             loading="lazy"
                           />
                           <span>{team.name}</span>
@@ -239,6 +259,38 @@ export default function BetsPage() {
             </WeekAccordion>
           );
         })}
+      </div>
+
+      <div className="bets-standings">
+        <h2 className="bets-section-heading">Season Contributions</h2>
+        <table className="bets-standings-table">
+          <thead>
+            <tr>
+              <th className="bets-standings-team-header">Team</th>
+              <th>Wins</th>
+              <th>Submissions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {standings.map((team) => (
+              <tr key={team.id}>
+                <td className="bets-standings-team">
+                  <img
+                    className="bets-team-logo"
+                    src={team.logo}
+                    alt=""
+                    width={48}
+                    height={48}
+                    loading="lazy"
+                  />
+                  <span>{team.name}</span>
+                </td>
+                <td>{team.wins}</td>
+                <td>{team.submissions}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
