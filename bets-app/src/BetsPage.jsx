@@ -174,6 +174,19 @@ export default function BetsPage() {
     );
   };
 
+  // Tallied across every week with data, not just the currently-visible
+  // ones — a future week simply has nothing to count yet.
+  const standings = TEAMS.map((team) => {
+    let wins = 0;
+    let submissions = 0;
+    for (const weekId of WEEKS) {
+      const cell = normalizeCell(entries[weekId]?.[team.id]);
+      if (cell.pick.trim()) submissions += 1;
+      if (cell.status === 'won') wins += 1;
+    }
+    return { ...team, wins, submissions };
+  });
+
   return (
     <div className="bets-page">
       <h1 className="bets-heading">Chuggler Bets</h1>
@@ -239,6 +252,38 @@ export default function BetsPage() {
             </WeekAccordion>
           );
         })}
+      </div>
+
+      <div className="bets-standings">
+        <h2 className="bets-standings-heading">Standings</h2>
+        <table className="bets-standings-table">
+          <thead>
+            <tr>
+              <th className="bets-standings-team-header">Team</th>
+              <th>Wins</th>
+              <th>Submissions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {standings.map((team) => (
+              <tr key={team.id}>
+                <td className="bets-standings-team">
+                  <img
+                    className="bets-team-logo"
+                    src={team.logo}
+                    alt=""
+                    width={28}
+                    height={28}
+                    loading="lazy"
+                  />
+                  <span>{team.name}</span>
+                </td>
+                <td>{team.wins}</td>
+                <td>{team.submissions}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       </div>
     </div>
   );
