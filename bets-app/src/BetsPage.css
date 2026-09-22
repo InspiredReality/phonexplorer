@@ -48,7 +48,6 @@
   width: 100%;
   display: flex;
   align-items: center;
-  justify-content: space-between;
   padding: 12px 16px;
   background: transparent;
   border: none;
@@ -70,11 +69,29 @@
   color: #ffffff;
 }
 
+/* Pushed to the right edge of the header (ahead of the expand arrow) via
+   the auto margin below, regardless of whether it holds anything — that
+   keeps the arrow pinned to the far right even on weeks with no funder
+   or lock, same as the old space-between layout did. */
+.bets-summary-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  padding-left: 12px;
+}
+
+.bets-funder-caption {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
 .bets-funder-chip {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  margin-left: 10px;
   padding: 2px 10px 2px 4px;
   border-radius: 999px;
   background: rgba(250, 204, 21, 0.12);
@@ -83,8 +100,6 @@
   font-size: 0.72rem;
   font-weight: 600;
   letter-spacing: 0.03em;
-  text-transform: none;
-  vertical-align: middle;
 }
 
 .bets-funder-icon {
@@ -96,7 +111,12 @@
   background: rgba(255, 255, 255, 0.08);
 }
 
+.bets-lock-icon {
+  line-height: 1;
+}
+
 .bets-expand-icon {
+  margin-left: 12px;
   color: #ffffff;
   font-size: 1.1rem;
   line-height: 1;
@@ -324,8 +344,16 @@
     padding: 16px;
   }
 
+  .bets-summary-meta {
+    gap: 4px;
+    padding-left: 6px;
+  }
+
+  .bets-funder-caption {
+    font-size: 0.6rem;
+  }
+
   .bets-funder-chip {
-    margin-left: 6px;
     padding: 1px 8px 1px 3px;
     gap: 4px;
     font-size: 0.62rem;

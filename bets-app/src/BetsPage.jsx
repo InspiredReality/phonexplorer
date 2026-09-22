@@ -83,7 +83,7 @@ function saveFunderToBackend(weekId, teamId) {
   return api.put(`/api/bets/${weekNumber(weekId)}/funder`, { team_id: teamId });
 }
 
-function WeekAccordion({ label, expanded, onToggle, children }) {
+function WeekAccordion({ label, meta, expanded, onToggle, children }) {
   return (
     <div className="bets-accordion">
       <button
@@ -93,6 +93,7 @@ function WeekAccordion({ label, expanded, onToggle, children }) {
         aria-expanded={expanded}
       >
         <span className="bets-summary-label">{label}</span>
+        <span className="bets-summary-meta">{meta}</span>
         <span className="bets-expand-icon">{expanded ? '▲' : '▾'}</span>
       </button>
       {expanded && <div className="bets-accordion-details">{children}</div>}
@@ -252,16 +253,23 @@ export default function BetsPage() {
           return (
             <WeekAccordion
               key={weekId}
-              label={
+              label={`Week ${weekIdx + 1} (${formatWeekRange(weekIdx + 1)})`}
+              meta={
                 <>
-                  {`Week ${weekIdx + 1} (${formatWeekRange(weekIdx + 1)})`}
                   {funder && (
-                    <span className="bets-funder-chip">
-                      <img className="bets-funder-icon" src={funder.logo} alt="" />
-                      {funder.name}
+                    <>
+                      <span className="bets-funder-caption">Funded by:</span>
+                      <span className="bets-funder-chip">
+                        <img className="bets-funder-icon" src={funder.logo} alt="" />
+                        {funder.name}
+                      </span>
+                    </>
+                  )}
+                  {locked && (
+                    <span className="bets-lock-icon" role="img" aria-label="Locked">
+                      🔒
                     </span>
                   )}
-                  {locked ? ' 🔒' : ''}
                 </>
               }
               expanded={!!expanded[weekId]}
