@@ -70,6 +70,32 @@
   color: #ffffff;
 }
 
+.bets-funder-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: 10px;
+  padding: 2px 10px 2px 4px;
+  border-radius: 999px;
+  background: rgba(250, 204, 21, 0.12);
+  border: 1px solid rgba(250, 204, 21, 0.35);
+  color: #facc15;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  text-transform: none;
+  vertical-align: middle;
+}
+
+.bets-funder-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  object-fit: cover;
+  background: rgba(255, 255, 255, 0.08);
+}
+
 .bets-expand-icon {
   color: #ffffff;
   font-size: 1.1rem;
@@ -98,6 +124,11 @@
   display: flex;
   align-items: center;
   gap: 8px;
+}
+
+.bets-table-label .bets-team-logo {
+  cursor: pointer;
+  user-select: none;
 }
 
 .bets-team-logo {
@@ -291,6 +322,18 @@
 @media (max-width: 640px) {
   .bets-page {
     padding: 16px;
+  }
+
+  .bets-funder-chip {
+    margin-left: 6px;
+    padding: 1px 8px 1px 3px;
+    gap: 4px;
+    font-size: 0.62rem;
+  }
+
+  .bets-funder-icon {
+    width: 16px;
+    height: 16px;
   }
 
   .bets-standings-table th,

@@ -79,6 +79,10 @@ function saveCellToBackend(weekId, teamId, patch) {
   return api.put(`/api/bets/${weekNumber(weekId)}/${teamId}`, patch);
 }
 
+function saveFunderToBackend(weekId, teamId) {
+  return api.put(`/api/bets/${weekNumber(weekId)}/funder`, { team_id: teamId });
+}
+
 function WeekAccordion({ label, expanded, onToggle, children }) {
   return (
     <div className="bets-accordion">
@@ -102,6 +106,7 @@ export default function BetsPage() {
   );
   const [entries, setEntries] = useState(loadLocalEntries);
   const [locks, setLocks] = useState({});
+  const [funders, setFunders] = useState({});
   // Default to only Week 1 visible until the real value loads, so a future
   // week never flashes on screen even briefly.
   const [activeWeek, setActiveWeek] = useState(1);
@@ -139,6 +144,7 @@ export default function BetsPage() {
 
         setEntries(backendEntries);
         setLocks(data.locks || {});
+        setFunders(data.funders || {});
         setActiveWeek(data.season?.active_week ?? 1);
         persistLocalEntries(backendEntries);
         setLoadError(null);
@@ -189,6 +195,19 @@ export default function BetsPage() {
     );
   };
 
+  // Triple-clicking a team's icon in a week's picks table marks them as the
+  // funder for that week's parlay; triple-clicking the current funder again
+  // clears it. event.detail is the browser's own click-count, so this rides
+  // on native multi-click detection instead of hand-rolled timers.
+  const handleFunderClick = (weekId, teamId) => (event) => {
+    if (event.detail !== 3 || locks[weekId]) return;
+    const nextTeamId = funders[weekId] === teamId ? null : teamId;
+    setFunders((prev) => ({ ...prev, [weekId]: nextTeamId }));
+    saveFunderToBackend(weekId, nextTeamId).catch((err) =>
+      console.error('Failed to save funder', weekId, teamId, err)
+    );
+  };
+
   // Only tally weeks that are actually visible right now. Weeks beyond
   // activeWeek may still hold leftover data (e.g. from before week
   // visibility was restricted) that shouldn't count toward a season total
@@ -229,10 +248,22 @@ export default function BetsPage() {
       <div className="bets-accordions">
         {WEEKS.slice(0, activeWeek).map((weekId, weekIdx) => {
           const locked = !!locks[weekId];
+          const funder = TEAMS.find((team) => team.id === funders[weekId]);
           return (
             <WeekAccordion
               key={weekId}
-              label={`Week ${weekIdx + 1} (${formatWeekRange(weekIdx + 1)})${locked ? ' 🔒' : ''}`}
+              label={
+                <>
+                  {`Week ${weekIdx + 1} (${formatWeekRange(weekIdx + 1)})`}
+                  {funder && (
+                    <span className="bets-funder-chip">
+                      <img className="bets-funder-icon" src={funder.logo} alt="" />
+                      {funder.name}
+                    </span>
+                  )}
+                  {locked ? ' 🔒' : ''}
+                </>
+              }
               expanded={!!expanded[weekId]}
               onToggle={() => setExpanded((prev) => ({ ...prev, [weekId]: !prev[weekId] }))}
             >
@@ -251,6 +282,12 @@ export default function BetsPage() {
                             width={48}
                             height={48}
                             loading="lazy"
+                            onClick={handleFunderClick(weekId, team.id)}
+                            title={
+                              locked
+                                ? undefined
+                                : 'Triple-click to set as this week’s parlay funder'
+                            }
                           />
                           <span>{team.name}</span>
                         </td>
