@@ -258,7 +258,7 @@ export default function BetsPage() {
                 <>
                   {funder && (
                     <>
-                      <span className="bets-funder-caption">Funded by:</span>
+                      <span className="bets-funder-caption">funded by:</span>
                       <span className="bets-funder-chip">
                         <img className="bets-funder-icon" src={funder.logo} alt="" />
                         {funder.name}
