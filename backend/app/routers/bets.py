@@ -43,6 +43,10 @@ class WeekLockUpdate(BaseModel):
     locked: bool
 
 
+class WeekFunderUpdate(BaseModel):
+    team_id: str | None = None
+
+
 def _entry_dict(entry: BetEntry) -> dict:
     return {"pick": entry.pick or "", "status": entry.status or "pending"}
 
@@ -84,12 +88,13 @@ async def list_bet_entries(db: AsyncSession = Depends(get_db)):
     for row in rows.scalars().all():
         entries.setdefault(f"week{row.week}", {})[row.team_id] = _entry_dict(row)
 
-    lock_rows = await db.execute(select(BetWeekLock))
-    locks = {f"week{row.week}": row.locked for row in lock_rows.scalars().all()}
+    lock_rows = (await db.execute(select(BetWeekLock))).scalars().all()
+    locks = {f"week{row.week}": row.locked for row in lock_rows}
+    funders = {f"week{row.week}": row.funder_team_id for row in lock_rows if row.funder_team_id}
 
     cfg = await _get_or_create_season_config(db)
 
-    return {"entries": entries, "locks": locks, "season": _season_dict(cfg)}
+    return {"entries": entries, "locks": locks, "funders": funders, "season": _season_dict(cfg)}
 
 
 @router.put("/season")
@@ -140,6 +145,26 @@ async def set_week_lock(
         lock.locked = body.locked
     await db.commit()
     return {"week": week, "locked": body.locked}
+
+
+@router.put("/{week}/funder")
+async def set_week_funder(week: int, body: WeekFunderUpdate, db: AsyncSession = Depends(get_db)):
+    """Set (or clear) which team is on the hook to fund that week's parlay.
+
+    Not admin-gated — any player can triple-click a team's icon to set it,
+    same as picks. It locks along with everything else once the week does.
+    """
+    lock = await db.get(BetWeekLock, week)
+    if lock and lock.locked:
+        raise HTTPException(status_code=423, detail="This week is locked and can no longer be edited")
+
+    if not lock:
+        lock = BetWeekLock(week=week, locked=False, funder_team_id=body.team_id)
+        db.add(lock)
+    else:
+        lock.funder_team_id = body.team_id
+    await db.commit()
+    return {"week": week, "team_id": body.team_id}
 
 
 @router.put("/{week}/{team_id}")

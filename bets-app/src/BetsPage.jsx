@@ -23,6 +23,21 @@ const TEAMS = [
 
 const WEEKS = Array.from({ length: WEEK_COUNT }, (_, i) => `week${i + 1}`);
 
+// Week 1 runs Sep 8-14; every later week just shifts by 7 days from there.
+const WEEK1_START_UTC = Date.UTC(2025, 8, 8);
+
+function formatWeekRange(weekNum) {
+  const start = new Date(WEEK1_START_UTC + (weekNum - 1) * 7 * 86400000);
+  const end = new Date(start.getTime() + 6 * 86400000);
+  const startMonth = start.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' });
+  const endMonth = end.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' });
+  const startDay = start.getUTCDate();
+  const endDay = end.getUTCDate();
+  return startMonth === endMonth
+    ? `${startMonth} ${startDay} - ${endDay}`
+    : `${startMonth} ${startDay} - ${endMonth} ${endDay}`;
+}
+
 const STATUS_CYCLE = ['pending', 'won', 'loss'];
 const STATUS_CONFIG = {
   pending: { symbol: '?', label: 'Pending', className: 'bets-status--pending' },
@@ -64,7 +79,11 @@ function saveCellToBackend(weekId, teamId, patch) {
   return api.put(`/api/bets/${weekNumber(weekId)}/${teamId}`, patch);
 }
 
-function WeekAccordion({ label, expanded, onToggle, children }) {
+function saveFunderToBackend(weekId, teamId) {
+  return api.put(`/api/bets/${weekNumber(weekId)}/funder`, { team_id: teamId });
+}
+
+function WeekAccordion({ label, meta, expanded, onToggle, children }) {
   return (
     <div className="bets-accordion">
       <button
@@ -74,6 +93,7 @@ function WeekAccordion({ label, expanded, onToggle, children }) {
         aria-expanded={expanded}
       >
         <span className="bets-summary-label">{label}</span>
+        <span className="bets-summary-meta">{meta}</span>
         <span className="bets-expand-icon">{expanded ? '▲' : '▾'}</span>
       </button>
       {expanded && <div className="bets-accordion-details">{children}</div>}
@@ -87,6 +107,7 @@ export default function BetsPage() {
   );
   const [entries, setEntries] = useState(loadLocalEntries);
   const [locks, setLocks] = useState({});
+  const [funders, setFunders] = useState({});
   // Default to only Week 1 visible until the real value loads, so a future
   // week never flashes on screen even briefly.
   const [activeWeek, setActiveWeek] = useState(1);
@@ -124,6 +145,7 @@ export default function BetsPage() {
 
         setEntries(backendEntries);
         setLocks(data.locks || {});
+        setFunders(data.funders || {});
         setActiveWeek(data.season?.active_week ?? 1);
         persistLocalEntries(backendEntries);
         setLoadError(null);
@@ -174,10 +196,25 @@ export default function BetsPage() {
     );
   };
 
+  // Triple-clicking a team's icon in a week's picks table marks them as the
+  // funder for that week's parlay; triple-clicking the current funder again
+  // clears it. event.detail is the browser's own click-count, so this rides
+  // on native multi-click detection instead of hand-rolled timers.
+  const handleFunderClick = (weekId, teamId) => (event) => {
+    if (event.detail !== 3 || locks[weekId]) return;
+    const nextTeamId = funders[weekId] === teamId ? null : teamId;
+    setFunders((prev) => ({ ...prev, [weekId]: nextTeamId }));
+    saveFunderToBackend(weekId, nextTeamId).catch((err) =>
+      console.error('Failed to save funder', weekId, teamId, err)
+    );
+  };
+
   // Only tally weeks that are actually visible right now. Weeks beyond
   // activeWeek may still hold leftover data (e.g. from before week
   // visibility was restricted) that shouldn't count toward a season total
   // no one can currently see or edit.
+  const visibleWeekIds = WEEKS.slice(0, activeWeek);
+
   const standings = TEAMS.map((team) => {
     let wins = 0;
     let submissions = 0;
@@ -190,7 +227,17 @@ export default function BetsPage() {
       // a cleared-out week could still count as a "win" with nothing to show for it.
       if (hasPick && cell.status === 'won') wins += 1;
     }
-    return { ...team, wins, submissions };
+
+    const weeklyResults = visibleWeekIds.map((weekId) => {
+      const cell = normalizeCell(entries[weekId]?.[team.id]);
+      const hasPick = !!cell.pick.trim();
+      // A cleared pick always reads as unsubmitted, even if a status
+      // happened to be set on it before — see the note above.
+      const status = hasPick ? cell.status : 'pending';
+      return { weekId, weekNum: weekNumber(weekId), ...STATUS_CONFIG[status] };
+    });
+
+    return { ...team, wins, submissions, weeklyResults };
   });
 
   return (
@@ -202,10 +249,29 @@ export default function BetsPage() {
       <div className="bets-accordions">
         {WEEKS.slice(0, activeWeek).map((weekId, weekIdx) => {
           const locked = !!locks[weekId];
+          const funder = TEAMS.find((team) => team.id === funders[weekId]);
           return (
             <WeekAccordion
               key={weekId}
-              label={`Week ${weekIdx + 1}${locked ? ' 🔒' : ''}`}
+              label={`Week ${weekIdx + 1} (${formatWeekRange(weekIdx + 1)})`}
+              meta={
+                <>
+                  {funder && (
+                    <>
+                      <span className="bets-funder-caption">Funded by:</span>
+                      <span className="bets-funder-chip">
+                        <img className="bets-funder-icon" src={funder.logo} alt="" />
+                        {funder.name}
+                      </span>
+                    </>
+                  )}
+                  {locked && (
+                    <span className="bets-lock-icon" role="img" aria-label="Locked">
+                      🔒
+                    </span>
+                  )}
+                </>
+              }
               expanded={!!expanded[weekId]}
               onToggle={() => setExpanded((prev) => ({ ...prev, [weekId]: !prev[weekId] }))}
             >
@@ -224,6 +290,12 @@ export default function BetsPage() {
                             width={48}
                             height={48}
                             loading="lazy"
+                            onClick={handleFunderClick(weekId, team.id)}
+                            title={
+                              locked
+                                ? undefined
+                                : 'Triple-click to set as this week’s parlay funder'
+                            }
                           />
                           <span>{team.name}</span>
                         </td>
@@ -267,8 +339,9 @@ export default function BetsPage() {
           <thead>
             <tr>
               <th className="bets-standings-team-header">Team</th>
-              <th>Wins</th>
-              <th>Submissions</th>
+              <th className="bets-standings-recent-col">Weekly Results</th>
+              <th className="bets-standings-num-col">Wins</th>
+              <th className="bets-standings-num-col">Submissions</th>
             </tr>
           </thead>
           <tbody>
@@ -285,8 +358,21 @@ export default function BetsPage() {
                   />
                   <span>{team.name}</span>
                 </td>
-                <td>{team.wins}</td>
-                <td>{team.submissions}</td>
+                <td className="bets-standings-recent-col">
+                  <div className="bets-standings-recent">
+                    {team.weeklyResults.map((week) => (
+                      <span
+                        key={week.weekId}
+                        className={`bets-recent-icon ${week.className}`}
+                        title={`Week ${week.weekNum}: ${week.label}`}
+                      >
+                        {week.symbol}
+                      </span>
+                    ))}
+                  </div>
+                </td>
+                <td className="bets-standings-num-col">{team.wins}</td>
+                <td className="bets-standings-num-col">{team.submissions}</td>
               </tr>
             ))}
           </tbody>
