@@ -23,6 +23,23 @@ const TEAMS = [
 
 const WEEKS = Array.from({ length: WEEK_COUNT }, (_, i) => `week${i + 1}`);
 
+const RECENT_WEEKS_COUNT = 5;
+
+// Week 1 runs Sep 8-14; every later week just shifts by 7 days from there.
+const WEEK1_START_UTC = Date.UTC(2025, 8, 8);
+
+function formatWeekRange(weekNum) {
+  const start = new Date(WEEK1_START_UTC + (weekNum - 1) * 7 * 86400000);
+  const end = new Date(start.getTime() + 6 * 86400000);
+  const startMonth = start.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' });
+  const endMonth = end.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' });
+  const startDay = start.getUTCDate();
+  const endDay = end.getUTCDate();
+  return startMonth === endMonth
+    ? `${startMonth} ${startDay} - ${endDay}`
+    : `${startMonth} ${startDay} - ${endMonth} ${endDay}`;
+}
+
 const STATUS_CYCLE = ['pending', 'won', 'loss'];
 const STATUS_CONFIG = {
   pending: { symbol: '?', label: 'Pending', className: 'bets-status--pending' },
@@ -178,6 +195,8 @@ export default function BetsPage() {
   // activeWeek may still hold leftover data (e.g. from before week
   // visibility was restricted) that shouldn't count toward a season total
   // no one can currently see or edit.
+  const recentWeekIds = WEEKS.slice(Math.max(0, activeWeek - RECENT_WEEKS_COUNT), activeWeek);
+
   const standings = TEAMS.map((team) => {
     let wins = 0;
     let submissions = 0;
@@ -190,7 +209,17 @@ export default function BetsPage() {
       // a cleared-out week could still count as a "win" with nothing to show for it.
       if (hasPick && cell.status === 'won') wins += 1;
     }
-    return { ...team, wins, submissions };
+
+    const recentWeeks = recentWeekIds.map((weekId) => {
+      const cell = normalizeCell(entries[weekId]?.[team.id]);
+      const hasPick = !!cell.pick.trim();
+      // A cleared pick always reads as unsubmitted, even if a status
+      // happened to be set on it before — see the note above.
+      const status = hasPick ? cell.status : 'pending';
+      return { weekId, weekNum: weekNumber(weekId), ...STATUS_CONFIG[status] };
+    });
+
+    return { ...team, wins, submissions, recentWeeks };
   });
 
   return (
@@ -205,7 +234,7 @@ export default function BetsPage() {
           return (
             <WeekAccordion
               key={weekId}
-              label={`Week ${weekIdx + 1}${locked ? ' 🔒' : ''}`}
+              label={`Week ${weekIdx + 1} (${formatWeekRange(weekIdx + 1)})${locked ? ' 🔒' : ''}`}
               expanded={!!expanded[weekId]}
               onToggle={() => setExpanded((prev) => ({ ...prev, [weekId]: !prev[weekId] }))}
             >
@@ -267,6 +296,7 @@ export default function BetsPage() {
           <thead>
             <tr>
               <th className="bets-standings-team-header">Team</th>
+              <th className="bets-standings-recent-col">Last 5 Weeks</th>
               <th>Wins</th>
               <th>Submissions</th>
             </tr>
@@ -284,6 +314,19 @@ export default function BetsPage() {
                     loading="lazy"
                   />
                   <span>{team.name}</span>
+                </td>
+                <td className="bets-standings-recent-col">
+                  <div className="bets-standings-recent">
+                    {team.recentWeeks.map((week) => (
+                      <span
+                        key={week.weekId}
+                        className={`bets-recent-icon ${week.className}`}
+                        title={`Week ${week.weekNum}: ${week.label}`}
+                      >
+                        {week.symbol}
+                      </span>
+                    ))}
+                  </div>
                 </td>
                 <td>{team.wins}</td>
                 <td>{team.submissions}</td>

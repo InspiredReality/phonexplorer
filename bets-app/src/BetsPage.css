@@ -249,6 +249,31 @@
   gap: 8px;
 }
 
+.bets-standings-table th.bets-standings-recent-col,
+.bets-standings-table td.bets-standings-recent-col {
+  width: 150px;
+}
+
+.bets-standings-recent {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+}
+
+.bets-recent-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+  font-size: 0.62rem;
+  line-height: 1;
+}
+
 @media (max-width: 640px) {
   .bets-page {
     padding: 16px;
@@ -263,6 +288,21 @@
   .bets-standings-table th:not(.bets-standings-team-header),
   .bets-standings-table td:not(.bets-standings-team) {
     width: 64px;
+  }
+
+  .bets-standings-table th.bets-standings-recent-col,
+  .bets-standings-table td.bets-standings-recent-col {
+    width: 108px;
+  }
+
+  .bets-standings-recent {
+    gap: 2px;
+  }
+
+  .bets-recent-icon {
+    width: 16px;
+    height: 16px;
+    font-size: 0.52rem;
   }
 
   .bets-table-label {
