@@ -278,6 +278,10 @@
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.55);
   border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  /* A long single-word header (e.g. "Submissions") has nowhere to break on
+     a space, so without this it overflows past its fixed-width column
+     instead of wrapping to a second line. */
+  overflow-wrap: break-word;
 }
 
 .bets-standings-table th.bets-standings-num-col,

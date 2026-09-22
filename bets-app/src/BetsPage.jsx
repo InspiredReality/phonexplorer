@@ -341,7 +341,7 @@ export default function BetsPage() {
               <th className="bets-standings-team-header">Team</th>
               <th className="bets-standings-recent-col">Weekly Results</th>
               <th className="bets-standings-num-col">Wins</th>
-              <th className="bets-standings-num-col">Submissions</th>
+              <th className="bets-standings-num-col">Legs</th>
             </tr>
           </thead>
           <tbody>
