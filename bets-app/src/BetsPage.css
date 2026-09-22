@@ -212,6 +212,7 @@
 
 .bets-standings-table {
   width: 100%;
+  table-layout: fixed;
   border-collapse: collapse;
   background: #111122;
   border: 1px solid rgba(255, 255, 255, 0.12);
@@ -228,8 +229,8 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.12);
 }
 
-.bets-standings-table th:not(.bets-standings-team-header),
-.bets-standings-table td:not(.bets-standings-team) {
+.bets-standings-table th.bets-standings-num-col,
+.bets-standings-table td.bets-standings-num-col {
   text-align: center;
   width: 96px;
 }
@@ -247,18 +248,31 @@
   display: flex;
   align-items: center;
   gap: 8px;
+  overflow: hidden;
 }
 
+.bets-standings-team span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Fixed width so it can't force the table wider as more weeks fill in —
+   the icon row inside scrolls horizontally once it runs out of room.
+   The team column is the one left unspecified, so it absorbs whatever
+   space this and the two number columns don't use. */
 .bets-standings-table th.bets-standings-recent-col,
 .bets-standings-table td.bets-standings-recent-col {
-  width: 150px;
+  text-align: left;
+  width: 260px;
 }
 
 .bets-standings-recent {
   display: flex;
   align-items: center;
-  justify-content: center;
   gap: 4px;
+  overflow-x: auto;
+  padding-bottom: 2px;
 }
 
 .bets-recent-icon {
@@ -285,14 +299,14 @@
     font-size: 0.72rem;
   }
 
-  .bets-standings-table th:not(.bets-standings-team-header),
-  .bets-standings-table td:not(.bets-standings-team) {
-    width: 64px;
+  .bets-standings-table th.bets-standings-num-col,
+  .bets-standings-table td.bets-standings-num-col {
+    width: 56px;
   }
 
   .bets-standings-table th.bets-standings-recent-col,
   .bets-standings-table td.bets-standings-recent-col {
-    width: 108px;
+    width: 96px;
   }
 
   .bets-standings-recent {

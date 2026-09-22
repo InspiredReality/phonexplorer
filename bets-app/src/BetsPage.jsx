@@ -23,8 +23,6 @@ const TEAMS = [
 
 const WEEKS = Array.from({ length: WEEK_COUNT }, (_, i) => `week${i + 1}`);
 
-const RECENT_WEEKS_COUNT = 5;
-
 // Week 1 runs Sep 8-14; every later week just shifts by 7 days from there.
 const WEEK1_START_UTC = Date.UTC(2025, 8, 8);
 
@@ -195,7 +193,7 @@ export default function BetsPage() {
   // activeWeek may still hold leftover data (e.g. from before week
   // visibility was restricted) that shouldn't count toward a season total
   // no one can currently see or edit.
-  const recentWeekIds = WEEKS.slice(Math.max(0, activeWeek - RECENT_WEEKS_COUNT), activeWeek);
+  const visibleWeekIds = WEEKS.slice(0, activeWeek);
 
   const standings = TEAMS.map((team) => {
     let wins = 0;
@@ -210,7 +208,7 @@ export default function BetsPage() {
       if (hasPick && cell.status === 'won') wins += 1;
     }
 
-    const recentWeeks = recentWeekIds.map((weekId) => {
+    const weeklyResults = visibleWeekIds.map((weekId) => {
       const cell = normalizeCell(entries[weekId]?.[team.id]);
       const hasPick = !!cell.pick.trim();
       // A cleared pick always reads as unsubmitted, even if a status
@@ -219,7 +217,7 @@ export default function BetsPage() {
       return { weekId, weekNum: weekNumber(weekId), ...STATUS_CONFIG[status] };
     });
 
-    return { ...team, wins, submissions, recentWeeks };
+    return { ...team, wins, submissions, weeklyResults };
   });
 
   return (
@@ -296,9 +294,9 @@ export default function BetsPage() {
           <thead>
             <tr>
               <th className="bets-standings-team-header">Team</th>
-              <th className="bets-standings-recent-col">Last 5 Weeks</th>
-              <th>Wins</th>
-              <th>Submissions</th>
+              <th className="bets-standings-recent-col">Weekly Results</th>
+              <th className="bets-standings-num-col">Wins</th>
+              <th className="bets-standings-num-col">Submissions</th>
             </tr>
           </thead>
           <tbody>
@@ -317,7 +315,7 @@ export default function BetsPage() {
                 </td>
                 <td className="bets-standings-recent-col">
                   <div className="bets-standings-recent">
-                    {team.recentWeeks.map((week) => (
+                    {team.weeklyResults.map((week) => (
                       <span
                         key={week.weekId}
                         className={`bets-recent-icon ${week.className}`}
@@ -328,8 +326,8 @@ export default function BetsPage() {
                     ))}
                   </div>
                 </td>
-                <td>{team.wins}</td>
-                <td>{team.submissions}</td>
+                <td className="bets-standings-num-col">{team.wins}</td>
+                <td className="bets-standings-num-col">{team.submissions}</td>
               </tr>
             ))}
           </tbody>
