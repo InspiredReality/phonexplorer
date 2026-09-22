@@ -258,7 +258,7 @@ export default function BetsPage() {
                 <>
                   {funder && (
                     <>
-                      <span className="bets-funder-caption">Funded by:</span>
+                      <span className="bets-funder-caption">funded by:</span>
                       <span className="bets-funder-chip">
                         <img className="bets-funder-icon" src={funder.logo} alt="" />
                         {funder.name}
@@ -341,7 +341,7 @@ export default function BetsPage() {
               <th className="bets-standings-team-header">Team</th>
               <th className="bets-standings-recent-col">Weekly Results</th>
               <th className="bets-standings-num-col">Wins</th>
-              <th className="bets-standings-num-col">Submissions</th>
+              <th className="bets-standings-num-col">Legs</th>
             </tr>
           </thead>
           <tbody>
