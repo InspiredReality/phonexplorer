@@ -54,6 +54,7 @@
   cursor: pointer;
   font: inherit;
   color: inherit;
+  text-align: left;
   transition: background 0.2s;
 }
 
@@ -62,11 +63,20 @@
 }
 
 .bets-summary-label {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  text-align: left;
   font-size: 1rem;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: #ffffff;
+}
+
+.bets-week-label-main,
+.bets-week-label-dates {
+  text-align: left;
 }
 
 /* Pushed to the right edge of the header (ahead of the expand arrow) via
@@ -82,6 +92,10 @@
 }
 
 .bets-funder-caption {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  text-align: left;
   color: rgba(255, 255, 255, 0.55);
   font-size: 0.72rem;
   font-weight: 600;
@@ -348,12 +362,25 @@
     padding: 16px;
   }
 
+  /* Break "Week N (date range)" onto two lines so the accordion title's
+     width stays consistent regardless of how long the date text is. */
+  .bets-summary-label {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
+  }
+
   .bets-summary-meta {
     gap: 4px;
     padding-left: 6px;
   }
 
+  /* Break "funded by:" onto two lines ("funded" / "by:") so the caption's
+     width stays consistent regardless of the funder team name's length. */
   .bets-funder-caption {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
     font-size: 0.6rem;
   }
 

@@ -212,8 +212,10 @@ export default function BetsPage() {
   // Only tally weeks that are actually visible right now. Weeks beyond
   // activeWeek may still hold leftover data (e.g. from before week
   // visibility was restricted) that shouldn't count toward a season total
-  // no one can currently see or edit.
-  const visibleWeekIds = WEEKS.slice(0, activeWeek);
+  // no one can currently see or edit. Week 1 never had any entries, so it's
+  // left out of the Weekly Results icons entirely rather than showing a
+  // pending "?" for every team.
+  const visibleWeekIds = WEEKS.slice(1, activeWeek);
 
   const standings = TEAMS.map((team) => {
     let wins = 0;
@@ -253,12 +255,20 @@ export default function BetsPage() {
           return (
             <WeekAccordion
               key={weekId}
-              label={`Week ${weekIdx + 1} (${formatWeekRange(weekIdx + 1)})`}
+              label={
+                <>
+                  <span className="bets-week-label-main">Week {weekIdx + 1}</span>
+                  <span className="bets-week-label-dates">({formatWeekRange(weekIdx + 1)})</span>
+                </>
+              }
               meta={
                 <>
                   {funder && (
                     <>
-                      <span className="bets-funder-caption">funded by:</span>
+                      <span className="bets-funder-caption">
+                        <span className="bets-funder-caption-word">funded</span>
+                        <span className="bets-funder-caption-word">by:</span>
+                      </span>
                       <span className="bets-funder-chip">
                         <img className="bets-funder-icon" src={funder.logo} alt="" />
                         {funder.name}
