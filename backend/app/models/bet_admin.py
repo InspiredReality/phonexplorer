@@ -30,3 +30,21 @@ class BetWeekLock(Base):
     week = Column(Integer, primary_key=True)
     locked = Column(Boolean, nullable=False, default=False)
     funder_team_id = Column(String(64), nullable=True)
+
+
+class BetTeamStanding(Base):
+    """Per-team display order, set from the admin page's drag-to-reorder table.
+
+    rank controls both the picks accordion's team order and the Season
+    Contributions table's default (unsorted) order. wins/points_for/
+    points_against are placeholders for a future external stats feed — the
+    admin page only edits rank for now, so they default to 0.
+    """
+
+    __tablename__ = "bet_team_standings"
+
+    team_id = Column(String(64), primary_key=True)
+    rank = Column(Integer, nullable=False)
+    wins = Column(Integer, nullable=False, default=0)
+    points_for = Column(Integer, nullable=False, default=0)
+    points_against = Column(Integer, nullable=False, default=0)

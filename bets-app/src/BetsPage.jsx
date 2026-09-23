@@ -1,25 +1,11 @@
 import { useEffect, useRef, useState } from 'react';
 import api from './services/api';
+import { TEAMS, orderTeams } from './teams';
 import './BetsPage.css';
 
 const WEEK_COUNT = 15;
 const STORAGE_KEY = 'phonexplorer-bets-tracker-v2';
 const SAVE_DEBOUNCE_MS = 500;
-
-// Logo files live in public/team-logos/<id>.png — replace any of them in
-// place (same filename) to swap in a better version later.
-const TEAMS = [
-  { id: 'octagone', name: 'Octagone' },
-  { id: 'otoshi-nakamoto', name: 'O₿toshi Nakamoto' },
-  { id: 'front-gate-dragon', name: 'Front Gate Dragon' },
-  { id: 'ceedeez-chocolate-ballz', name: 'CeeDeez Chocolate Ballz' },
-  { id: 'michaels-neat-team', name: "Michael's Neat Team" },
-  { id: 'last-dart', name: 'Last Dart' },
-  { id: 'creed', name: 'Creed' },
-  { id: 'king-of-the-north', name: 'King Of The North' },
-  { id: 'lord-of-lakengren', name: 'Lord of Lakengren' },
-  { id: 'sportins-squad', name: 'Sportins Squad' },
-].map((team) => ({ ...team, logo: `/team-logos/${team.id}.png` }));
 
 const WEEKS = Array.from({ length: WEEK_COUNT }, (_, i) => `week${i + 1}`);
 
@@ -108,6 +94,10 @@ export default function BetsPage() {
   const [entries, setEntries] = useState(loadLocalEntries);
   const [locks, setLocks] = useState({});
   const [funders, setFunders] = useState({});
+  // Admin-settable via the /cheify "Team order" table. Empty until the
+  // backend answers, so orderTeams() below just falls back to TEAMS' own
+  // built-in order in the meantime.
+  const [teamOrder, setTeamOrder] = useState([]);
   // Default to only Week 1 visible until the real value loads, so a future
   // week never flashes on screen even briefly.
   const [activeWeek, setActiveWeek] = useState(1);
@@ -150,6 +140,7 @@ export default function BetsPage() {
         setEntries(backendEntries);
         setLocks(data.locks || {});
         setFunders(data.funders || {});
+        setTeamOrder((data.team_standings || []).map((row) => row.team_id));
         setActiveWeek(data.season?.active_week ?? 1);
         persistLocalEntries(backendEntries);
         setLoadError(null);
@@ -232,8 +223,9 @@ export default function BetsPage() {
   // left out of the Weekly Results icons entirely rather than showing a
   // pending "?" for every team.
   const visibleWeekIds = WEEKS.slice(1, activeWeek);
+  const orderedTeams = orderTeams(teamOrder);
 
-  const standings = TEAMS.map((team) => {
+  const standings = orderedTeams.map((team) => {
     let wins = 0;
     let submissions = 0;
     for (const weekId of WEEKS.slice(0, activeWeek)) {
@@ -328,7 +320,7 @@ export default function BetsPage() {
             >
               <table className="bets-table">
                 <tbody>
-                  {TEAMS.map((team) => {
+                  {orderedTeams.map((team) => {
                     const cell = normalizeCell(entries[weekId]?.[team.id]);
                     const status = STATUS_CONFIG[cell.status];
                     return (

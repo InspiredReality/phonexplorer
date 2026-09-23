@@ -161,3 +161,95 @@
   color: #fca5a5;
   background: rgba(239, 68, 68, 0.1);
 }
+
+.admin-order-table {
+  width: 100%;
+  border-collapse: collapse;
+  margin-top: 12px;
+  color: #ffffff;
+}
+
+.admin-order-table th {
+  text-align: left;
+  padding: 8px 10px;
+  font-size: 0.68rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.admin-order-table td {
+  padding: 6px 10px;
+  font-size: 0.85rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.admin-order-handle-col,
+.admin-order-rank-col,
+.admin-order-num-col,
+.admin-order-move-col {
+  width: 1%;
+  white-space: nowrap;
+}
+
+.admin-order-rank-col,
+.admin-order-num-col {
+  text-align: center;
+}
+
+.admin-order-row {
+  cursor: grab;
+}
+
+.admin-order-row.is-dragging {
+  opacity: 0.4;
+}
+
+.admin-order-handle {
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 1rem;
+  line-height: 1;
+}
+
+.admin-order-team {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.admin-order-logo {
+  width: 36px;
+  height: 36px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  object-fit: cover;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.admin-order-move-btn {
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  background: transparent;
+  color: rgba(255, 255, 255, 0.7);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 4px;
+  font-size: 0.7rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.admin-order-move-btn + .admin-order-move-btn {
+  margin-left: 4px;
+}
+
+.admin-order-move-btn:hover:not(:disabled) {
+  border-color: #facc15;
+  color: #facc15;
+}
+
+.admin-order-move-btn:disabled {
+  opacity: 0.3;
+  cursor: not-allowed;
+}
