@@ -193,54 +193,6 @@ export default function AdminPage() {
       {status && <p className="admin-status">{status}</p>}
 
       <section className="admin-section">
-        <h2>Season</h2>
-        <label className="admin-field">
-          Week 1 start date
-          <input
-            type="date"
-            value={seasonStartInput}
-            onChange={(event) => setSeasonStartInput(event.target.value)}
-          />
-        </label>
-        <label className="admin-field">
-          Force active week (blank = auto)
-          <input
-            type="number"
-            min="1"
-            max={WEEK_COUNT}
-            value={forcedWeekInput}
-            onChange={(event) => setForcedWeekInput(event.target.value)}
-            placeholder="auto"
-          />
-        </label>
-        <button type="button" className="admin-save-btn" onClick={handleSaveSeason}>
-          Save
-        </button>
-        {season && <p className="admin-hint">Currently showing weeks 1–{season.active_week}.</p>}
-      </section>
-
-      <section className="admin-section">
-        <h2>Lock weekly inputs</h2>
-        <p className="admin-hint">Locking a week stops picks/status from being edited for it, everywhere.</p>
-        <div className="admin-lock-grid">
-          {Array.from({ length: WEEK_COUNT }, (_, i) => i + 1).map((weekNum) => {
-            const weekId = `week${weekNum}`;
-            const locked = !!locks[weekId];
-            return (
-              <button
-                key={weekId}
-                type="button"
-                className={`admin-lock-btn ${locked ? 'is-locked' : ''}`}
-                onClick={() => handleToggleLock(weekNum)}
-              >
-                Week {weekNum} {locked ? '🔒' : '🔓'}
-              </button>
-            );
-          })}
-        </div>
-      </section>
-
-      <section className="admin-section">
         <h2>Team order</h2>
         <p className="admin-hint">
           Sets both the pick accordions' team order and the Season Contributions table's default
@@ -321,6 +273,27 @@ export default function AdminPage() {
       </section>
 
       <section className="admin-section">
+        <h2>Lock weekly inputs</h2>
+        <p className="admin-hint">Locking a week stops picks/status from being edited for it, everywhere.</p>
+        <div className="admin-lock-grid">
+          {Array.from({ length: WEEK_COUNT }, (_, i) => i + 1).map((weekNum) => {
+            const weekId = `week${weekNum}`;
+            const locked = !!locks[weekId];
+            return (
+              <button
+                key={weekId}
+                type="button"
+                className={`admin-lock-btn ${locked ? 'is-locked' : ''}`}
+                onClick={() => handleToggleLock(weekNum)}
+              >
+                Week {weekNum} {locked ? '🔒' : '🔓'}
+              </button>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="admin-section">
         <h2>Data cleanup</h2>
         <p className="admin-hint">
           Removes entries that shouldn't count: an empty pick with a leftover won/loss status from
@@ -329,6 +302,33 @@ export default function AdminPage() {
         <button type="button" className="admin-cleanup-btn" onClick={handleCleanup}>
           Clean up stale entries
         </button>
+      </section>
+
+      <section className="admin-section">
+        <h2>Season</h2>
+        <label className="admin-field">
+          Week 1 start date
+          <input
+            type="date"
+            value={seasonStartInput}
+            onChange={(event) => setSeasonStartInput(event.target.value)}
+          />
+        </label>
+        <label className="admin-field">
+          Force active week (blank = auto)
+          <input
+            type="number"
+            min="1"
+            max={WEEK_COUNT}
+            value={forcedWeekInput}
+            onChange={(event) => setForcedWeekInput(event.target.value)}
+            placeholder="auto"
+          />
+        </label>
+        <button type="button" className="admin-save-btn" onClick={handleSaveSeason}>
+          Save
+        </button>
+        {season && <p className="admin-hint">Currently showing weeks 1–{season.active_week}.</p>}
       </section>
     </div>
   );
