@@ -54,6 +54,7 @@
   cursor: pointer;
   font: inherit;
   color: inherit;
+  text-align: left;
   transition: background 0.2s;
 }
 
@@ -62,11 +63,20 @@
 }
 
 .bets-summary-label {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  text-align: left;
   font-size: 1rem;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: #ffffff;
+}
+
+.bets-week-label-main,
+.bets-week-label-dates {
+  text-align: left;
 }
 
 /* Pushed to the right edge of the header (ahead of the expand arrow) via
@@ -82,6 +92,10 @@
 }
 
 .bets-funder-caption {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  text-align: left;
   color: rgba(255, 255, 255, 0.55);
   font-size: 0.72rem;
   font-weight: 600;
@@ -284,6 +298,37 @@
   overflow-wrap: break-word;
 }
 
+.bets-standings-sort-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  background: none;
+  border: none;
+  margin: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  text-align: inherit;
+  cursor: pointer;
+}
+
+.bets-standings-sort-btn:hover {
+  color: #ffffff;
+}
+
+.bets-standings-num-col .bets-standings-sort-btn {
+  justify-content: center;
+}
+
+.bets-sort-arrow {
+  font-size: 0.6rem;
+  line-height: 1;
+  color: #facc15;
+}
+
 .bets-standings-table th.bets-standings-num-col,
 .bets-standings-table td.bets-standings-num-col {
   text-align: center;
@@ -303,13 +348,10 @@
   display: flex;
   align-items: center;
   gap: 8px;
-  overflow: hidden;
 }
 
 .bets-standings-team span {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+  overflow-wrap: break-word;
 }
 
 /* Fixed width so it can't force the table wider as more weeks fill in —
@@ -348,13 +390,31 @@
     padding: 16px;
   }
 
+  /* Break "Week N (date range)" onto two lines so the accordion title's
+     width stays consistent regardless of how long the date text is. */
+  .bets-summary-label {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
+  }
+
   .bets-summary-meta {
     gap: 4px;
     padding-left: 6px;
   }
 
+  /* Break "funded by:" onto two lines ("funded" / "by:") so the caption's
+     width stays consistent regardless of the funder team name's length. */
   .bets-funder-caption {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0;
     font-size: 0.6rem;
+  }
+
+  /* "by:" right-aligns under "funded" instead of stacking flush left. */
+  .bets-funder-caption-word:last-child {
+    align-self: flex-end;
   }
 
   .bets-funder-chip {
@@ -394,20 +454,27 @@
     font-size: 0.52rem;
   }
 
+  /* Narrower than desktop's 30% — team names already wrap one word per
+     line at this width, so shrinking further just tightens that wrap
+     instead of overflowing, and frees width for the pick input. */
   .bets-table-label {
-    width: 30%;
-    padding: 8px 4px 8px 6px;
-    font-size: 0.68rem;
-    gap: 6px;
+    width: 21%;
+    padding: 8px 2px 8px 4px;
+    font-size: 0.66rem;
+    gap: 4px;
   }
 
   .bets-team-logo {
-    width: 36px;
-    height: 36px;
+    width: 32px;
+    height: 32px;
   }
 
   .bets-table-input-cell {
-    padding: 6px 4px;
+    padding: 6px 2px;
+  }
+
+  .bets-table-input {
+    padding: 8px 8px;
   }
 
   .bets-table-status-cell {
