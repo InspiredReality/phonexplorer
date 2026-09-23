@@ -195,8 +195,8 @@ export default function AdminPage() {
       <section className="admin-section">
         <h2>Team order</h2>
         <p className="admin-hint">
-          Sets both the pick accordions' team order and the Season Contributions table's default
-          (unsorted) order. Drag a row by its handle, or use the ▲/▼ buttons to reorder without a
+          Sets both the pick accordions' team order and the Hit Rate table's default (unsorted)
+          order. Drag a row by its handle, or use the ▲/▼ buttons to reorder without a
           mouse. Wins/PF/PA are placeholders for a future stats feed — not editable here yet.
         </p>
         <table className="admin-order-table">

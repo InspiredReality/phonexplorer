@@ -279,9 +279,12 @@ export default function BetsPage() {
       <h1 className="bets-heading">Chuggler Bets</h1>
       {loadError && <p className="bets-load-error">{loadError}</p>}
 
-      <h2 className="bets-section-heading">Low Score Parlays</h2>
+      <h2 className="bets-section-heading">Parlay Picks</h2>
       <div className="bets-accordions">
-        {WEEKS.slice(0, activeWeek).map((weekId, weekIdx) => {
+        {WEEKS.slice(0, activeWeek)
+          .map((weekId, weekIdx) => ({ weekId, weekIdx }))
+          .reverse() // most recent week on top
+          .map(({ weekId, weekIdx }) => {
           const locked = !!locks[weekId];
           const funder = TEAMS.find((team) => team.id === funders[weekId]);
           return (
@@ -376,7 +379,7 @@ export default function BetsPage() {
       </div>
 
       <div className="bets-standings">
-        <h2 className="bets-section-heading">Season Contributions</h2>
+        <h2 className="bets-section-heading">Hit Rate</h2>
         <table className="bets-standings-table">
           <thead>
             <tr>
