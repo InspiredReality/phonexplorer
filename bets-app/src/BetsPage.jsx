@@ -258,6 +258,11 @@ export default function BetsPage() {
     return { ...team, wins, submissions, weeklyResults };
   });
 
+  // The current week is still being picked (unlocked), so it's never a
+  // meaningful "who won" signal — walk backward from it to find the most
+  // recent week that's actually locked.
+  const lastLockedWeekId = [...visibleWeekIds].reverse().find((weekId) => locks[weekId]);
+
   const sortedStandings = (() => {
     if (!sort.key) return standings;
     const list = [...standings];
@@ -265,8 +270,10 @@ export default function BetsPage() {
       // Stable sort, so teams keep their relative order within each group —
       // this only pulls last week's winners to the top, it doesn't rank them.
       list.sort((a, b) => {
-        const aWon = a.weeklyResults[a.weeklyResults.length - 1]?.status === 'won' ? 1 : 0;
-        const bWon = b.weeklyResults[b.weeklyResults.length - 1]?.status === 'won' ? 1 : 0;
+        const aWon =
+          a.weeklyResults.find((w) => w.weekId === lastLockedWeekId)?.status === 'won' ? 1 : 0;
+        const bWon =
+          b.weeklyResults.find((w) => w.weekId === lastLockedWeekId)?.status === 'won' ? 1 : 0;
         return bWon - aWon;
       });
     } else {
