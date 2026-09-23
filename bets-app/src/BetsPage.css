@@ -426,20 +426,27 @@
     font-size: 0.52rem;
   }
 
+  /* Narrower than desktop's 30% — team names already wrap one word per
+     line at this width, so shrinking further just tightens that wrap
+     instead of overflowing, and frees width for the pick input. */
   .bets-table-label {
-    width: 30%;
-    padding: 8px 4px 8px 6px;
-    font-size: 0.68rem;
-    gap: 6px;
+    width: 21%;
+    padding: 8px 2px 8px 4px;
+    font-size: 0.66rem;
+    gap: 4px;
   }
 
   .bets-team-logo {
-    width: 36px;
-    height: 36px;
+    width: 32px;
+    height: 32px;
   }
 
   .bets-table-input-cell {
-    padding: 6px 4px;
+    padding: 6px 2px;
+  }
+
+  .bets-table-input {
+    padding: 8px 8px;
   }
 
   .bets-table-status-cell {
