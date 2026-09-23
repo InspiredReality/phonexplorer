@@ -259,14 +259,13 @@ export default function BetsPage() {
     if (!sort.key) return standings;
     const list = [...standings];
     if (sort.key === 'recent') {
-      // Stable sort, so teams keep their relative order within each group —
-      // this only pulls last week's winners to the top, it doesn't rank them.
+      // Won at top, then Loss, then Pending (no result yet) at the bottom.
+      // Stable sort, so teams keep their relative order within each group.
+      const rank = { won: 0, loss: 1, pending: 2 };
       list.sort((a, b) => {
-        const aWon =
-          a.weeklyResults.find((w) => w.weekId === lastLockedWeekId)?.status === 'won' ? 1 : 0;
-        const bWon =
-          b.weeklyResults.find((w) => w.weekId === lastLockedWeekId)?.status === 'won' ? 1 : 0;
-        return bWon - aWon;
+        const aStatus = a.weeklyResults.find((w) => w.weekId === lastLockedWeekId)?.status ?? 'pending';
+        const bStatus = b.weeklyResults.find((w) => w.weekId === lastLockedWeekId)?.status ?? 'pending';
+        return rank[aStatus] - rank[bStatus];
       });
     } else {
       const field = sort.key === 'wins' ? 'wins' : 'submissions';
