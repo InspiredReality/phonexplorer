@@ -277,6 +277,11 @@ export default function BetsPage() {
   return (
     <div className="bets-page">
       <h1 className="bets-heading">Chuggler Bets</h1>
+      <div className="bets-page-nav">
+        <a className="bets-nav-btn" href="/my-bets">
+          My Bets
+        </a>
+      </div>
       {loadError && <p className="bets-load-error">{loadError}</p>}
 
       <h2 className="bets-section-heading">Low Score Parlays</h2>
