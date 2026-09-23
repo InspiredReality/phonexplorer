@@ -31,6 +31,16 @@
   color: #0a0a0a;
 }
 
+.home-btn--assign {
+  border-color: #f59e0b;
+  color: #f59e0b;
+}
+
+.home-btn--assign:hover {
+  background: #f59e0b;
+  color: #ffffff;
+}
+
 .home-btn--monday {
   border-color: #f6287e;
   color: #f6287e;
@@ -58,5 +68,35 @@
 
 .home-btn--deep:hover {
   background: #10b981;
+  color: #ffffff;
+}
+
+.home-btn--stickers {
+  border-color: #7c3aed;
+  color: #a78bfa;
+}
+
+.home-btn--stickers:hover {
+  background: #7c3aed;
+  color: #ffffff;
+}
+
+.home-btn--needle {
+  border-color: #06b6d4;
+  color: #06b6d4;
+}
+
+.home-btn--needle:hover {
+  background: #06b6d4;
+  color: #ffffff;
+}
+
+.home-btn--config-test {
+  border-color: #f97316;
+  color: #f97316;
+}
+
+.home-btn--config-test:hover {
+  background: #f97316;
   color: #ffffff;
 }

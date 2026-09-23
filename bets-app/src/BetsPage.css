@@ -1,0 +1,423 @@
+.bets-page {
+  position: relative;
+  min-height: 100vh;
+  min-height: 100dvh;
+  background: #0a0a0a;
+  padding: 24px;
+  box-sizing: border-box;
+  font-family: sans-serif;
+}
+
+.bets-heading {
+  color: #ffffff;
+  font-size: 1.4rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-align: center;
+  margin: 16px 0 24px;
+}
+
+.bets-load-error {
+  max-width: 960px;
+  margin: 0 auto 16px;
+  padding: 10px 14px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-radius: 8px;
+  color: #fca5a5;
+  font-size: 0.82rem;
+  text-align: center;
+}
+
+.bets-accordions {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.bets-accordion {
+  background: #111122;
+  color: #ffffff;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  overflow: hidden;
+}
+
+.bets-accordion-summary {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  padding: 12px 16px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  font: inherit;
+  color: inherit;
+  transition: background 0.2s;
+}
+
+.bets-accordion-summary:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.bets-summary-label {
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #ffffff;
+}
+
+/* Pushed to the right edge of the header (ahead of the expand arrow) via
+   the auto margin below, regardless of whether it holds anything — that
+   keeps the arrow pinned to the far right even on weeks with no funder
+   or lock, same as the old space-between layout did. */
+.bets-summary-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  padding-left: 12px;
+}
+
+.bets-funder-caption {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+.bets-funder-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 2px 10px 2px 4px;
+  border-radius: 999px;
+  background: rgba(250, 204, 21, 0.12);
+  border: 1px solid rgba(250, 204, 21, 0.35);
+  color: #facc15;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+}
+
+.bets-funder-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  border-radius: 50%;
+  object-fit: cover;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.bets-lock-icon {
+  line-height: 1;
+}
+
+.bets-expand-icon {
+  margin-left: 12px;
+  color: #ffffff;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.bets-accordion-details {
+  border-top: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.bets-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.bets-table tr:not(:last-child) {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.bets-table-label {
+  width: 30%;
+  padding: 10px 8px 10px 12px;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.8rem;
+  letter-spacing: 0.02em;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.bets-table-label .bets-team-logo {
+  cursor: pointer;
+  user-select: none;
+}
+
+.bets-team-logo {
+  flex-shrink: 0;
+  width: 48px;
+  height: 48px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.bets-table-input-cell {
+  padding: 8px 8px;
+}
+
+.bets-table-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  color: #ffffff;
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+
+.bets-table-input::placeholder {
+  color: rgba(255, 255, 255, 0.35);
+}
+
+.bets-table-input:focus {
+  outline: none;
+  border-color: #facc15;
+  background: rgba(250, 204, 21, 0.08);
+}
+
+.bets-table-input:disabled,
+.bets-status-btn:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.bets-table-status-cell {
+  width: 56px;
+  padding: 8px 10px;
+  text-align: center;
+}
+
+.bets-status-btn {
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 2px solid currentColor;
+  background: transparent;
+  cursor: pointer;
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0;
+  transition: background 0.15s, transform 0.1s;
+}
+
+.bets-status-btn:hover {
+  transform: scale(1.08);
+}
+
+.bets-status-btn:active {
+  transform: scale(0.94);
+}
+
+.bets-status--pending {
+  color: #9ca3af;
+}
+
+.bets-status--pending:hover {
+  background: rgba(156, 163, 175, 0.15);
+}
+
+.bets-status--won {
+  color: #22c55e;
+}
+
+.bets-status--won:hover {
+  background: rgba(34, 197, 94, 0.15);
+}
+
+.bets-status--loss {
+  color: #ef4444;
+}
+
+.bets-status--loss:hover {
+  background: rgba(239, 68, 68, 0.15);
+}
+
+.bets-standings {
+  max-width: 960px;
+  margin: 28px auto 0;
+}
+
+.bets-section-heading {
+  max-width: 960px;
+  margin: 0 auto 10px;
+  color: #ffffff;
+  font-size: 0.95rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.bets-standings-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  background: #111122;
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #ffffff;
+}
+
+.bets-standings-table th {
+  text-align: left;
+  padding: 10px 12px;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.55);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+  /* A long single-word header (e.g. "Submissions") has nowhere to break on
+     a space, so without this it overflows past its fixed-width column
+     instead of wrapping to a second line. */
+  overflow-wrap: break-word;
+}
+
+.bets-standings-table th.bets-standings-num-col,
+.bets-standings-table td.bets-standings-num-col {
+  text-align: center;
+  width: 96px;
+}
+
+.bets-standings-table td {
+  padding: 8px 12px;
+  font-size: 0.85rem;
+}
+
+.bets-standings-table tr:not(:last-child) td {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.bets-standings-team {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  overflow: hidden;
+}
+
+.bets-standings-team span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Fixed width so it can't force the table wider as more weeks fill in —
+   the icon row inside scrolls horizontally once it runs out of room.
+   The team column is the one left unspecified, so it absorbs whatever
+   space this and the two number columns don't use. */
+.bets-standings-table th.bets-standings-recent-col,
+.bets-standings-table td.bets-standings-recent-col {
+  text-align: left;
+  width: 260px;
+}
+
+.bets-standings-recent {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+}
+
+.bets-recent-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  border: 1px solid currentColor;
+  font-size: 0.62rem;
+  line-height: 1;
+}
+
+@media (max-width: 640px) {
+  .bets-page {
+    padding: 16px;
+  }
+
+  .bets-summary-meta {
+    gap: 4px;
+    padding-left: 6px;
+  }
+
+  .bets-funder-caption {
+    font-size: 0.6rem;
+  }
+
+  .bets-funder-chip {
+    padding: 1px 8px 1px 3px;
+    gap: 4px;
+    font-size: 0.62rem;
+  }
+
+  .bets-funder-icon {
+    width: 16px;
+    height: 16px;
+  }
+
+  .bets-standings-table th,
+  .bets-standings-table td {
+    padding: 8px 6px;
+    font-size: 0.72rem;
+  }
+
+  .bets-standings-table th.bets-standings-num-col,
+  .bets-standings-table td.bets-standings-num-col {
+    width: 56px;
+  }
+
+  .bets-standings-table th.bets-standings-recent-col,
+  .bets-standings-table td.bets-standings-recent-col {
+    width: 96px;
+  }
+
+  .bets-standings-recent {
+    gap: 2px;
+  }
+
+  .bets-recent-icon {
+    width: 16px;
+    height: 16px;
+    font-size: 0.52rem;
+  }
+
+  .bets-table-label {
+    width: 30%;
+    padding: 8px 4px 8px 6px;
+    font-size: 0.68rem;
+    gap: 6px;
+  }
+
+  .bets-team-logo {
+    width: 36px;
+    height: 36px;
+  }
+
+  .bets-table-input-cell {
+    padding: 6px 4px;
+  }
+
+  .bets-table-status-cell {
+    width: 44px;
+    padding: 6px;
+  }
+
+  .bets-status-btn {
+    width: 28px;
+    height: 28px;
+    font-size: 0.85rem;
+  }
+}

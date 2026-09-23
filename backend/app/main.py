@@ -4,14 +4,18 @@ Entry point: run.py (backend root)
 """
 from contextlib import asynccontextmanager
 
+from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy import func, select
+from fastapi.staticfiles import StaticFiles
+from sqlalchemy import func, select, text
 
 from app.config import settings
 from app.db import Base, SessionLocal, engine
 from app.models.scene_object import SceneObject
-from app.routers import data, monday, objects
+from app.models import sticker as _sticker_models  # noqa: F401 — registers Image/Tag with Base
+from app.routers import bets, data, monday, objects, org_obs, realities, stickers, tags, admin_stickers
+from app.services import github_sync
 from app.services.http_client import client
 
 
@@ -68,6 +72,12 @@ async def lifespan(app: FastAPI):
     try:
         async with engine.begin() as conn:
             await conn.run_sync(Base.metadata.create_all)
+            # create_all only creates missing tables — it won't add columns to
+            # tables that already existed before this column was introduced.
+            await conn.execute(text("ALTER TABLE images ADD COLUMN IF NOT EXISTS name TEXT"))
+            await conn.execute(
+                text("ALTER TABLE bet_week_locks ADD COLUMN IF NOT EXISTS funder_team_id VARCHAR(64)")
+            )
 
         async with SessionLocal() as db:
             count = await db.scalar(select(func.count()).select_from(SceneObject))
@@ -76,6 +86,13 @@ async def lifespan(app: FastAPI):
                 await db.commit()
     except Exception as exc:
         logging.error("DB startup error — app running without database: %s", exc)
+
+    try:
+        async with SessionLocal() as db:
+            result = await github_sync.sync_images_from_github(db)
+            logging.info("Sticker sync on startup: %s", result)
+    except Exception as exc:
+        logging.error("Sticker sync on startup failed: %s", exc)
 
     yield
 
@@ -101,6 +118,17 @@ app.add_middleware(
 app.include_router(data.router)
 app.include_router(monday.router)
 app.include_router(objects.router)
+app.include_router(stickers.router)
+app.include_router(admin_stickers.router)
+app.include_router(realities.router)
+app.include_router(tags.router)
+app.include_router(org_obs.router)
+app.include_router(bets.router)
+app.mount("/static", StaticFiles(directory=str(Path(__file__).parent / "static")), name="static")
+
+_UPLOADS_DIR = Path("uploads")
+_UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=str(_UPLOADS_DIR)), name="uploads")
 
 
 @app.get("/health")

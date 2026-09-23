@@ -2,66 +2,7 @@ import { useEffect, useRef, useState, useCallback } from 'react';
 import * as THREE from 'three';
 import './PhoneExplorer.css';
 import { fetchObjects, createObject, addRelationship } from '../api';
-
-// ── Three.js helpers (module-level, no React state) ────────────────────────
-
-const GEO_FACTORIES = {
-  sphere:      () => new THREE.SphereGeometry(0.5, 32, 32),
-  cube:        () => new THREE.BoxGeometry(0.9, 0.9, 0.9),
-  tetrahedron: () => new THREE.TetrahedronGeometry(0.7),
-};
-
-function makeMesh(obj) {
-  const geo = (GEO_FACTORIES[obj.shape] || GEO_FACTORIES.sphere)();
-  const mat = new THREE.MeshStandardMaterial({
-    color:     new THREE.Color(obj.color || '#4488ff'),
-    metalness: 0.3,
-    roughness: 0.6,
-  });
-  const mesh = new THREE.Mesh(geo, mat);
-  mesh.position.set(obj.x ?? 0, obj.y ?? 0, obj.z ?? 0);
-  mesh.userData = {
-    id:          obj.id,
-    type:        obj.shape,
-    customTitle: obj.title,
-    customDescription: obj.description ?? '',
-  };
-  return mesh;
-}
-
-function makeLine(posA, posB) {
-  const geo = new THREE.BufferGeometry().setFromPoints([posA.clone(), posB.clone()]);
-  const mat = new THREE.LineBasicMaterial({ color: 0x8899ff, opacity: 0.65, transparent: true });
-  return new THREE.Line(geo, mat);
-}
-
-function buildScene() {
-  const scene = new THREE.Scene();
-  scene.background = new THREE.Color(0x111122);
-
-  scene.add(new THREE.AmbientLight(0xffffff, 0.5));
-  const dirLight = new THREE.DirectionalLight(0xffffff, 1.0);
-  dirLight.position.set(10, 20, 10);
-  scene.add(dirLight);
-
-  scene.add(new THREE.Box3Helper(
-    new THREE.Box3(new THREE.Vector3(-10, -10, -10), new THREE.Vector3(10, 10, 10)),
-    0x333355
-  ));
-
-  const floorMesh = new THREE.Mesh(
-    new THREE.BoxGeometry(20, 0.5, 20),
-    new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.8, metalness: 0.0 })
-  );
-  floorMesh.position.set(0, -10.25, 0);
-  scene.add(floorMesh);
-
-  const grid = new THREE.GridHelper(20, 20, 0xcccccc, 0xcccccc);
-  grid.position.y = -10.0;
-  scene.add(grid);
-
-  return scene;
-}
+import { makeMesh, makeLine, buildScene } from '../three/sceneBuilder';
 
 // ── Component ──────────────────────────────────────────────────────────────
 
@@ -72,6 +13,7 @@ function PhoneExplorer() {
   const dismissRef      = useRef(null);
   const strafeBarRef    = useRef(null);
   const strafeThumbRef  = useRef(null);
+  const snapOrthoRef    = useRef(null);
 
   // Three.js scene bridges
   const sceneRef          = useRef(null);
@@ -227,6 +169,22 @@ function PhoneExplorer() {
       const stopDist = (halfSize / Math.tan(fovX / 2)) * 1.3;
       const dir = camera.position.clone().sub(objPos).normalize();
       flyTarget   = { pos: objPos.clone().addScaledVector(dir, stopDist), lookAt: objPos };
+      flyProgress = 0;
+    };
+
+    // ── Snap-to-ortho ──────────────────────────────────────────────────────
+    const SNAP_DIST = 15;
+    snapOrthoRef.current = (view) => {
+      const configs = {
+        front: { pos: new THREE.Vector3(0, 0, SNAP_DIST),  lookAt: new THREE.Vector3(0, 0, 0) },
+        top:   { pos: new THREE.Vector3(0, SNAP_DIST, 0),  lookAt: new THREE.Vector3(0, 0, 0), up: new THREE.Vector3(0, 0, -1) },
+        side:  { pos: new THREE.Vector3(-SNAP_DIST, 0, 0), lookAt: new THREE.Vector3(0, 0, 0) },
+      };
+      const cfg = configs[view];
+      if (!cfg) return;
+      flyStartPos.copy(camera.position);
+      flyStartQuat.copy(camera.quaternion);
+      flyTarget   = { pos: cfg.pos, lookAt: cfg.lookAt, up: cfg.up };
       flyProgress = 0;
     };
 
@@ -554,7 +512,7 @@ function PhoneExplorer() {
         flyProgress = Math.min(flyProgress + 0.04, 1);
         const t = 1 - Math.pow(1 - flyProgress, 3);
         camera.position.lerpVectors(flyStartPos, flyTarget.pos, t);
-        flyM.lookAt(flyTarget.pos, flyTarget.lookAt, camera.up);
+        flyM.lookAt(flyTarget.pos, flyTarget.lookAt, flyTarget.up ?? camera.up);
         flyTargetQuat.setFromRotationMatrix(flyM);
         camera.quaternion.slerpQuaternions(flyStartQuat, flyTargetQuat, t);
         if (flyProgress >= 1) {
@@ -615,6 +573,35 @@ function PhoneExplorer() {
             <span>double tap = focus</span>
           </div>
         )}
+
+        {/* Snap-to-ortho panel */}
+        <div className="snap-panel">
+          <span className="snap-label">Snap to</span>
+          <button
+            className="snap-btn"
+            title="Front view — facing along Z axis"
+            onClick={() => snapOrthoRef.current?.('front')}
+          >
+            <span className="snap-axis">Z</span>
+            <span className="snap-view">front</span>
+          </button>
+          <button
+            className="snap-btn"
+            title="Top view — facing down Y axis"
+            onClick={() => snapOrthoRef.current?.('top')}
+          >
+            <span className="snap-axis">Y</span>
+            <span className="snap-view">top</span>
+          </button>
+          <button
+            className="snap-btn"
+            title="Side view — facing along X axis"
+            onClick={() => snapOrthoRef.current?.('side')}
+          >
+            <span className="snap-axis">X</span>
+            <span className="snap-view">side</span>
+          </button>
+        </div>
 
         {/* Link-mode banner */}
         {linkingFrom && (

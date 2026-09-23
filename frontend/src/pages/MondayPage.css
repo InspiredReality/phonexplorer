@@ -54,6 +54,107 @@
   flex-shrink: 0;
 }
 
+.new-task-btn {
+  margin-left: auto;
+}
+
+/* ── Buttons ── */
+.btn {
+  border-radius: 6px;
+  padding: 8px 16px;
+  font-size: 0.82rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s, opacity 0.15s;
+}
+.btn:disabled { opacity: 0.5; cursor: default; }
+
+.btn--primary {
+  background: #f6287e;
+  border: 1px solid #f6287e;
+  color: #fff;
+}
+.btn--primary:hover:not(:disabled) { background: #d81f6b; }
+
+.btn--ghost {
+  background: none;
+  border: 1px solid rgba(255,255,255,0.2);
+  color: rgba(255,255,255,0.7);
+}
+.btn--ghost:hover:not(:disabled) { color: #fff; border-color: rgba(255,255,255,0.5); }
+
+/* ── New Task modal ── */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 50;
+}
+
+.modal {
+  background: #1a1a2e;
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 12px;
+  padding: 24px;
+  width: 100%;
+  max-width: 420px;
+  box-shadow: 0 20px 60px rgba(0,0,0,0.5);
+}
+
+.modal__title {
+  font-size: 1.05rem;
+  font-weight: 600;
+  margin: 0 0 4px;
+  color: #fff;
+}
+
+.modal__subtitle {
+  font-size: 0.8rem;
+  color: rgba(255,255,255,0.4);
+  margin: 0 0 20px;
+}
+
+.modal__field {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin-bottom: 14px;
+  font-size: 0.8rem;
+  color: rgba(255,255,255,0.6);
+}
+
+.modal__field input {
+  background: rgba(255,255,255,0.05);
+  border: 1px solid rgba(255,255,255,0.15);
+  border-radius: 6px;
+  padding: 9px 12px;
+  color: #fff;
+  font-size: 0.9rem;
+  font-family: inherit;
+}
+.modal__field input:focus {
+  outline: none;
+  border-color: #f6287e;
+}
+.modal__field input::placeholder { color: rgba(255,255,255,0.25); }
+
+.modal__error {
+  color: #f87171;
+  font-size: 0.8rem;
+  margin: 4px 0 12px;
+}
+
+.modal__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  margin-top: 8px;
+}
+
 /* ── Main layout ── */
 .monday-main {
   flex: 1;

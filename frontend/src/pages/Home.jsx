@@ -10,6 +10,9 @@ function Home() {
         <button className="home-btn" onClick={() => navigate('/explorer')}>
           enter
         </button>
+        <button className="home-btn home-btn--assign" onClick={() => navigate('/assign')}>
+          assign
+        </button>
         <button className="home-btn home-btn--monday" onClick={() => navigate('/monday')}>
           monday
         </button>
@@ -18,6 +21,15 @@ function Home() {
         </button>
         <button className="home-btn home-btn--deep" onClick={() => navigate('/deep')}>
           deep
+        </button>
+        <button className="home-btn home-btn--stickers" onClick={() => navigate('/stickers')}>
+          stickers
+        </button>
+        <button className="home-btn home-btn--needle" onClick={() => navigate('/needle')}>
+          needle
+        </button>
+        <button className="home-btn home-btn--config-test" onClick={() => navigate('/config-test')}>
+          config test
         </button>
       </div>
     </div>
