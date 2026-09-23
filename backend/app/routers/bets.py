@@ -8,12 +8,27 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import settings
 from app.core.deps import get_db
-from app.models.bet_admin import BetSeasonConfig, BetWeekLock
+from app.models.bet_admin import BetSeasonConfig, BetTeamStanding, BetWeekLock
 from app.models.bet_entry import BetEntry
 
 router = APIRouter(prefix="/api/bets", tags=["bets"])
 
 WEEK_COUNT = 15
+# Seeds bet_team_standings on first use so the initial order matches the
+# frontend's hard-coded TEAMS list (bets-app/src/teams.js) until an admin
+# reorders it.
+DEFAULT_TEAM_ORDER = [
+    "octagone",
+    "otoshi-nakamoto",
+    "front-gate-dragon",
+    "ceedeez-chocolate-ballz",
+    "michaels-neat-team",
+    "last-dart",
+    "creed",
+    "king-of-the-north",
+    "lord-of-lakengren",
+    "sportins-squad",
+]
 # NFL weeks run Thu-Mon; "active week" advances every Tuesday. Evaluated in
 # US Eastern so a Monday-night game finishing late doesn't flip the week
 # over from the server's UTC clock hours before it actually ends locally.
@@ -47,6 +62,10 @@ class WeekFunderUpdate(BaseModel):
     team_id: str | None = None
 
 
+class TeamOrderUpdate(BaseModel):
+    order: list[str]
+
+
 def _entry_dict(entry: BetEntry) -> dict:
     return {"pick": entry.pick or "", "status": entry.status or "pending"}
 
@@ -68,6 +87,28 @@ async def _get_or_create_season_config(db: AsyncSession) -> BetSeasonConfig:
         await db.commit()
         await db.refresh(cfg)
     return cfg
+
+
+def _team_standing_dict(row: BetTeamStanding) -> dict:
+    return {
+        "team_id": row.team_id,
+        "rank": row.rank,
+        "wins": row.wins,
+        "points_for": row.points_for,
+        "points_against": row.points_against,
+    }
+
+
+async def _get_or_create_team_standings(db: AsyncSession) -> list[BetTeamStanding]:
+    rows = (await db.execute(select(BetTeamStanding))).scalars().all()
+    if not rows:
+        rows = [
+            BetTeamStanding(team_id=team_id, rank=i + 1)
+            for i, team_id in enumerate(DEFAULT_TEAM_ORDER)
+        ]
+        db.add_all(rows)
+        await db.commit()
+    return sorted(rows, key=lambda r: r.rank)
 
 
 def _season_dict(cfg: BetSeasonConfig) -> dict:
@@ -93,8 +134,15 @@ async def list_bet_entries(db: AsyncSession = Depends(get_db)):
     funders = {f"week{row.week}": row.funder_team_id for row in lock_rows if row.funder_team_id}
 
     cfg = await _get_or_create_season_config(db)
+    team_standings = await _get_or_create_team_standings(db)
 
-    return {"entries": entries, "locks": locks, "funders": funders, "season": _season_dict(cfg)}
+    return {
+        "entries": entries,
+        "locks": locks,
+        "funders": funders,
+        "season": _season_dict(cfg),
+        "team_standings": [_team_standing_dict(row) for row in team_standings],
+    }
 
 
 @router.put("/season")
@@ -131,6 +179,32 @@ async def cleanup_stale_entries(db: AsyncSession = Depends(get_db), _: None = De
     )
     await db.commit()
     return {"deleted": result.rowcount, "active_week": active_week}
+
+
+@router.put("/team-order")
+async def set_team_order(
+    body: TeamOrderUpdate, db: AsyncSession = Depends(get_db), _: None = Depends(_require_admin)
+):
+    """Reorder teams: sets each team_id's rank to its position in the given list.
+
+    Controls both the picks accordion's team order and the Season
+    Contributions table's default (unsorted) order. Any team_id not already
+    in bet_team_standings is created; one that exists but is left out of
+    the list keeps its previous rank.
+    """
+    existing = {
+        row.team_id: row for row in (await db.execute(select(BetTeamStanding))).scalars().all()
+    }
+    for i, team_id in enumerate(body.order):
+        row = existing.get(team_id)
+        if row:
+            row.rank = i + 1
+        else:
+            db.add(BetTeamStanding(team_id=team_id, rank=i + 1))
+    await db.commit()
+
+    rows = sorted((await db.execute(select(BetTeamStanding))).scalars().all(), key=lambda r: r.rank)
+    return [_team_standing_dict(row) for row in rows]
 
 
 @router.put("/{week}/lock")
