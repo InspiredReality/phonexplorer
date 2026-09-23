@@ -384,6 +384,11 @@
     font-size: 0.6rem;
   }
 
+  /* "by:" right-aligns under "funded" instead of stacking flush left. */
+  .bets-funder-caption-word:last-child {
+    align-self: flex-end;
+  }
+
   .bets-funder-chip {
     padding: 1px 8px 1px 3px;
     gap: 4px;
