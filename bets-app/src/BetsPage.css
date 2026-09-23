@@ -298,6 +298,37 @@
   overflow-wrap: break-word;
 }
 
+.bets-standings-sort-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  width: 100%;
+  background: none;
+  border: none;
+  margin: 0;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+  text-transform: inherit;
+  letter-spacing: inherit;
+  text-align: inherit;
+  cursor: pointer;
+}
+
+.bets-standings-sort-btn:hover {
+  color: #ffffff;
+}
+
+.bets-standings-num-col .bets-standings-sort-btn {
+  justify-content: center;
+}
+
+.bets-sort-arrow {
+  font-size: 0.6rem;
+  line-height: 1;
+  color: #facc15;
+}
+
 .bets-standings-table th.bets-standings-num-col,
 .bets-standings-table td.bets-standings-num-col {
   text-align: center;

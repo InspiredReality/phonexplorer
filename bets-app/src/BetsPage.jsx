@@ -112,6 +112,10 @@ export default function BetsPage() {
   // week never flashes on screen even briefly.
   const [activeWeek, setActiveWeek] = useState(1);
   const [loadError, setLoadError] = useState(null);
+  // key: 'wins' | 'legs' | 'recent' | null. dir only applies to wins/legs —
+  // 'recent' is a one-shot "last week's winners to the top" grouping, not a
+  // ranking, so it has no ascending direction.
+  const [sort, setSort] = useState({ key: null, dir: null });
   const pickSaveTimers = useRef({});
 
   // Backend is the source of truth once it answers. Anything that only
@@ -209,6 +213,18 @@ export default function BetsPage() {
     );
   };
 
+  // Clicking a sortable column header cycles: off -> descending -> ascending
+  // -> off for Wins/Legs, and off -> on -> off for Weekly Results (there's
+  // no meaningful "ascending" for a last-week-winners grouping).
+  const handleSortClick = (key) => {
+    setSort((prev) => {
+      if (prev.key !== key) return { key, dir: 'desc' };
+      if (key === 'recent') return { key: null, dir: null };
+      if (prev.dir === 'desc') return { key, dir: 'asc' };
+      return { key: null, dir: null };
+    });
+  };
+
   // Only tally weeks that are actually visible right now. Weeks beyond
   // activeWeek may still hold leftover data (e.g. from before week
   // visibility was restricted) that shouldn't count toward a season total
@@ -236,11 +252,29 @@ export default function BetsPage() {
       // A cleared pick always reads as unsubmitted, even if a status
       // happened to be set on it before — see the note above.
       const status = hasPick ? cell.status : 'pending';
-      return { weekId, weekNum: weekNumber(weekId), ...STATUS_CONFIG[status] };
+      return { weekId, weekNum: weekNumber(weekId), status, ...STATUS_CONFIG[status] };
     });
 
     return { ...team, wins, submissions, weeklyResults };
   });
+
+  const sortedStandings = (() => {
+    if (!sort.key) return standings;
+    const list = [...standings];
+    if (sort.key === 'recent') {
+      // Stable sort, so teams keep their relative order within each group —
+      // this only pulls last week's winners to the top, it doesn't rank them.
+      list.sort((a, b) => {
+        const aWon = a.weeklyResults[a.weeklyResults.length - 1]?.status === 'won' ? 1 : 0;
+        const bWon = b.weeklyResults[b.weeklyResults.length - 1]?.status === 'won' ? 1 : 0;
+        return bWon - aWon;
+      });
+    } else {
+      const field = sort.key === 'wins' ? 'wins' : 'submissions';
+      list.sort((a, b) => (sort.dir === 'asc' ? a[field] - b[field] : b[field] - a[field]));
+    }
+    return list;
+  })();
 
   return (
     <div className="bets-page">
@@ -349,13 +383,57 @@ export default function BetsPage() {
           <thead>
             <tr>
               <th className="bets-standings-team-header">Team</th>
-              <th className="bets-standings-recent-col">Weekly Results</th>
-              <th className="bets-standings-num-col">Wins</th>
-              <th className="bets-standings-num-col">Legs</th>
+              <th
+                className="bets-standings-recent-col"
+                aria-sort={sort.key === 'recent' ? 'descending' : 'none'}
+              >
+                <button
+                  type="button"
+                  className="bets-standings-sort-btn"
+                  onClick={() => handleSortClick('recent')}
+                >
+                  Weekly Results
+                  {sort.key === 'recent' && <span className="bets-sort-arrow">▾</span>}
+                </button>
+              </th>
+              <th
+                className="bets-standings-num-col"
+                aria-sort={
+                  sort.key === 'wins' ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'
+                }
+              >
+                <button
+                  type="button"
+                  className="bets-standings-sort-btn"
+                  onClick={() => handleSortClick('wins')}
+                >
+                  Wins
+                  {sort.key === 'wins' && (
+                    <span className="bets-sort-arrow">{sort.dir === 'asc' ? '▴' : '▾'}</span>
+                  )}
+                </button>
+              </th>
+              <th
+                className="bets-standings-num-col"
+                aria-sort={
+                  sort.key === 'legs' ? (sort.dir === 'asc' ? 'ascending' : 'descending') : 'none'
+                }
+              >
+                <button
+                  type="button"
+                  className="bets-standings-sort-btn"
+                  onClick={() => handleSortClick('legs')}
+                >
+                  Legs
+                  {sort.key === 'legs' && (
+                    <span className="bets-sort-arrow">{sort.dir === 'asc' ? '▴' : '▾'}</span>
+                  )}
+                </button>
+              </th>
             </tr>
           </thead>
           <tbody>
-            {standings.map((team) => (
+            {sortedStandings.map((team) => (
               <tr key={team.id}>
                 <td className="bets-standings-team">
                   <img
