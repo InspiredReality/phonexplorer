@@ -17,35 +17,6 @@
   margin: 16px 0 24px;
 }
 
-.bets-page-nav {
-  max-width: 960px;
-  margin: 0 auto 20px;
-  display: flex;
-  justify-content: center;
-}
-
-.bets-nav-btn {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  padding: 8px 20px;
-  border-radius: 999px;
-  background: rgba(250, 204, 21, 0.12);
-  border: 1px solid rgba(250, 204, 21, 0.35);
-  color: #facc15;
-  font-size: 0.8rem;
-  font-weight: 600;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  text-decoration: none;
-  transition: background 0.15s, transform 0.1s;
-}
-
-.bets-nav-btn:hover {
-  background: rgba(250, 204, 21, 0.2);
-  transform: translateY(-1px);
-}
-
 .bets-load-error {
   max-width: 960px;
   margin: 0 auto 16px;

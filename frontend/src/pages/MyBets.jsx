@@ -1,14 +1,17 @@
 import { useEffect, useState } from 'react';
-import api from './services/api';
-import './BetsPage.css';
-import './MyBetsPage.css';
+import { useNavigate } from 'react-router-dom';
+import Accordion from '@mui/material/Accordion';
+import AccordionSummary from '@mui/material/AccordionSummary';
+import AccordionDetails from '@mui/material/AccordionDetails';
+import api from '../services/api';
+import './MyBets.css';
 
 const WEEK_COUNT = 15;
 const STORAGE_KEY = 'phonexplorer-my-bets-picks-v1';
 
 const WEEKS = Array.from({ length: WEEK_COUNT }, (_, i) => `week${i + 1}`);
 
-// Same Week 1 anchor as the parlay picks page, so both pages agree on dates.
+// Week 1 runs Sep 8-14; every later week just shifts by 7 days from there.
 const WEEK1_START_UTC = Date.UTC(2025, 8, 8);
 
 function formatWeekRange(weekNum) {
@@ -59,32 +62,13 @@ function persistLocalPicks(data) {
   }
 }
 
-function WeekAccordion({ label, meta, expanded, onToggle, children }) {
-  return (
-    <div className="bets-accordion">
-      <button
-        type="button"
-        className="bets-accordion-summary"
-        onClick={onToggle}
-        aria-expanded={expanded}
-      >
-        <span className="bets-summary-label">{label}</span>
-        <span className="bets-summary-meta">{meta}</span>
-        <span className="bets-expand-icon">{expanded ? '▲' : '▾'}</span>
-      </button>
-      {expanded && <div className="bets-accordion-details">{children}</div>}
-    </div>
-  );
-}
-
-function TeamColumn({ team, picked, onClick, disabled }) {
+function TeamColumn({ team, picked, onClick }) {
   if (!team) return <div className="mybets-team-col" />;
   return (
     <button
       type="button"
       className={`mybets-team-col ${picked ? 'is-picked' : ''}`}
       onClick={onClick}
-      disabled={disabled}
       title={picked ? `${team.name} — your pick` : `Pick ${team.name}`}
     >
       <span className="mybets-team-icon-ring">
@@ -95,10 +79,9 @@ function TeamColumn({ team, picked, onClick, disabled }) {
   );
 }
 
-export default function MyBetsPage() {
-  const [expanded, setExpanded] = useState(() =>
-    Object.fromEntries(WEEKS.map((weekId) => [weekId, false]))
-  );
+function MyBets() {
+  const navigate = useNavigate();
+  const [expanded, setExpanded] = useState({});
   const [activeWeek, setActiveWeek] = useState(1);
   const [seasonYear, setSeasonYear] = useState(new Date().getUTCFullYear());
   const [schedules, setSchedules] = useState({});
@@ -146,10 +129,9 @@ export default function MyBetsPage() {
     }
   };
 
-  const handleToggle = (weekId) => {
-    const nextExpanded = !expanded[weekId];
-    setExpanded((prev) => ({ ...prev, [weekId]: nextExpanded }));
-    if (nextExpanded) loadSchedule(weekId);
+  const handleChange = (weekId) => (_event, isExpanded) => {
+    setExpanded((prev) => ({ ...prev, [weekId]: isExpanded }));
+    if (isExpanded) loadSchedule(weekId);
   };
 
   const handlePick = (weekId, gameId, teamId) => () => {
@@ -171,81 +153,96 @@ export default function MyBetsPage() {
   };
 
   return (
-    <div className="bets-page">
-      <h1 className="bets-heading">My Bets</h1>
-      <div className="bets-page-nav">
-        <a className="bets-nav-btn" href="/">
-          Chuggler Bets
-        </a>
-      </div>
-      {loadError && <p className="bets-load-error">{loadError}</p>}
+    <div className="mybets-page">
+      <button className="mybets-back-btn" onClick={() => navigate('/')}>← Back</button>
+      <h1 className="mybets-heading">My Bets</h1>
+      {loadError && <p className="mybets-load-error">{loadError}</p>}
 
-      <h2 className="bets-section-heading">Weekly NFL Matchups</h2>
-      <div className="bets-accordions">
+      <div className="mybets-accordions">
         {WEEKS.slice(0, activeWeek).map((weekId, weekIdx) => {
           const schedule = schedules[weekId];
           const weekPicks = picks[weekId] || {};
           return (
-            <WeekAccordion
+            <Accordion
               key={weekId}
-              label={
-                <>
-                  <span className="bets-week-label-main">Week {weekIdx + 1}</span>
-                  <span className="bets-week-label-dates">({formatWeekRange(weekIdx + 1)})</span>
-                </>
-              }
-              meta={
-                schedule?.status === 'loaded' && (
+              expanded={!!expanded[weekId]}
+              onChange={handleChange(weekId)}
+              disableGutters
+              sx={{
+                bgcolor: '#111122',
+                color: '#ffffff',
+                border: '1px solid rgba(255, 255, 255, 0.12)',
+                '&:before': { display: 'none' },
+              }}
+            >
+              <AccordionSummary
+                expandIcon={<span className="mybets-expand-icon">▾</span>}
+                sx={{
+                  '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.06)' },
+                  '.MuiAccordionSummary-content': {
+                    margin: '12px 0',
+                    display: 'flex',
+                    alignItems: 'baseline',
+                    justifyContent: 'space-between',
+                  },
+                }}
+              >
+                <span className="mybets-summary-label">
+                  <span className="mybets-week-label-main">Week {weekIdx + 1}</span>
+                  <span className="mybets-week-label-dates">({formatWeekRange(weekIdx + 1)})</span>
+                </span>
+                {schedule?.status === 'loaded' && (
                   <span className="mybets-game-count">
                     {Object.keys(weekPicks).length}/{schedule.games.length} picked
                   </span>
-                )
-              }
-              expanded={!!expanded[weekId]}
-              onToggle={() => handleToggle(weekId)}
-            >
-              {(!schedule || schedule.status === 'loading') && (
-                <p className="mybets-status-text">Loading matchups…</p>
-              )}
-              {schedule?.status === 'error' && (
-                <p className="mybets-status-text mybets-status-error">
-                  Couldn't load this week's matchups. Try reopening the week.
-                </p>
-              )}
-              {schedule?.status === 'loaded' && schedule.games.length === 0 && (
-                <p className="mybets-status-text">No matchups posted for this week yet.</p>
-              )}
-              {schedule?.status === 'loaded' && schedule.games.length > 0 && (
-                <div className="mybets-matchups">
-                  <div className="mybets-matchups-header">
-                    <span>Home</span>
-                    <span className="mybets-vs" />
-                    <span>Away</span>
-                  </div>
-                  {schedule.games.map((game) => (
-                    <div key={game.id} className="mybets-matchup-row">
-                      <TeamColumn
-                        team={game.home}
-                        picked={weekPicks[game.id] === game.home?.id}
-                        onClick={handlePick(weekId, game.id, game.home?.id)}
-                      />
-                      <div className="mybets-matchup-meta">
-                        <span className="mybets-vs-label">vs</span>
-                        <span className="mybets-game-time">{formatGameTime(game.date)}</span>
-                      </div>
-                      <TeamColumn
-                        team={game.away}
-                        picked={weekPicks[game.id] === game.away?.id}
-                        onClick={handlePick(weekId, game.id, game.away?.id)}
-                      />
+                )}
+              </AccordionSummary>
+              <AccordionDetails sx={{ p: 0, borderTop: '1px solid rgba(255, 255, 255, 0.12)' }}>
+                {(!schedule || schedule.status === 'loading') && (
+                  <p className="mybets-status-text">Loading matchups…</p>
+                )}
+                {schedule?.status === 'error' && (
+                  <p className="mybets-status-text mybets-status-error">
+                    Couldn't load this week's matchups. Try reopening the week.
+                  </p>
+                )}
+                {schedule?.status === 'loaded' && schedule.games.length === 0 && (
+                  <p className="mybets-status-text">No matchups posted for this week yet.</p>
+                )}
+                {schedule?.status === 'loaded' && schedule.games.length > 0 && (
+                  <div className="mybets-matchups">
+                    <div className="mybets-matchups-header">
+                      <span>Home</span>
+                      <span />
+                      <span>Away</span>
                     </div>
-                  ))}
-                </div>
-              )}
-            </WeekAccordion>
+                    {schedule.games.map((game) => (
+                      <div key={game.id} className="mybets-matchup-row">
+                        <TeamColumn
+                          team={game.home}
+                          picked={weekPicks[game.id] === game.home?.id}
+                          onClick={handlePick(weekId, game.id, game.home?.id)}
+                        />
+                        <div className="mybets-matchup-meta">
+                          <span className="mybets-vs-label">vs</span>
+                          <span className="mybets-game-time">{formatGameTime(game.date)}</span>
+                        </div>
+                        <TeamColumn
+                          team={game.away}
+                          picked={weekPicks[game.id] === game.away?.id}
+                          onClick={handlePick(weekId, game.id, game.away?.id)}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </AccordionDetails>
+            </Accordion>
           );
         })}
       </div>
     </div>
   );
 }
+
+export default MyBets;

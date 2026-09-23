@@ -31,6 +31,9 @@ function Home() {
         <button className="home-btn home-btn--config-test" onClick={() => navigate('/config-test')}>
           config test
         </button>
+        <button className="home-btn home-btn--my-bets" onClick={() => navigate('/my-bets')}>
+          my bets
+        </button>
       </div>
     </div>
   );

@@ -1,3 +1,82 @@
+.mybets-page {
+  position: relative;
+  min-height: 100vh;
+  background: #0a0a0a;
+  padding: 24px;
+  box-sizing: border-box;
+  font-family: sans-serif;
+}
+
+.mybets-back-btn {
+  padding: 10px 20px;
+  background: transparent;
+  color: #ffffff;
+  border: 2px solid #ffffff;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background 0.2s, color 0.2s;
+}
+
+.mybets-back-btn:hover {
+  background: #ffffff;
+  color: #0a0a0a;
+}
+
+.mybets-heading {
+  color: #ffffff;
+  font-size: 1.4rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-align: center;
+  margin: 16px 0 24px;
+}
+
+.mybets-load-error {
+  max-width: 960px;
+  margin: 0 auto 16px;
+  padding: 10px 14px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-radius: 8px;
+  color: #fca5a5;
+  font-size: 0.82rem;
+  text-align: center;
+}
+
+.mybets-accordions {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.mybets-summary-label {
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  font-size: 1rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #ffffff;
+}
+
+.mybets-expand-icon {
+  color: #ffffff;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.mybets-game-count {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
 .mybets-status-text {
   margin: 0;
   padding: 18px 16px;
@@ -8,14 +87,6 @@
 
 .mybets-status-error {
   color: #fca5a5;
-}
-
-.mybets-game-count {
-  color: rgba(255, 255, 255, 0.55);
-  font-size: 0.72rem;
-  font-weight: 600;
-  letter-spacing: 0.03em;
-  white-space: nowrap;
 }
 
 .mybets-matchups {
@@ -34,10 +105,7 @@
   text-transform: uppercase;
 }
 
-.mybets-matchups-header span:first-child {
-  text-align: center;
-}
-
+.mybets-matchups-header span:first-child,
 .mybets-matchups-header span:last-child {
   text-align: center;
 }
@@ -137,6 +205,10 @@
 }
 
 @media (max-width: 640px) {
+  .mybets-page {
+    padding: 16px;
+  }
+
   .mybets-matchups-header,
   .mybets-matchup-row {
     grid-template-columns: 1fr 80px 1fr;
