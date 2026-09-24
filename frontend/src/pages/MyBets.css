@@ -138,10 +138,16 @@
 }
 
 .mybets-at-divider {
-  margin-left: 46px;
+  margin-left: 48px;
   color: rgba(255, 255, 255, 0.3);
   font-size: 0.62rem;
   line-height: 1;
+}
+
+.mybets-team-block {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
 }
 
 .mybets-team-row {
@@ -253,36 +259,77 @@
 }
 
 /* Per-team history: nearest week first, reading left (last week) to right
-   (further back). Dots are neutral by default and only take a color once a
-   pick on that team is graded win/loss for that week. */
-.mybets-history-strip {
+   (further back). Each week shows the actual W/L and the team's spread,
+   colored by whether your prediction on that team was right — not by
+   whether the team won, so a correctly-called loss is a green L. */
+.mybets-team-history {
   display: flex;
   align-items: center;
-  gap: 4px;
-  flex-shrink: 0;
+  gap: 6px;
+  margin-left: 48px;
 }
 
-.mybets-history-dot {
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.12);
-  border: 1px solid rgba(255, 255, 255, 0.18);
+.mybets-history-week {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
 }
 
-.mybets-history-dot--hit {
-  background: #22c55e;
+.mybets-history-ml {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.64rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.mybets-history-ats {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 0.58rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.mybets-history-ml--correct {
+  background: rgba(34, 197, 94, 0.25);
+  color: #4ade80;
+}
+
+.mybets-history-ml--incorrect {
+  background: rgba(239, 68, 68, 0.25);
+  color: #f87171;
+}
+
+.mybets-history-ats--correct {
+  background: rgba(34, 197, 94, 0.18);
   border-color: #22c55e;
+  color: #4ade80;
 }
 
-.mybets-history-dot--miss {
-  background: #ef4444;
+.mybets-history-ats--incorrect {
+  background: rgba(239, 68, 68, 0.18);
   border-color: #ef4444;
+  color: #f87171;
 }
 
-.mybets-history-dot--loading {
-  background: transparent;
-  border-style: dashed;
+.mybets-history-ml--push,
+.mybets-history-ats--push {
+  color: rgba(250, 204, 21, 0.85);
 }
 
 @media (max-width: 640px) {
@@ -308,7 +355,7 @@
   }
 
   .mybets-at-divider {
-    margin-left: 36px;
+    margin-left: 38px;
   }
 
   .mybets-team-icon-ring {
@@ -335,12 +382,20 @@
     font-size: 0.68rem;
   }
 
-  .mybets-history-strip {
-    gap: 3px;
+  .mybets-team-history {
+    gap: 4px;
+    margin-left: 38px;
   }
 
-  .mybets-history-dot {
-    width: 7px;
-    height: 7px;
+  .mybets-history-ml {
+    width: 15px;
+    height: 15px;
+    font-size: 0.56rem;
+  }
+
+  .mybets-history-ats {
+    min-width: 26px;
+    font-size: 0.5rem;
+    padding: 1px 4px;
   }
 }

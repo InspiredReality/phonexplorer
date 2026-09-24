@@ -73,43 +73,71 @@ function persistLocalPicks(data) {
   }
 }
 
-// How many prior weeks' worth of history dots to show per team, and how far
-// back (as a count of already-loaded weeks, not calendar weeks) to fetch.
+// How many prior weeks' worth of history to show per team, and how far back
+// (as a count of already-loaded weeks, not calendar weeks) to fetch.
 const HISTORY_WEEKS = 4;
 
 function findTeamGame(games, teamId) {
   return games.find((g) => g.home?.id === teamId || g.away?.id === teamId);
 }
 
-// One game, graded from that team's point of view: did whichever pick(s) you
-// made on them that week (moneyline and/or ATS) hit? 'miss' if any missed,
-// 'hit' if every pick made hit, 'push' if the only picks made pushed, and
-// 'no-pick' if you didn't pick this team in that game at all.
-function gradeTeamGame(teamId, game, gamePicks) {
-  if (!game) return 'bye';
-  if (!game.completed) return 'pending';
+function teamScoreMargin(teamId, game) {
+  if (!game || !game.completed) return null;
   const isHome = game.home?.id === teamId;
   const teamScore = isHome ? game.home?.score : game.away?.score;
   const oppScore = isHome ? game.away?.score : game.home?.score;
-  if (teamScore == null || oppScore == null) return 'pending';
+  const spread = isHome ? game.home?.spread : game.away?.spread;
+  const opponentId = isHome ? game.away?.id : game.home?.id;
+  if (teamScore == null || oppScore == null) return null;
+  return { teamScore, oppScore, spread, opponentId };
+}
 
-  const results = [];
-  if (gamePicks?.moneyline === teamId) {
-    results.push(teamScore === oppScore ? 'push' : teamScore > oppScore ? 'hit' : 'miss');
-  }
-  if (gamePicks?.ats === teamId) {
-    const spread = isHome ? game.home?.spread : game.away?.spread;
-    if (spread == null) {
-      results.push('push');
-    } else {
-      const adjusted = teamScore - oppScore + spread;
-      results.push(adjusted > 0 ? 'hit' : adjusted < 0 ? 'miss' : 'push');
-    }
-  }
-  if (results.length === 0) return 'no-pick';
-  if (results.includes('miss')) return 'miss';
-  if (results.every((r) => r === 'push')) return 'push';
-  return 'hit';
+// The letter always reflects what actually happened (W/L), independent of
+// any pick. state reflects whether YOUR prediction on this team was right:
+// picking this team means "predicted win", picking the opponent means
+// "predicted loss" — so a correctly-called loss shows a green L.
+function gradeMoneylineHistory(teamId, game, gamePicks) {
+  const margin = teamScoreMargin(teamId, game);
+  if (!game) return { letter: null, state: 'bye' };
+  if (!margin) return { letter: null, state: 'pending' };
+  const { teamScore, oppScore, opponentId } = margin;
+  if (teamScore === oppScore) return { letter: 'T', state: 'push' };
+  const letter = teamScore > oppScore ? 'W' : 'L';
+
+  const picked = gamePicks?.moneyline;
+  let predictedWin;
+  if (picked === teamId) predictedWin = true;
+  else if (picked === opponentId) predictedWin = false;
+  else return { letter, state: 'no-pick' };
+
+  const correct = predictedWin ? letter === 'W' : letter === 'L';
+  return { letter, state: correct ? 'correct' : 'incorrect' };
+}
+
+// label is always this team's spread for that game (so you can see the
+// number even with no pick made); state grades whether your ATS pick on
+// this team — cover if you picked them, no-cover if you picked their
+// opponent — matched what actually happened.
+function gradeAtsHistory(teamId, game, gamePicks) {
+  const margin = teamScoreMargin(teamId, game);
+  if (!game) return { label: null, state: 'bye' };
+  if (!margin) return { label: null, state: 'pending' };
+  const { teamScore, oppScore, spread, opponentId } = margin;
+  const label = formatSigned(spread);
+  if (spread == null) return { label, state: 'no-pick' };
+
+  const adjusted = teamScore - oppScore + spread;
+  if (adjusted === 0) return { label, state: 'push' };
+  const covered = adjusted > 0;
+
+  const picked = gamePicks?.ats;
+  let predictedCover;
+  if (picked === teamId) predictedCover = true;
+  else if (picked === opponentId) predictedCover = false;
+  else return { label, state: 'no-pick' };
+
+  const correct = predictedCover === covered;
+  return { label, state: correct ? 'correct' : 'incorrect' };
 }
 
 // priorWeekIds is nearest-week-first (last week, then the week before, …).
@@ -117,74 +145,95 @@ function buildTeamHistory(teamId, priorWeekIds, schedules, picks) {
   if (!teamId) return [];
   return priorWeekIds.map((weekId) => {
     const sched = schedules[weekId];
-    if (!sched || sched.status === 'loading') return { weekId, state: 'loading' };
-    if (sched.status === 'error') return { weekId, state: 'unknown' };
+    if (!sched || sched.status === 'loading') {
+      return { weekId, ml: { letter: null, state: 'loading' }, ats: { label: null, state: 'loading' } };
+    }
+    if (sched.status === 'error') {
+      return { weekId, ml: { letter: null, state: 'unknown' }, ats: { label: null, state: 'unknown' } };
+    }
     const game = findTeamGame(sched.games, teamId);
     const gamePicks = game ? picks[weekId]?.[game.id] : undefined;
-    return { weekId, state: gradeTeamGame(teamId, game, gamePicks) };
+    return {
+      weekId,
+      ml: gradeMoneylineHistory(teamId, game, gamePicks),
+      ats: gradeAtsHistory(teamId, game, gamePicks),
+    };
   });
 }
 
-const HISTORY_LABELS = {
-  hit: 'Right',
-  miss: 'Wrong',
-  push: 'Push',
-  'no-pick': 'No pick made',
-  bye: 'Bye week',
-  pending: 'Not final yet',
-  loading: 'Loading…',
-  unknown: 'Unavailable',
+const HISTORY_STATE_LABELS = {
+  correct: 'predicted correctly',
+  incorrect: 'predicted wrong',
+  push: 'push',
+  'no-pick': 'no pick made',
+  bye: 'bye week',
+  pending: 'not final yet',
+  loading: 'loading…',
+  unknown: 'unavailable',
 };
 
-function HistoryStrip({ history }) {
+function TeamHistoryRow({ team, history }) {
   if (!history.length) return null;
   return (
-    <div className="mybets-history-strip">
+    <div className="mybets-team-history">
       {history.map((h) => (
-        <span
-          key={h.weekId}
-          className={`mybets-history-dot mybets-history-dot--${h.state}`}
-          title={`Week ${weekNumber(h.weekId)}: ${HISTORY_LABELS[h.state] || h.state}`}
-        />
+        <div key={h.weekId} className="mybets-history-week">
+          <span
+            className={`mybets-history-ml mybets-history-ml--${h.ml.state}`}
+            title={`Week ${weekNumber(h.weekId)}: ${team.name} ${h.ml.letter || 'bye'} — ${HISTORY_STATE_LABELS[h.ml.state] || h.ml.state}`}
+          >
+            {h.ml.letter || '–'}
+          </span>
+          <span
+            className={`mybets-history-ats mybets-history-ats--${h.ats.state}`}
+            title={`Week ${weekNumber(h.weekId)}: ${team.name} ATS ${h.ats.label || ''} — ${HISTORY_STATE_LABELS[h.ats.state] || h.ats.state}`}
+          >
+            {h.ats.label || '–'}
+          </span>
+        </div>
       ))}
     </div>
   );
 }
 
-// One row = one team, logo-name-odds left to right; away/home stack as two
-// rows so a matchup reads top-to-bottom instead of side by side. The logo
-// always picks the moneyline (straight-up) winner; once ATS is unlocked for
-// the week, the number after the name switches from a plain moneyline
-// readout to a clickable spread pick. history is this team's last few
-// weeks, nearest first, shown as small dots to the right.
+// One team = one block: a pick row (logo-name-odds, left to right) plus a
+// history row beneath it. Away/home stack as two blocks so a matchup reads
+// top-to-bottom instead of side by side. The logo always picks the
+// moneyline (straight-up) winner; once ATS is unlocked for the week, the
+// number after the name switches from a plain moneyline readout to a
+// clickable spread pick. history is this team's last few weeks, nearest
+// first: a W/L letter (green if your moneyline call was right) and the
+// spread number (green if your ATS call was right).
 function TeamPickRow({ team, moneyline, spread, mlPicked, atsPicked, atsUnlocked, onMlClick, onAtsClick, history }) {
-  if (!team) return <div className="mybets-team-row" />;
+  if (!team) return <div className="mybets-team-block" />;
   return (
-    <div className="mybets-team-row">
-      <button
-        type="button"
-        className={`mybets-team-logo-btn ${mlPicked ? 'is-picked' : ''}`}
-        onClick={onMlClick}
-        title={mlPicked ? `${team.name} — your moneyline pick` : `Pick ${team.name} to win`}
-      >
-        <span className="mybets-team-icon-ring">
-          <img className="mybets-team-icon" src={team.logo} alt="" width={30} height={30} loading="lazy" />
-        </span>
-        <span className="mybets-team-name">{team.name}</span>
-      </button>
-      {atsUnlocked ? (
+    <div className="mybets-team-block">
+      <div className="mybets-team-row">
         <button
           type="button"
-          className={`mybets-spread-btn ${atsPicked ? 'is-picked' : ''}`}
-          onClick={onAtsClick}
-          title={atsPicked ? `${team.name} — your ATS pick` : `Pick ${team.name} against the spread`}
+          className={`mybets-team-logo-btn ${mlPicked ? 'is-picked' : ''}`}
+          onClick={onMlClick}
+          title={mlPicked ? `${team.name} — your moneyline pick` : `Pick ${team.name} to win`}
         >
-          {formatSigned(spread)}
+          <span className="mybets-team-icon-ring">
+            <img className="mybets-team-icon" src={team.logo} alt="" width={30} height={30} loading="lazy" />
+          </span>
+          <span className="mybets-team-name">{team.name}</span>
         </button>
-      ) : (
-        <span className="mybets-team-odds">{formatSigned(moneyline)}</span>
-      )}
-      <HistoryStrip history={history || []} />
+        {atsUnlocked ? (
+          <button
+            type="button"
+            className={`mybets-spread-btn ${atsPicked ? 'is-picked' : ''}`}
+            onClick={onAtsClick}
+            title={atsPicked ? `${team.name} — your ATS pick` : `Pick ${team.name} against the spread`}
+          >
+            {formatSigned(spread)}
+          </button>
+        ) : (
+          <span className="mybets-team-odds">{formatSigned(moneyline)}</span>
+        )}
+      </div>
+      <TeamHistoryRow team={team} history={history || []} />
     </div>
   );
 }
