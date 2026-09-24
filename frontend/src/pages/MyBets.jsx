@@ -73,13 +73,15 @@ function persistLocalPicks(data) {
   }
 }
 
-// One column = one team. The logo always picks the moneyline (straight-up)
-// winner; once ATS is unlocked for the week, the number beneath the logo
-// switches from a plain moneyline readout to a clickable spread pick.
-function TeamPickColumn({ team, moneyline, spread, mlPicked, atsPicked, atsUnlocked, onMlClick, onAtsClick }) {
-  if (!team) return <div className="mybets-team-col" />;
+// One row = one team, logo-name-odds left to right; away/home stack as two
+// rows so a matchup reads top-to-bottom instead of side by side. The logo
+// always picks the moneyline (straight-up) winner; once ATS is unlocked for
+// the week, the number after the name switches from a plain moneyline
+// readout to a clickable spread pick.
+function TeamPickRow({ team, moneyline, spread, mlPicked, atsPicked, atsUnlocked, onMlClick, onAtsClick }) {
+  if (!team) return <div className="mybets-team-row" />;
   return (
-    <div className="mybets-team-col">
+    <div className="mybets-team-row">
       <button
         type="button"
         className={`mybets-team-logo-btn ${mlPicked ? 'is-picked' : ''}`}
@@ -87,7 +89,7 @@ function TeamPickColumn({ team, moneyline, spread, mlPicked, atsPicked, atsUnloc
         title={mlPicked ? `${team.name} — your moneyline pick` : `Pick ${team.name} to win`}
       >
         <span className="mybets-team-icon-ring">
-          <img className="mybets-team-icon" src={team.logo} alt="" width={36} height={36} loading="lazy" />
+          <img className="mybets-team-icon" src={team.logo} alt="" width={30} height={30} loading="lazy" />
         </span>
         <span className="mybets-team-name">{team.name}</span>
       </button>
@@ -246,11 +248,6 @@ function MyBets() {
                 )}
                 {schedule?.status === 'loaded' && games.length > 0 && (
                   <div className="mybets-matchups">
-                    <div className="mybets-matchups-header">
-                      <span />
-                      <span>Away</span>
-                      <span>Home</span>
-                    </div>
                     {games.map((game) => {
                       const gamePicks = weekPicks[game.id] || {};
                       const { day, time } = formatGameDate(game.date);
@@ -260,26 +257,29 @@ function MyBets() {
                             <span className="mybets-date-day">{day}</span>
                             <span className="mybets-date-time">{time}</span>
                           </div>
-                          <TeamPickColumn
-                            team={game.away}
-                            moneyline={game.away?.moneyline}
-                            spread={game.away?.spread}
-                            mlPicked={gamePicks.moneyline === game.away?.id}
-                            atsPicked={gamePicks.ats === game.away?.id}
-                            atsUnlocked={atsUnlocked}
-                            onMlClick={handlePick(weekId, game.id, 'moneyline', game.away?.id)}
-                            onAtsClick={handlePick(weekId, game.id, 'ats', game.away?.id)}
-                          />
-                          <TeamPickColumn
-                            team={game.home}
-                            moneyline={game.home?.moneyline}
-                            spread={game.home?.spread}
-                            mlPicked={gamePicks.moneyline === game.home?.id}
-                            atsPicked={gamePicks.ats === game.home?.id}
-                            atsUnlocked={atsUnlocked}
-                            onMlClick={handlePick(weekId, game.id, 'moneyline', game.home?.id)}
-                            onAtsClick={handlePick(weekId, game.id, 'ats', game.home?.id)}
-                          />
+                          <div className="mybets-matchup-teams">
+                            <TeamPickRow
+                              team={game.away}
+                              moneyline={game.away?.moneyline}
+                              spread={game.away?.spread}
+                              mlPicked={gamePicks.moneyline === game.away?.id}
+                              atsPicked={gamePicks.ats === game.away?.id}
+                              atsUnlocked={atsUnlocked}
+                              onMlClick={handlePick(weekId, game.id, 'moneyline', game.away?.id)}
+                              onAtsClick={handlePick(weekId, game.id, 'ats', game.away?.id)}
+                            />
+                            <span className="mybets-at-divider">@</span>
+                            <TeamPickRow
+                              team={game.home}
+                              moneyline={game.home?.moneyline}
+                              spread={game.home?.spread}
+                              mlPicked={gamePicks.moneyline === game.home?.id}
+                              atsPicked={gamePicks.ats === game.home?.id}
+                              atsUnlocked={atsUnlocked}
+                              onMlClick={handlePick(weekId, game.id, 'moneyline', game.home?.id)}
+                              onAtsClick={handlePick(weekId, game.id, 'ats', game.home?.id)}
+                            />
+                          </div>
                         </div>
                       );
                     })}
