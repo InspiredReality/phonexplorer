@@ -138,16 +138,10 @@
 }
 
 .mybets-at-divider {
-  margin-left: 48px;
+  margin-left: 46px;
   color: rgba(255, 255, 255, 0.3);
   font-size: 0.62rem;
   line-height: 1;
-}
-
-.mybets-team-block {
-  display: flex;
-  flex-direction: column;
-  gap: 3px;
 }
 
 .mybets-team-row {
@@ -156,12 +150,15 @@
   gap: 10px;
 }
 
+/* Fixed width, not flex:1 — the row's remaining space belongs to the
+   history strip so it can stretch and scroll horizontally instead of the
+   team's own icon/name shrinking to make room. */
 .mybets-team-logo-btn {
   display: flex;
   align-items: center;
-  gap: 10px;
-  flex: 1;
-  min-width: 0;
+  gap: 8px;
+  flex: 0 0 auto;
+  max-width: 138px;
   padding: 4px 8px 4px 2px;
   background: transparent;
   border: none;
@@ -259,21 +256,30 @@
 }
 
 /* Per-team history: nearest week first, reading left (last week) to right
-   (further back). Each week shows the actual W/L and the team's spread,
-   colored by whether your prediction on that team was right — not by
-   whether the team won, so a correctly-called loss is a green L. */
+   (further back), sitting right after this week's pick control and
+   stretching to fill the rest of the row. Each week's W/L and spread sit
+   side by side rather than stacked, and the whole strip scrolls
+   horizontally instead of wrapping if it runs out of width. Colored by
+   whether your prediction on that team was right — not by whether the team
+   won, so a correctly-called loss is a green L. */
 .mybets-team-history {
   display: flex;
   align-items: center;
-  gap: 6px;
-  margin-left: 48px;
+  gap: 10px;
+  flex: 1;
+  min-width: 0;
+  padding-left: 10px;
+  margin-left: 4px;
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  overflow-x: auto;
+  scrollbar-width: thin;
 }
 
 .mybets-history-week {
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 2px;
+  gap: 4px;
+  flex-shrink: 0;
 }
 
 .mybets-history-ml {
@@ -355,7 +361,12 @@
   }
 
   .mybets-at-divider {
-    margin-left: 38px;
+    margin-left: 34px;
+  }
+
+  .mybets-team-logo-btn {
+    max-width: 96px;
+    gap: 6px;
   }
 
   .mybets-team-icon-ring {
@@ -383,8 +394,9 @@
   }
 
   .mybets-team-history {
-    gap: 4px;
-    margin-left: 38px;
+    gap: 6px;
+    padding-left: 6px;
+    margin-left: 2px;
   }
 
   .mybets-history-ml {

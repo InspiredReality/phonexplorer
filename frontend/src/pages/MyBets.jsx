@@ -172,6 +172,9 @@ const HISTORY_STATE_LABELS = {
   unknown: 'unavailable',
 };
 
+// Nearest week first, each week's W/L and spread sitting side by side
+// (not stacked) so the whole strip reads as one horizontal line that
+// scrolls if it runs out of room, rather than wrapping to a new row.
 function TeamHistoryRow({ team, history }) {
   if (!history.length) return null;
   return (
@@ -196,8 +199,9 @@ function TeamHistoryRow({ team, history }) {
   );
 }
 
-// One team = one block: a pick row (logo-name-odds, left to right) plus a
-// history row beneath it. Away/home stack as two blocks so a matchup reads
+// One team = one horizontal row: logo+name, then this week's pick control,
+// then — stretching to fill (and scrolling if needed) the rest of the row —
+// the team's history. Away/home stack as two rows so a matchup reads
 // top-to-bottom instead of side by side. The logo always picks the
 // moneyline (straight-up) winner; once ATS is unlocked for the week, the
 // number after the name switches from a plain moneyline readout to a
@@ -205,34 +209,32 @@ function TeamHistoryRow({ team, history }) {
 // first: a W/L letter (green if your moneyline call was right) and the
 // spread number (green if your ATS call was right).
 function TeamPickRow({ team, moneyline, spread, mlPicked, atsPicked, atsUnlocked, onMlClick, onAtsClick, history }) {
-  if (!team) return <div className="mybets-team-block" />;
+  if (!team) return <div className="mybets-team-row" />;
   return (
-    <div className="mybets-team-block">
-      <div className="mybets-team-row">
+    <div className="mybets-team-row">
+      <button
+        type="button"
+        className={`mybets-team-logo-btn ${mlPicked ? 'is-picked' : ''}`}
+        onClick={onMlClick}
+        title={mlPicked ? `${team.name} — your moneyline pick` : `Pick ${team.name} to win`}
+      >
+        <span className="mybets-team-icon-ring">
+          <img className="mybets-team-icon" src={team.logo} alt="" width={30} height={30} loading="lazy" />
+        </span>
+        <span className="mybets-team-name">{team.name}</span>
+      </button>
+      {atsUnlocked ? (
         <button
           type="button"
-          className={`mybets-team-logo-btn ${mlPicked ? 'is-picked' : ''}`}
-          onClick={onMlClick}
-          title={mlPicked ? `${team.name} — your moneyline pick` : `Pick ${team.name} to win`}
+          className={`mybets-spread-btn ${atsPicked ? 'is-picked' : ''}`}
+          onClick={onAtsClick}
+          title={atsPicked ? `${team.name} — your ATS pick` : `Pick ${team.name} against the spread`}
         >
-          <span className="mybets-team-icon-ring">
-            <img className="mybets-team-icon" src={team.logo} alt="" width={30} height={30} loading="lazy" />
-          </span>
-          <span className="mybets-team-name">{team.name}</span>
+          {formatSigned(spread)}
         </button>
-        {atsUnlocked ? (
-          <button
-            type="button"
-            className={`mybets-spread-btn ${atsPicked ? 'is-picked' : ''}`}
-            onClick={onAtsClick}
-            title={atsPicked ? `${team.name} — your ATS pick` : `Pick ${team.name} against the spread`}
-          >
-            {formatSigned(spread)}
-          </button>
-        ) : (
-          <span className="mybets-team-odds">{formatSigned(moneyline)}</span>
-        )}
-      </div>
+      ) : (
+        <span className="mybets-team-odds">{formatSigned(moneyline)}</span>
+      )}
       <TeamHistoryRow team={team} history={history || []} />
     </div>
   );
