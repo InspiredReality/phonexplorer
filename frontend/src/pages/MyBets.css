@@ -106,10 +106,6 @@
   text-transform: uppercase;
 }
 
-.mybets-matchups-header.has-ats {
-  grid-template-columns: 64px 1fr 1fr 1fr 1fr;
-}
-
 .mybets-matchups-header span {
   text-align: center;
   overflow-wrap: break-word;
@@ -121,10 +117,6 @@
   gap: 4px;
   align-items: center;
   padding: 12px 16px;
-}
-
-.mybets-matchup-row.has-ats {
-  grid-template-columns: 64px 1fr 1fr 1fr 1fr;
 }
 
 .mybets-matchup-row:not(:last-child) {
@@ -154,8 +146,16 @@
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
   padding: 6px;
+}
+
+.mybets-team-logo-btn {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  padding: 0;
   background: transparent;
   border: none;
   cursor: pointer;
@@ -174,15 +174,15 @@
   transition: border-color 0.15s, background 0.15s, transform 0.1s;
 }
 
-.mybets-team-col:hover .mybets-team-icon-ring {
+.mybets-team-logo-btn:hover .mybets-team-icon-ring {
   border-color: rgba(255, 255, 255, 0.25);
 }
 
-.mybets-team-col:active .mybets-team-icon-ring {
+.mybets-team-logo-btn:active .mybets-team-icon-ring {
   transform: scale(0.95);
 }
 
-.mybets-team-col.is-picked .mybets-team-icon-ring {
+.mybets-team-logo-btn.is-picked .mybets-team-icon-ring {
   border-color: #22c55e;
   background: rgba(34, 197, 94, 0.15);
   box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.25);
@@ -205,7 +205,7 @@
   overflow-wrap: break-word;
 }
 
-.mybets-team-col.is-picked .mybets-team-name {
+.mybets-team-logo-btn.is-picked .mybets-team-name {
   color: #4ade80;
   font-weight: 600;
 }
@@ -217,8 +217,31 @@
   line-height: 1;
 }
 
-.mybets-team-col.is-picked .mybets-team-odds {
-  color: rgba(74, 222, 128, 0.8);
+.mybets-spread-btn {
+  padding: 2px 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  color: rgba(255, 255, 255, 0.75);
+  font: inherit;
+  font-size: 0.68rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s, transform 0.1s;
+}
+
+.mybets-spread-btn:hover {
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.mybets-spread-btn:active {
+  transform: scale(0.95);
+}
+
+.mybets-spread-btn.is-picked {
+  background: rgba(34, 197, 94, 0.15);
+  border-color: #22c55e;
+  color: #4ade80;
 }
 
 @media (max-width: 640px) {
@@ -232,11 +255,6 @@
     gap: 2px;
     padding-left: 8px;
     padding-right: 8px;
-  }
-
-  .mybets-matchups-header.has-ats,
-  .mybets-matchup-row.has-ats {
-    grid-template-columns: 44px 1fr 1fr 1fr 1fr;
   }
 
   .mybets-date-day {
@@ -263,6 +281,11 @@
   }
 
   .mybets-team-odds {
+    font-size: 0.58rem;
+  }
+
+  .mybets-spread-btn {
+    padding: 1px 8px;
     font-size: 0.58rem;
   }
 }

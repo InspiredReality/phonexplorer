@@ -73,21 +73,37 @@ function persistLocalPicks(data) {
   }
 }
 
-function TeamPickColumn({ team, oddsValue, picked, onClick }) {
+// One column = one team. The logo always picks the moneyline (straight-up)
+// winner; once ATS is unlocked for the week, the number beneath the logo
+// switches from a plain moneyline readout to a clickable spread pick.
+function TeamPickColumn({ team, moneyline, spread, mlPicked, atsPicked, atsUnlocked, onMlClick, onAtsClick }) {
   if (!team) return <div className="mybets-team-col" />;
   return (
-    <button
-      type="button"
-      className={`mybets-team-col ${picked ? 'is-picked' : ''}`}
-      onClick={onClick}
-      title={picked ? `${team.name} — your pick` : `Pick ${team.name}`}
-    >
-      <span className="mybets-team-icon-ring">
-        <img className="mybets-team-icon" src={team.logo} alt="" width={36} height={36} loading="lazy" />
-      </span>
-      <span className="mybets-team-name">{team.name}</span>
-      <span className="mybets-team-odds">{formatSigned(oddsValue)}</span>
-    </button>
+    <div className="mybets-team-col">
+      <button
+        type="button"
+        className={`mybets-team-logo-btn ${mlPicked ? 'is-picked' : ''}`}
+        onClick={onMlClick}
+        title={mlPicked ? `${team.name} — your moneyline pick` : `Pick ${team.name} to win`}
+      >
+        <span className="mybets-team-icon-ring">
+          <img className="mybets-team-icon" src={team.logo} alt="" width={36} height={36} loading="lazy" />
+        </span>
+        <span className="mybets-team-name">{team.name}</span>
+      </button>
+      {atsUnlocked ? (
+        <button
+          type="button"
+          className={`mybets-spread-btn ${atsPicked ? 'is-picked' : ''}`}
+          onClick={onAtsClick}
+          title={atsPicked ? `${team.name} — your ATS pick` : `Pick ${team.name} against the spread`}
+        >
+          {formatSigned(spread)}
+        </button>
+      ) : (
+        <span className="mybets-team-odds">{formatSigned(moneyline)}</span>
+      )}
+    </div>
   );
 }
 
@@ -230,54 +246,40 @@ function MyBets() {
                 )}
                 {schedule?.status === 'loaded' && games.length > 0 && (
                   <div className="mybets-matchups">
-                    <div className={`mybets-matchups-header ${atsUnlocked ? 'has-ats' : ''}`}>
+                    <div className="mybets-matchups-header">
                       <span />
-                      <span>Moneyline Home</span>
-                      <span>Moneyline Away</span>
-                      {atsUnlocked && (
-                        <>
-                          <span>ATS Home</span>
-                          <span>ATS Away</span>
-                        </>
-                      )}
+                      <span>Away</span>
+                      <span>Home</span>
                     </div>
                     {games.map((game) => {
                       const gamePicks = weekPicks[game.id] || {};
                       const { day, time } = formatGameDate(game.date);
                       return (
-                        <div key={game.id} className={`mybets-matchup-row ${atsUnlocked ? 'has-ats' : ''}`}>
+                        <div key={game.id} className="mybets-matchup-row">
                           <div className="mybets-date-col">
                             <span className="mybets-date-day">{day}</span>
                             <span className="mybets-date-time">{time}</span>
                           </div>
                           <TeamPickColumn
-                            team={game.home}
-                            oddsValue={game.home?.moneyline}
-                            picked={gamePicks.moneyline === game.home?.id}
-                            onClick={handlePick(weekId, game.id, 'moneyline', game.home?.id)}
+                            team={game.away}
+                            moneyline={game.away?.moneyline}
+                            spread={game.away?.spread}
+                            mlPicked={gamePicks.moneyline === game.away?.id}
+                            atsPicked={gamePicks.ats === game.away?.id}
+                            atsUnlocked={atsUnlocked}
+                            onMlClick={handlePick(weekId, game.id, 'moneyline', game.away?.id)}
+                            onAtsClick={handlePick(weekId, game.id, 'ats', game.away?.id)}
                           />
                           <TeamPickColumn
-                            team={game.away}
-                            oddsValue={game.away?.moneyline}
-                            picked={gamePicks.moneyline === game.away?.id}
-                            onClick={handlePick(weekId, game.id, 'moneyline', game.away?.id)}
+                            team={game.home}
+                            moneyline={game.home?.moneyline}
+                            spread={game.home?.spread}
+                            mlPicked={gamePicks.moneyline === game.home?.id}
+                            atsPicked={gamePicks.ats === game.home?.id}
+                            atsUnlocked={atsUnlocked}
+                            onMlClick={handlePick(weekId, game.id, 'moneyline', game.home?.id)}
+                            onAtsClick={handlePick(weekId, game.id, 'ats', game.home?.id)}
                           />
-                          {atsUnlocked && (
-                            <>
-                              <TeamPickColumn
-                                team={game.home}
-                                oddsValue={game.home?.spread}
-                                picked={gamePicks.ats === game.home?.id}
-                                onClick={handlePick(weekId, game.id, 'ats', game.home?.id)}
-                              />
-                              <TeamPickColumn
-                                team={game.away}
-                                oddsValue={game.away?.spread}
-                                picked={gamePicks.ats === game.away?.id}
-                                onClick={handlePick(weekId, game.id, 'ats', game.away?.id)}
-                              />
-                            </>
-                          )}
                         </div>
                       );
                     })}
