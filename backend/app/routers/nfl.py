@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db
+from app.models.nfl_game_cache import NflGameCache
 from app.models.nfl_pick import NflPick
 from app.services.http_client import client
 
@@ -97,6 +98,99 @@ def _game_dict(event: dict) -> dict | None:
     }
 
 
+def _row_to_game(row: NflGameCache) -> dict:
+    return {
+        "id": row.game_id,
+        "date": row.date,
+        "completed": row.completed,
+        "home": {
+            "id": row.home_id,
+            "name": row.home_name,
+            "logo": row.home_logo,
+            "moneyline": row.home_moneyline,
+            "spread": row.home_spread,
+            "score": row.home_score,
+        },
+        "away": {
+            "id": row.away_id,
+            "name": row.away_name,
+            "logo": row.away_logo,
+            "moneyline": row.away_moneyline,
+            "spread": row.away_spread,
+            "score": row.away_score,
+        },
+    }
+
+
+async def _load_cached_week(db: AsyncSession, week: int, season_year: int) -> list[dict] | None:
+    """The cached games for this week/season, or None if nothing's cached yet."""
+    rows = (
+        await db.execute(
+            select(NflGameCache).where(NflGameCache.week == week, NflGameCache.season == season_year)
+        )
+    ).scalars().all()
+    if not rows:
+        return None
+    games = [_row_to_game(r) for r in rows]
+    games.sort(key=lambda g: g["date"] or "")
+    return games
+
+
+def _merge_cached_fields(games: list[dict], cached_games: list[dict]) -> None:
+    """Fill any null field in a freshly-fetched game from what was cached
+    for it before — this is what keeps a spread available once ESPN stops
+    returning odds for a game that's no longer upcoming."""
+    cached_by_id = {g["id"]: g for g in cached_games}
+    for g in games:
+        cached = cached_by_id.get(g["id"])
+        if not cached:
+            continue
+        for side in ("home", "away"):
+            live_team, cached_team = g[side], cached[side]
+            for field in ("id", "name", "logo", "score", "moneyline", "spread"):
+                if live_team.get(field) is None and cached_team.get(field) is not None:
+                    live_team[field] = cached_team[field]
+
+
+async def _save_week_cache(db: AsyncSession, week: int, season_year: int, games: list[dict]) -> None:
+    """Upsert this call's games into the cache. Only overwrites a field when
+    the new value is non-null, so a score/odds ESPN no longer returns (e.g.
+    the spread on a since-completed game) doesn't get clobbered with None."""
+    game_ids = [g["id"] for g in games]
+    if not game_ids:
+        return
+    existing = {
+        row.game_id: row
+        for row in (
+            await db.execute(select(NflGameCache).where(NflGameCache.game_id.in_(game_ids)))
+        ).scalars().all()
+    }
+    for g in games:
+        row = existing.get(g["id"])
+        if not row:
+            row = NflGameCache(game_id=g["id"], week=week, season=season_year)
+            db.add(row)
+        row.week = week
+        row.season = season_year
+        row.date = g["date"]
+        row.completed = g["completed"]
+        for side in ("home", "away"):
+            team = g[side]
+            if team["id"] is not None:
+                setattr(row, f"{side}_id", team["id"])
+            if team["name"] is not None:
+                setattr(row, f"{side}_name", team["name"])
+            if team["logo"] is not None:
+                setattr(row, f"{side}_logo", team["logo"])
+            if team["score"] is not None:
+                setattr(row, f"{side}_score", team["score"])
+            if team["moneyline"] is not None:
+                setattr(row, f"{side}_moneyline", team["moneyline"])
+            if team["spread"] is not None:
+                setattr(row, f"{side}_spread", team["spread"])
+    await db.commit()
+
+
 async def _fetch_week_games(week: int, season_year: int) -> list[dict]:
     try:
         resp = await client.get(
@@ -115,12 +209,41 @@ async def _fetch_week_games(week: int, season_year: int) -> list[dict]:
 
 
 @router.get("/schedule/{week}")
-async def get_week_schedule(week: int, season: int | None = None):
-    """Real NFL head-to-head matchups for one week, proxied from ESPN's public scoreboard."""
+async def get_week_schedule(week: int, season: int | None = None, db: AsyncSession = Depends(get_db)):
+    """Real NFL head-to-head matchups for one week.
+
+    Cache-first: once every game in a week is completed, that week is
+    permanent, so it's served straight from nfl_game_cache with no ESPN
+    call at all — reopening the same week over and over costs nothing. A
+    week still in progress (or never seen before) always goes live, so
+    scores keep updating until it settles; whatever comes back is upserted
+    into the cache (never overwriting a field with a null one), which is
+    also what keeps a game's spread available for ATS grading after ESPN
+    stops returning odds for a game that's no longer upcoming.
+
+    If ESPN can't be reached and there's nothing better, a stale cached
+    copy is served rather than failing outright.
+    """
     if not 1 <= week <= WEEK_COUNT:
         raise HTTPException(status_code=404, detail="Week out of range")
     season_year = season or date.today().year
-    games = await _fetch_week_games(week, season_year)
+
+    cached_games = await _load_cached_week(db, week, season_year)
+    if cached_games and all(g["completed"] for g in cached_games):
+        return {"week": week, "season": season_year, "games": cached_games}
+
+    try:
+        games = await _fetch_week_games(week, season_year)
+    except HTTPException:
+        if cached_games:
+            log.warning("ESPN unreachable for week %s (%s); serving stale cache", week, season_year)
+            return {"week": week, "season": season_year, "games": cached_games}
+        raise
+
+    if cached_games:
+        _merge_cached_fields(games, cached_games)
+
+    await _save_week_cache(db, week, season_year, games)
     return {"week": week, "season": season_year, "games": games}
 
 
