@@ -132,31 +132,37 @@ function gradeMoneylineHistory(teamId, game, gamePicks) {
 
 // label is always this team's spread for that game, shown whether or not a
 // pick was made (spread == null only when we genuinely never got the
-// number — e.g. an old game whose line ESPN no longer has anywhere). Red
-// and green are reserved for a pick you actually made — 'correct' or
-// 'incorrect' — so with no personal pick, state instead reports the plain
-// objective outcome ('covered' or 'not-covered'), which the UI shows
-// uncolored (a small "covered" tag rather than a grade).
+// number — e.g. an old game whose line ESPN no longer has anywhere).
+// `covered` is the plain objective fact — did THIS team cover — completely
+// independent of state, because state alone is ambiguous: a favorite's
+// "-6" can grade green either because you picked the favorite and they
+// covered, or because you picked the underdog and the favorite failed to
+// cover (also "correct", from this team's row). `covered` disambiguates
+// that: the "covered" tag renders whenever this team actually covered,
+// whatever the color, and never when they didn't. Red/green (correct/
+// incorrect) are reserved for a pick you actually made; with no personal
+// pick, state is the plain objective outcome ('covered'/'not-covered'),
+// shown uncolored.
 function gradeAtsHistory(teamId, game, gamePicks) {
   const margin = teamScoreMargin(teamId, game);
-  if (!game) return { label: null, state: 'bye' };
-  if (!margin) return { label: null, state: 'pending' };
+  if (!game) return { label: null, state: 'bye', covered: null };
+  if (!margin) return { label: null, state: 'pending', covered: null };
   const { teamScore, oppScore, spread, opponentId } = margin;
   const label = formatSigned(spread);
-  if (spread == null) return { label, state: 'no-data' };
+  if (spread == null) return { label, state: 'no-data', covered: null };
 
   const adjusted = teamScore - oppScore + spread;
-  if (adjusted === 0) return { label, state: 'push' };
+  if (adjusted === 0) return { label, state: 'push', covered: null };
   const covered = adjusted > 0;
 
   const picked = gamePicks?.ats;
   let predictedCover;
   if (picked === teamId) predictedCover = true;
   else if (picked === opponentId) predictedCover = false;
-  else return { label, state: covered ? 'covered' : 'not-covered' };
+  else return { label, state: covered ? 'covered' : 'not-covered', covered };
 
   const correct = predictedCover === covered;
-  return { label, state: correct ? 'correct' : 'incorrect' };
+  return { label, state: correct ? 'correct' : 'incorrect', covered };
 }
 
 // display is always "O <total>" or "U <total>" — whichever side the actual
@@ -278,7 +284,7 @@ function TeamHistoryRow({ team, history }) {
             >
               {h.ats.label || '–'}
             </span>
-            {h.ats.state === 'covered' && <span className="mybets-history-covered-tag">covered</span>}
+            {h.ats.covered && <span className="mybets-history-covered-tag">covered</span>}
           </span>
         </div>
       ))}
