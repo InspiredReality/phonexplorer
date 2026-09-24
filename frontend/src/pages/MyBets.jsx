@@ -132,11 +132,11 @@ function gradeMoneylineHistory(teamId, game, gamePicks) {
 
 // label is always this team's spread for that game, shown whether or not a
 // pick was made (spread == null only when we genuinely never got the
-// number — e.g. an old game whose line ESPN no longer has anywhere). With
-// no personal pick, state still reports the objective 'covered'/
-// 'not-covered' outcome (shown muted — informational, not a grade); with a
-// pick, state grades it against what you called: cover if you picked this
-// team, no-cover if you picked their opponent.
+// number — e.g. an old game whose line ESPN no longer has anywhere). Red
+// and green are reserved for a pick you actually made — 'correct' or
+// 'incorrect' — so with no personal pick, state instead reports the plain
+// objective outcome ('covered' or 'not-covered'), which the UI shows
+// uncolored (a small "covered" tag rather than a grade).
 function gradeAtsHistory(teamId, game, gamePicks) {
   const margin = teamScoreMargin(teamId, game);
   if (!game) return { label: null, state: 'bye' };
@@ -223,11 +223,14 @@ function TeamHistoryRow({ team, history }) {
           >
             {h.ml.letter || '–'}
           </span>
-          <span
-            className={`mybets-history-ats mybets-history-ats--${h.ats.state}`}
-            title={`Week ${weekNumber(h.weekId)}: ${team.name} ATS ${h.ats.label || ''} — ${HISTORY_STATE_LABELS[h.ats.state] || h.ats.state}`}
-          >
-            {h.ats.label || '–'}
+          <span className="mybets-history-ats-col">
+            <span
+              className={`mybets-history-ats mybets-history-ats--${h.ats.state}`}
+              title={`Week ${weekNumber(h.weekId)}: ${team.name} ATS ${h.ats.label || ''} — ${HISTORY_STATE_LABELS[h.ats.state] || h.ats.state}`}
+            >
+              {h.ats.label || '–'}
+            </span>
+            {h.ats.state === 'covered' && <span className="mybets-history-covered-tag">covered</span>}
           </span>
         </div>
       ))}
