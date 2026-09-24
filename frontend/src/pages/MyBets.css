@@ -466,6 +466,9 @@
   gap: 1px;
 }
 
+/* Always takes up its line — hidden (not removed) when this team didn't
+   cover — so every ATS pill in a row sits at the same height whether or
+   not its neighbor has a "covered" tag beneath it. */
 .mybets-history-covered-tag {
   color: rgba(255, 255, 255, 0.4);
   font-size: 0.5rem;
@@ -473,6 +476,10 @@
   letter-spacing: 0.02em;
   text-transform: uppercase;
   line-height: 1;
+}
+
+.mybets-history-covered-tag.is-hidden {
+  visibility: hidden;
 }
 
 .mybets-history-ml--push,

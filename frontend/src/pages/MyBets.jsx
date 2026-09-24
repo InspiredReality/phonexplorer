@@ -284,7 +284,9 @@ function TeamHistoryRow({ team, history }) {
             >
               {h.ats.label || '–'}
             </span>
-            {h.ats.covered && <span className="mybets-history-covered-tag">covered</span>}
+            <span className={`mybets-history-covered-tag ${h.ats.covered ? '' : 'is-hidden'}`}>
+              covered
+            </span>
           </span>
         </div>
       ))}
