@@ -276,13 +276,15 @@ async def get_week_schedule(week: int, season: int | None = None, db: AsyncSessi
     """Real NFL head-to-head matchups for one week.
 
     Cache-first: once every game in a week is completed, that week is
-    permanent, so it's served straight from nfl_game_cache with no ESPN
-    call at all — reopening the same week over and over costs nothing. A
-    week still in progress (or never seen before) always goes live, so
-    scores keep updating until it settles; whatever comes back is upserted
-    into the cache (never overwriting a field with a null one), which is
-    also what keeps a game's spread available for ATS grading after ESPN
-    stops returning odds for a game that's no longer upcoming.
+    permanent, so it's served straight from nfl_game_cache with no full
+    ESPN scoreboard call at all — reopening the same week over and over
+    costs nothing (a still-missing spread may trigger a one-off per-event
+    backfill; see below). A week still in progress (or never seen before)
+    always goes live, so scores keep updating until it settles; whatever
+    comes back is upserted into the cache (never overwriting a field with a
+    null one), which is also what keeps a game's spread available for ATS
+    grading after ESPN stops returning odds for a game that's no longer
+    upcoming.
 
     If ESPN can't be reached and there's nothing better, a stale cached
     copy is served rather than failing outright.
@@ -293,6 +295,12 @@ async def get_week_schedule(week: int, season: int | None = None, db: AsyncSessi
 
     cached_games = await _load_cached_week(db, week, season_year)
     if cached_games and all(g["completed"] for g in cached_games):
+        # Settled, so no ESPN call — but a week cached as complete before
+        # the odds backfill existed can still be sitting on a permanently
+        # missing spread, and this early return is the only place that will
+        # ever look at it again. Patch those gaps in place, once.
+        await _backfill_missing_odds(cached_games)
+        await _save_week_cache(db, week, season_year, cached_games)
         return {"week": week, "season": season_year, "games": cached_games}
 
     try:
