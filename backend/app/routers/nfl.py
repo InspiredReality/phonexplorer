@@ -7,6 +7,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db
+from app.models.nfl_game_odds import NflGameOdds
 from app.models.nfl_pick import NflPick
 from app.services.http_client import client
 
@@ -97,6 +98,64 @@ def _game_dict(event: dict) -> dict | None:
     }
 
 
+async def _cache_odds(db: AsyncSession, games: list[dict], week: int) -> None:
+    """Persist any odds ESPN gave us this call, so they survive after ESPN
+    stops serving them for a game that's no longer upcoming."""
+    game_ids = [g["id"] for g in games]
+    if not game_ids:
+        return
+    existing = {
+        row.game_id: row
+        for row in (
+            await db.execute(select(NflGameOdds).where(NflGameOdds.game_id.in_(game_ids)))
+        ).scalars().all()
+    }
+    for g in games:
+        home, away = g["home"], g["away"]
+        if all(v is None for v in (home["moneyline"], home["spread"], away["moneyline"], away["spread"])):
+            continue
+        row = existing.get(g["id"])
+        if not row:
+            row = NflGameOdds(game_id=g["id"], week=week)
+            db.add(row)
+        row.week = week
+        if home["moneyline"] is not None:
+            row.home_moneyline = home["moneyline"]
+        if away["moneyline"] is not None:
+            row.away_moneyline = away["moneyline"]
+        if home["spread"] is not None:
+            row.home_spread = home["spread"]
+        if away["spread"] is not None:
+            row.away_spread = away["spread"]
+    await db.commit()
+
+
+async def _apply_cached_odds(db: AsyncSession, games: list[dict]) -> None:
+    """Fill in any odds ESPN no longer returns (e.g. for a completed past
+    week) from what was cached while that game was still upcoming."""
+    game_ids = [g["id"] for g in games]
+    if not game_ids:
+        return
+    cached = {
+        row.game_id: row
+        for row in (
+            await db.execute(select(NflGameOdds).where(NflGameOdds.game_id.in_(game_ids)))
+        ).scalars().all()
+    }
+    for g in games:
+        row = cached.get(g["id"])
+        if not row:
+            continue
+        if g["home"]["moneyline"] is None:
+            g["home"]["moneyline"] = row.home_moneyline
+        if g["away"]["moneyline"] is None:
+            g["away"]["moneyline"] = row.away_moneyline
+        if g["home"]["spread"] is None:
+            g["home"]["spread"] = row.home_spread
+        if g["away"]["spread"] is None:
+            g["away"]["spread"] = row.away_spread
+
+
 async def _fetch_week_games(week: int, season_year: int) -> list[dict]:
     try:
         resp = await client.get(
@@ -115,12 +174,21 @@ async def _fetch_week_games(week: int, season_year: int) -> list[dict]:
 
 
 @router.get("/schedule/{week}")
-async def get_week_schedule(week: int, season: int | None = None):
-    """Real NFL head-to-head matchups for one week, proxied from ESPN's public scoreboard."""
+async def get_week_schedule(week: int, season: int | None = None, db: AsyncSession = Depends(get_db)):
+    """Real NFL head-to-head matchups for one week, proxied from ESPN's public scoreboard.
+
+    Moneyline/spread numbers are cached in nfl_game_odds as soon as ESPN
+    serves them (while a game is upcoming), and read back as a fallback once
+    ESPN's response no longer includes odds for a game that's already been
+    played — otherwise a past week's ATS pick would have nothing to grade
+    against.
+    """
     if not 1 <= week <= WEEK_COUNT:
         raise HTTPException(status_code=404, detail="Week out of range")
     season_year = season or date.today().year
     games = await _fetch_week_games(week, season_year)
+    await _cache_odds(db, games, week)
+    await _apply_cached_odds(db, games)
     return {"week": week, "season": season_year, "games": games}
 
 

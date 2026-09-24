@@ -30,10 +30,13 @@ function weekNumber(weekId) {
   return Number(weekId.slice(4));
 }
 
-function formatGameDate(isoDate) {
-  if (!isoDate) return { day: 'TBD', time: '' };
+// One line per kickoff time, e.g. "Thu, 9/24 · 8:15 PM EDT" — shown once as
+// a sub-header above every game that kicks off at that moment, instead of
+// repeated per row.
+function formatKickoffLabel(isoDate) {
+  if (!isoDate) return 'Time TBD';
   const d = new Date(isoDate);
-  if (Number.isNaN(d.getTime())) return { day: 'TBD', time: '' };
+  if (Number.isNaN(d.getTime())) return 'Time TBD';
   const day = d.toLocaleString('en-US', {
     timeZone: 'America/New_York',
     weekday: 'short',
@@ -46,7 +49,20 @@ function formatGameDate(isoDate) {
     minute: '2-digit',
     timeZoneName: 'short',
   });
-  return { day, time };
+  return `${day} · ${time}`;
+}
+
+// Games are already sorted by kickoff time; group consecutive games that
+// share the same one so "Sun, 9/27 · 1:00 PM EDT" (the usual 1pm slate)
+// only prints once, above all of that slot's games.
+function groupGamesByKickoff(games) {
+  const groups = [];
+  for (const game of games) {
+    const last = groups[groups.length - 1];
+    if (last && last.date === game.date) last.games.push(game);
+    else groups.push({ date: game.date, games: [game] });
+  }
+  return groups;
 }
 
 // Odds are signed numbers where the sign matters (e.g. +150 vs -180), but
@@ -391,43 +407,43 @@ function MyBets() {
                 )}
                 {schedule?.status === 'loaded' && games.length > 0 && (
                   <div className="mybets-matchups">
-                    {games.map((game) => {
-                      const gamePicks = weekPicks[game.id] || {};
-                      const { day, time } = formatGameDate(game.date);
-                      return (
-                        <div key={game.id} className="mybets-matchup-row">
-                          <div className="mybets-date-col">
-                            <span className="mybets-date-day">{day}</span>
-                            <span className="mybets-date-time">{time}</span>
-                          </div>
-                          <div className="mybets-matchup-teams">
-                            <TeamPickRow
-                              team={game.away}
-                              moneyline={game.away?.moneyline}
-                              spread={game.away?.spread}
-                              mlPicked={gamePicks.moneyline === game.away?.id}
-                              atsPicked={gamePicks.ats === game.away?.id}
-                              atsUnlocked={atsUnlocked}
-                              onMlClick={handlePick(weekId, game.id, 'moneyline', game.away?.id)}
-                              onAtsClick={handlePick(weekId, game.id, 'ats', game.away?.id)}
-                              history={buildTeamHistory(game.away?.id, historyWeekIds, schedules, picks)}
-                            />
-                            <span className="mybets-at-divider">@</span>
-                            <TeamPickRow
-                              team={game.home}
-                              moneyline={game.home?.moneyline}
-                              spread={game.home?.spread}
-                              mlPicked={gamePicks.moneyline === game.home?.id}
-                              atsPicked={gamePicks.ats === game.home?.id}
-                              atsUnlocked={atsUnlocked}
-                              onMlClick={handlePick(weekId, game.id, 'moneyline', game.home?.id)}
-                              onAtsClick={handlePick(weekId, game.id, 'ats', game.home?.id)}
-                              history={buildTeamHistory(game.home?.id, historyWeekIds, schedules, picks)}
-                            />
-                          </div>
-                        </div>
-                      );
-                    })}
+                    {groupGamesByKickoff(games).map((group) => (
+                      <div key={group.date || group.games[0].id} className="mybets-timeslot">
+                        <div className="mybets-timeslot-header">{formatKickoffLabel(group.date)}</div>
+                        {group.games.map((game) => {
+                          const gamePicks = weekPicks[game.id] || {};
+                          return (
+                            <div key={game.id} className="mybets-matchup-row">
+                              <div className="mybets-matchup-teams">
+                                <TeamPickRow
+                                  team={game.away}
+                                  moneyline={game.away?.moneyline}
+                                  spread={game.away?.spread}
+                                  mlPicked={gamePicks.moneyline === game.away?.id}
+                                  atsPicked={gamePicks.ats === game.away?.id}
+                                  atsUnlocked={atsUnlocked}
+                                  onMlClick={handlePick(weekId, game.id, 'moneyline', game.away?.id)}
+                                  onAtsClick={handlePick(weekId, game.id, 'ats', game.away?.id)}
+                                  history={buildTeamHistory(game.away?.id, historyWeekIds, schedules, picks)}
+                                />
+                                <span className="mybets-at-divider">@</span>
+                                <TeamPickRow
+                                  team={game.home}
+                                  moneyline={game.home?.moneyline}
+                                  spread={game.home?.spread}
+                                  mlPicked={gamePicks.moneyline === game.home?.id}
+                                  atsPicked={gamePicks.ats === game.home?.id}
+                                  atsUnlocked={atsUnlocked}
+                                  onMlClick={handlePick(weekId, game.id, 'moneyline', game.home?.id)}
+                                  onAtsClick={handlePick(weekId, game.id, 'ats', game.home?.id)}
+                                  history={buildTeamHistory(game.home?.id, historyWeekIds, schedules, picks)}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ))}
                   </div>
                 )}
               </AccordionDetails>

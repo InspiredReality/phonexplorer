@@ -94,36 +94,26 @@
   flex-direction: column;
 }
 
+/* One header per kickoff time, shown once above every game that starts
+   then, instead of repeating the date/time on each matchup row. */
+.mybets-timeslot:not(:last-child) {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.mybets-timeslot-header {
+  padding: 10px 16px 2px;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
 .mybets-matchup-row {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 12px 16px;
+  padding: 10px 16px;
 }
 
 .mybets-matchup-row:not(:last-child) {
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-}
-
-.mybets-date-col {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  width: 56px;
-  flex-shrink: 0;
-}
-
-.mybets-date-day {
-  color: rgba(255, 255, 255, 0.75);
-  font-size: 0.72rem;
-  font-weight: 600;
-  line-height: 1.2;
-}
-
-.mybets-date-time {
-  color: rgba(255, 255, 255, 0.5);
-  font-size: 0.62rem;
-  line-height: 1.2;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 /* Away row stacked above home row, so a matchup's two logos sit one above
@@ -150,15 +140,17 @@
   gap: 10px;
 }
 
-/* Fixed width, not flex:1 — the row's remaining space belongs to the
-   history strip so it can stretch and scroll horizontally instead of the
-   team's own icon/name shrinking to make room. */
+/* A fixed width (not max-width) so every row's icon/name column is exactly
+   the same size regardless of how long that team's name is — otherwise a
+   short name (e.g. "Bills") shrinks its button and everything after it
+   (this week's pick, the whole history strip) shifts left out of column
+   with rows that have a longer name. */
 .mybets-team-logo-btn {
   display: flex;
   align-items: center;
   gap: 8px;
   flex: 0 0 auto;
-  max-width: 138px;
+  width: 138px;
   padding: 4px 8px 4px 2px;
   background: transparent;
   border: none;
@@ -218,10 +210,14 @@
   font-weight: 600;
 }
 
+/* Fixed width on both (not just a min-width) so the history strip that
+   follows always starts at the same x position, whatever the odds/spread
+   text happens to be that week. */
 .mybets-team-odds {
   flex-shrink: 0;
-  min-width: 40px;
-  text-align: right;
+  box-sizing: border-box;
+  width: 64px;
+  text-align: center;
   color: rgba(255, 255, 255, 0.45);
   font-size: 0.72rem;
   font-weight: 600;
@@ -229,7 +225,9 @@
 
 .mybets-spread-btn {
   flex-shrink: 0;
-  padding: 7px 18px;
+  box-sizing: border-box;
+  width: 64px;
+  padding: 7px 4px;
   background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.18);
   border-radius: 999px;
@@ -237,6 +235,7 @@
   font: inherit;
   font-size: 0.8rem;
   font-weight: 700;
+  text-align: center;
   cursor: pointer;
   transition: border-color 0.15s, background 0.15s, color 0.15s, transform 0.1s;
 }
@@ -343,21 +342,13 @@
     padding: 16px;
   }
 
-  .mybets-matchup-row {
-    gap: 8px;
-    padding: 10px 8px;
-  }
-
-  .mybets-date-col {
-    width: 42px;
-  }
-
-  .mybets-date-day {
+  .mybets-timeslot-header {
+    padding: 8px 8px 2px;
     font-size: 0.6rem;
   }
 
-  .mybets-date-time {
-    font-size: 0.5rem;
+  .mybets-matchup-row {
+    padding: 8px 8px;
   }
 
   .mybets-at-divider {
@@ -365,7 +356,7 @@
   }
 
   .mybets-team-logo-btn {
-    max-width: 96px;
+    width: 96px;
     gap: 6px;
   }
 
@@ -383,14 +374,14 @@
     font-size: 0.66rem;
   }
 
-  .mybets-team-odds {
+  .mybets-team-odds,
+  .mybets-spread-btn {
+    width: 48px;
     font-size: 0.62rem;
-    min-width: 34px;
   }
 
   .mybets-spread-btn {
-    padding: 5px 12px;
-    font-size: 0.68rem;
+    padding: 5px 2px;
   }
 
   .mybets-team-history {
