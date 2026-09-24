@@ -54,6 +54,14 @@ def _extract_odds(competition: dict) -> dict:
     }
 
 
+def _score(competitor: dict) -> int | None:
+    raw = competitor.get("score")
+    try:
+        return int(raw) if raw is not None else None
+    except (TypeError, ValueError):
+        return None
+
+
 def _team_dict(competitor: dict, moneyline: int | None, spread: float | None) -> dict:
     team = competitor.get("team") or {}
     return {
@@ -62,6 +70,7 @@ def _team_dict(competitor: dict, moneyline: int | None, spread: float | None) ->
         "logo": team.get("logo"),
         "moneyline": moneyline,
         "spread": spread,
+        "score": _score(competitor),
     }
 
 
@@ -77,10 +86,12 @@ def _game_dict(event: dict) -> dict | None:
         return None
 
     odds = _extract_odds(competition)
+    completed = bool(((competition.get("status") or {}).get("type") or {}).get("completed"))
 
     return {
         "id": event.get("id"),
         "date": event.get("date"),
+        "completed": completed,
         "home": _team_dict(home, odds["home_moneyline"], odds["home_spread"]),
         "away": _team_dict(away, odds["away_moneyline"], odds["away_spread"]),
     }

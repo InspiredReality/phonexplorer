@@ -73,13 +73,145 @@ function persistLocalPicks(data) {
   }
 }
 
-// One column = one team. The logo always picks the moneyline (straight-up)
-// winner; once ATS is unlocked for the week, the number beneath the logo
-// switches from a plain moneyline readout to a clickable spread pick.
-function TeamPickColumn({ team, moneyline, spread, mlPicked, atsPicked, atsUnlocked, onMlClick, onAtsClick }) {
-  if (!team) return <div className="mybets-team-col" />;
+// How many prior weeks' worth of history to show per team, and how far back
+// (as a count of already-loaded weeks, not calendar weeks) to fetch.
+const HISTORY_WEEKS = 4;
+
+function findTeamGame(games, teamId) {
+  return games.find((g) => g.home?.id === teamId || g.away?.id === teamId);
+}
+
+function teamScoreMargin(teamId, game) {
+  if (!game || !game.completed) return null;
+  const isHome = game.home?.id === teamId;
+  const teamScore = isHome ? game.home?.score : game.away?.score;
+  const oppScore = isHome ? game.away?.score : game.home?.score;
+  const spread = isHome ? game.home?.spread : game.away?.spread;
+  const opponentId = isHome ? game.away?.id : game.home?.id;
+  if (teamScore == null || oppScore == null) return null;
+  return { teamScore, oppScore, spread, opponentId };
+}
+
+// The letter always reflects what actually happened (W/L), independent of
+// any pick. state reflects whether YOUR prediction on this team was right:
+// picking this team means "predicted win", picking the opponent means
+// "predicted loss" — so a correctly-called loss shows a green L.
+function gradeMoneylineHistory(teamId, game, gamePicks) {
+  const margin = teamScoreMargin(teamId, game);
+  if (!game) return { letter: null, state: 'bye' };
+  if (!margin) return { letter: null, state: 'pending' };
+  const { teamScore, oppScore, opponentId } = margin;
+  if (teamScore === oppScore) return { letter: 'T', state: 'push' };
+  const letter = teamScore > oppScore ? 'W' : 'L';
+
+  const picked = gamePicks?.moneyline;
+  let predictedWin;
+  if (picked === teamId) predictedWin = true;
+  else if (picked === opponentId) predictedWin = false;
+  else return { letter, state: 'no-pick' };
+
+  const correct = predictedWin ? letter === 'W' : letter === 'L';
+  return { letter, state: correct ? 'correct' : 'incorrect' };
+}
+
+// label is always this team's spread for that game (so you can see the
+// number even with no pick made); state grades whether your ATS pick on
+// this team — cover if you picked them, no-cover if you picked their
+// opponent — matched what actually happened.
+function gradeAtsHistory(teamId, game, gamePicks) {
+  const margin = teamScoreMargin(teamId, game);
+  if (!game) return { label: null, state: 'bye' };
+  if (!margin) return { label: null, state: 'pending' };
+  const { teamScore, oppScore, spread, opponentId } = margin;
+  const label = formatSigned(spread);
+  if (spread == null) return { label, state: 'no-pick' };
+
+  const adjusted = teamScore - oppScore + spread;
+  if (adjusted === 0) return { label, state: 'push' };
+  const covered = adjusted > 0;
+
+  const picked = gamePicks?.ats;
+  let predictedCover;
+  if (picked === teamId) predictedCover = true;
+  else if (picked === opponentId) predictedCover = false;
+  else return { label, state: 'no-pick' };
+
+  const correct = predictedCover === covered;
+  return { label, state: correct ? 'correct' : 'incorrect' };
+}
+
+// priorWeekIds is nearest-week-first (last week, then the week before, …).
+function buildTeamHistory(teamId, priorWeekIds, schedules, picks) {
+  if (!teamId) return [];
+  return priorWeekIds.map((weekId) => {
+    const sched = schedules[weekId];
+    if (!sched || sched.status === 'loading') {
+      return { weekId, ml: { letter: null, state: 'loading' }, ats: { label: null, state: 'loading' } };
+    }
+    if (sched.status === 'error') {
+      return { weekId, ml: { letter: null, state: 'unknown' }, ats: { label: null, state: 'unknown' } };
+    }
+    const game = findTeamGame(sched.games, teamId);
+    const gamePicks = game ? picks[weekId]?.[game.id] : undefined;
+    return {
+      weekId,
+      ml: gradeMoneylineHistory(teamId, game, gamePicks),
+      ats: gradeAtsHistory(teamId, game, gamePicks),
+    };
+  });
+}
+
+const HISTORY_STATE_LABELS = {
+  correct: 'predicted correctly',
+  incorrect: 'predicted wrong',
+  push: 'push',
+  'no-pick': 'no pick made',
+  bye: 'bye week',
+  pending: 'not final yet',
+  loading: 'loading…',
+  unknown: 'unavailable',
+};
+
+// Nearest week first, each week's W/L and spread sitting side by side
+// (not stacked) so the whole strip reads as one horizontal line that
+// scrolls if it runs out of room, rather than wrapping to a new row.
+function TeamHistoryRow({ team, history }) {
+  if (!history.length) return null;
   return (
-    <div className="mybets-team-col">
+    <div className="mybets-team-history">
+      {history.map((h) => (
+        <div key={h.weekId} className="mybets-history-week">
+          <span
+            className={`mybets-history-ml mybets-history-ml--${h.ml.state}`}
+            title={`Week ${weekNumber(h.weekId)}: ${team.name} ${h.ml.letter || 'bye'} — ${HISTORY_STATE_LABELS[h.ml.state] || h.ml.state}`}
+          >
+            {h.ml.letter || '–'}
+          </span>
+          <span
+            className={`mybets-history-ats mybets-history-ats--${h.ats.state}`}
+            title={`Week ${weekNumber(h.weekId)}: ${team.name} ATS ${h.ats.label || ''} — ${HISTORY_STATE_LABELS[h.ats.state] || h.ats.state}`}
+          >
+            {h.ats.label || '–'}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+// One team = one horizontal row: logo+name, then this week's pick control,
+// then — stretching to fill (and scrolling if needed) the rest of the row —
+// the team's history. Away/home stack as two rows so a matchup reads
+// top-to-bottom instead of side by side. The logo always picks the
+// moneyline (straight-up) winner; once ATS is unlocked for the week, the
+// number after the name switches from a plain moneyline readout to a
+// clickable spread pick. history is this team's last few weeks, nearest
+// first: a W/L letter (green if your moneyline call was right) and the
+// spread number (green if your ATS call was right).
+function TeamPickRow({ team, moneyline, spread, mlPicked, atsPicked, atsUnlocked, onMlClick, onAtsClick, history }) {
+  if (!team) return <div className="mybets-team-row" />;
+  return (
+    <div className="mybets-team-row">
       <button
         type="button"
         className={`mybets-team-logo-btn ${mlPicked ? 'is-picked' : ''}`}
@@ -87,7 +219,7 @@ function TeamPickColumn({ team, moneyline, spread, mlPicked, atsPicked, atsUnloc
         title={mlPicked ? `${team.name} — your moneyline pick` : `Pick ${team.name} to win`}
       >
         <span className="mybets-team-icon-ring">
-          <img className="mybets-team-icon" src={team.logo} alt="" width={36} height={36} loading="lazy" />
+          <img className="mybets-team-icon" src={team.logo} alt="" width={30} height={30} loading="lazy" />
         </span>
         <span className="mybets-team-name">{team.name}</span>
       </button>
@@ -103,6 +235,7 @@ function TeamPickColumn({ team, moneyline, spread, mlPicked, atsPicked, atsUnloc
       ) : (
         <span className="mybets-team-odds">{formatSigned(moneyline)}</span>
       )}
+      <TeamHistoryRow team={team} history={history || []} />
     </div>
   );
 }
@@ -157,9 +290,20 @@ function MyBets() {
     }
   };
 
-  const handleChange = (weekId) => (_event, isExpanded) => {
+  // Nearest-first prior week ids for a given 0-based week index, capped at
+  // HISTORY_WEEKS and never going before Week 1.
+  const priorWeekIds = (weekIdx) => {
+    const ids = [];
+    for (let i = 1; i <= HISTORY_WEEKS && weekIdx - i >= 0; i++) ids.push(WEEKS[weekIdx - i]);
+    return ids;
+  };
+
+  const handleChange = (weekId, weekIdx) => (_event, isExpanded) => {
     setExpanded((prev) => ({ ...prev, [weekId]: isExpanded }));
-    if (isExpanded) loadSchedule(weekId);
+    if (isExpanded) {
+      loadSchedule(weekId);
+      priorWeekIds(weekIdx).forEach(loadSchedule);
+    }
   };
 
   const handlePick = (weekId, gameId, market, teamId) => () => {
@@ -195,12 +339,13 @@ function MyBets() {
           const moneylineCount = games.filter((g) => weekPicks[g.id]?.moneyline).length;
           const atsCount = games.filter((g) => weekPicks[g.id]?.ats).length;
           const atsUnlocked = games.length > 0 && moneylineCount === games.length;
+          const historyWeekIds = priorWeekIds(weekIdx);
 
           return (
             <Accordion
               key={weekId}
               expanded={!!expanded[weekId]}
-              onChange={handleChange(weekId)}
+              onChange={handleChange(weekId, weekIdx)}
               disableGutters
               sx={{
                 bgcolor: '#111122',
@@ -246,11 +391,6 @@ function MyBets() {
                 )}
                 {schedule?.status === 'loaded' && games.length > 0 && (
                   <div className="mybets-matchups">
-                    <div className="mybets-matchups-header">
-                      <span />
-                      <span>Away</span>
-                      <span>Home</span>
-                    </div>
                     {games.map((game) => {
                       const gamePicks = weekPicks[game.id] || {};
                       const { day, time } = formatGameDate(game.date);
@@ -260,26 +400,31 @@ function MyBets() {
                             <span className="mybets-date-day">{day}</span>
                             <span className="mybets-date-time">{time}</span>
                           </div>
-                          <TeamPickColumn
-                            team={game.away}
-                            moneyline={game.away?.moneyline}
-                            spread={game.away?.spread}
-                            mlPicked={gamePicks.moneyline === game.away?.id}
-                            atsPicked={gamePicks.ats === game.away?.id}
-                            atsUnlocked={atsUnlocked}
-                            onMlClick={handlePick(weekId, game.id, 'moneyline', game.away?.id)}
-                            onAtsClick={handlePick(weekId, game.id, 'ats', game.away?.id)}
-                          />
-                          <TeamPickColumn
-                            team={game.home}
-                            moneyline={game.home?.moneyline}
-                            spread={game.home?.spread}
-                            mlPicked={gamePicks.moneyline === game.home?.id}
-                            atsPicked={gamePicks.ats === game.home?.id}
-                            atsUnlocked={atsUnlocked}
-                            onMlClick={handlePick(weekId, game.id, 'moneyline', game.home?.id)}
-                            onAtsClick={handlePick(weekId, game.id, 'ats', game.home?.id)}
-                          />
+                          <div className="mybets-matchup-teams">
+                            <TeamPickRow
+                              team={game.away}
+                              moneyline={game.away?.moneyline}
+                              spread={game.away?.spread}
+                              mlPicked={gamePicks.moneyline === game.away?.id}
+                              atsPicked={gamePicks.ats === game.away?.id}
+                              atsUnlocked={atsUnlocked}
+                              onMlClick={handlePick(weekId, game.id, 'moneyline', game.away?.id)}
+                              onAtsClick={handlePick(weekId, game.id, 'ats', game.away?.id)}
+                              history={buildTeamHistory(game.away?.id, historyWeekIds, schedules, picks)}
+                            />
+                            <span className="mybets-at-divider">@</span>
+                            <TeamPickRow
+                              team={game.home}
+                              moneyline={game.home?.moneyline}
+                              spread={game.home?.spread}
+                              mlPicked={gamePicks.moneyline === game.home?.id}
+                              atsPicked={gamePicks.ats === game.home?.id}
+                              atsUnlocked={atsUnlocked}
+                              onMlClick={handlePick(weekId, game.id, 'moneyline', game.home?.id)}
+                              onAtsClick={handlePick(weekId, game.id, 'ats', game.home?.id)}
+                              history={buildTeamHistory(game.home?.id, historyWeekIds, schedules, picks)}
+                            />
+                          </div>
                         </div>
                       );
                     })}
