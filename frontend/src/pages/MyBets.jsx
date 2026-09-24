@@ -132,31 +132,61 @@ function gradeMoneylineHistory(teamId, game, gamePicks) {
 
 // label is always this team's spread for that game, shown whether or not a
 // pick was made (spread == null only when we genuinely never got the
-// number — e.g. an old game whose line ESPN no longer has anywhere). With
-// no personal pick, state still reports the objective 'covered'/
-// 'not-covered' outcome (shown muted — informational, not a grade); with a
-// pick, state grades it against what you called: cover if you picked this
-// team, no-cover if you picked their opponent.
+// number — e.g. an old game whose line ESPN no longer has anywhere).
+// `covered` is the plain objective fact — did THIS team cover — completely
+// independent of state, because state alone is ambiguous: a favorite's
+// "-6" can grade green either because you picked the favorite and they
+// covered, or because you picked the underdog and the favorite failed to
+// cover (also "correct", from this team's row). `covered` disambiguates
+// that: the "covered" tag renders whenever this team actually covered,
+// whatever the color, and never when they didn't. Red/green (correct/
+// incorrect) are reserved for a pick you actually made; with no personal
+// pick, state is the plain objective outcome ('covered'/'not-covered'),
+// shown uncolored.
 function gradeAtsHistory(teamId, game, gamePicks) {
   const margin = teamScoreMargin(teamId, game);
-  if (!game) return { label: null, state: 'bye' };
-  if (!margin) return { label: null, state: 'pending' };
+  if (!game) return { label: null, state: 'bye', covered: null };
+  if (!margin) return { label: null, state: 'pending', covered: null };
   const { teamScore, oppScore, spread, opponentId } = margin;
   const label = formatSigned(spread);
-  if (spread == null) return { label, state: 'no-data' };
+  if (spread == null) return { label, state: 'no-data', covered: null };
 
   const adjusted = teamScore - oppScore + spread;
-  if (adjusted === 0) return { label, state: 'push' };
+  if (adjusted === 0) return { label, state: 'push', covered: null };
   const covered = adjusted > 0;
 
   const picked = gamePicks?.ats;
   let predictedCover;
   if (picked === teamId) predictedCover = true;
   else if (picked === opponentId) predictedCover = false;
-  else return { label, state: covered ? 'covered' : 'not-covered' };
+  else return { label, state: covered ? 'covered' : 'not-covered', covered };
 
   const correct = predictedCover === covered;
-  return { label, state: correct ? 'correct' : 'incorrect' };
+  return { label, state: correct ? 'correct' : 'incorrect', covered };
+}
+
+// display is always "O <total>" or "U <total>" — whichever side the actual
+// combined score landed on — shown whether or not a pick was made. Red/green
+// only apply when you picked a side; with no pick, state is 'no-pick' and
+// the UI shows it uncolored, same treatment as the ATS 'not-covered' case.
+function gradeTotalHistory(game, gamePicks) {
+  if (!game) return { display: null, state: 'bye' };
+  if (!game.completed) return { display: null, state: 'pending' };
+  const homeScore = game.home?.score;
+  const awayScore = game.away?.score;
+  if (homeScore == null || awayScore == null) return { display: null, state: 'pending' };
+  if (game.total == null) return { display: null, state: 'no-data' };
+
+  const actual = homeScore + awayScore;
+  if (actual === game.total) return { display: `P ${game.total}`, state: 'push' };
+  const hitSide = actual > game.total ? 'O' : 'U';
+  const display = `${hitSide} ${game.total}`;
+
+  const picked = gamePicks?.total;
+  if (!picked) return { display, state: 'no-pick' };
+  const predictedSide = picked === 'over' ? 'O' : 'U';
+  const correct = predictedSide === hitSide;
+  return { display, state: correct ? 'correct' : 'incorrect' };
 }
 
 // priorWeekIds is nearest-week-first (last week, then the week before, …).
@@ -165,10 +195,20 @@ function buildTeamHistory(teamId, priorWeekIds, schedules, picks) {
   return priorWeekIds.map((weekId) => {
     const sched = schedules[weekId];
     if (!sched || sched.status === 'loading') {
-      return { weekId, ml: { letter: null, state: 'loading' }, ats: { label: null, state: 'loading' } };
+      return {
+        weekId,
+        ml: { letter: null, state: 'loading' },
+        ats: { label: null, state: 'loading' },
+        total: { display: null, state: 'loading' },
+      };
     }
     if (sched.status === 'error') {
-      return { weekId, ml: { letter: null, state: 'unknown' }, ats: { label: null, state: 'unknown' } };
+      return {
+        weekId,
+        ml: { letter: null, state: 'unknown' },
+        ats: { label: null, state: 'unknown' },
+        total: { display: null, state: 'unknown' },
+      };
     }
     const game = findTeamGame(sched.games, teamId);
     const gamePicks = game ? picks[weekId]?.[game.id] : undefined;
@@ -176,6 +216,7 @@ function buildTeamHistory(teamId, priorWeekIds, schedules, picks) {
       weekId,
       ml: gradeMoneylineHistory(teamId, game, gamePicks),
       ats: gradeAtsHistory(teamId, game, gamePicks),
+      total: gradeTotalHistory(game, gamePicks),
     };
   });
 }
@@ -208,9 +249,16 @@ function currentAtsState(team, game, gamePicks) {
   return gradeAtsHistory(team.id, game, gamePicks).state;
 }
 
-// Nearest week first, each week's W/L and spread sitting side by side
-// (not stacked) so the whole strip reads as one horizontal line that
-// scrolls if it runs out of room, rather than wrapping to a new row.
+// side is 'over' | 'under'. Game-level, not tied to a team.
+function currentTotalState(side, game, gamePicks) {
+  if (gamePicks?.total !== side) return null;
+  return gradeTotalHistory(game, gamePicks).state;
+}
+
+// Nearest week first, each week's W/L, total (O/U), and spread sitting
+// side by side (not stacked) so the whole strip reads as one horizontal
+// line that scrolls if it runs out of room, rather than wrapping to a new
+// row.
 function TeamHistoryRow({ team, history }) {
   if (!history.length) return null;
   return (
@@ -224,10 +272,21 @@ function TeamHistoryRow({ team, history }) {
             {h.ml.letter || '–'}
           </span>
           <span
-            className={`mybets-history-ats mybets-history-ats--${h.ats.state}`}
-            title={`Week ${weekNumber(h.weekId)}: ${team.name} ATS ${h.ats.label || ''} — ${HISTORY_STATE_LABELS[h.ats.state] || h.ats.state}`}
+            className={`mybets-history-total mybets-history-total--${h.total.state}`}
+            title={`Week ${weekNumber(h.weekId)}: ${h.total.display || 'total'} — ${HISTORY_STATE_LABELS[h.total.state] || h.total.state}`}
           >
-            {h.ats.label || '–'}
+            {h.total.display || '–'}
+          </span>
+          <span className="mybets-history-ats-col">
+            <span
+              className={`mybets-history-ats mybets-history-ats--${h.ats.state}`}
+              title={`Week ${weekNumber(h.weekId)}: ${team.name} ATS ${h.ats.label || ''} — ${HISTORY_STATE_LABELS[h.ats.state] || h.ats.state}`}
+            >
+              {h.ats.label || '–'}
+            </span>
+            <span className={`mybets-history-covered-tag ${h.ats.covered ? '' : 'is-hidden'}`}>
+              covered
+            </span>
           </span>
         </div>
       ))}
@@ -236,6 +295,49 @@ function TeamHistoryRow({ team, history }) {
 }
 
 const PICK_STATE_LABELS = { pending: 'pending', correct: 'right', incorrect: 'wrong', push: 'push' };
+
+// Game-level (not per-team) — sits between the away and home rows in place
+// of a plain divider. Visible from the start, same as moneyline; only ATS
+// is gated behind every game's moneyline pick being made.
+function TotalPickRow({ game, gamePicks, onOverClick, onUnderClick }) {
+  const overState = currentTotalState('over', game, gamePicks);
+  const underState = currentTotalState('under', game, gamePicks);
+  return (
+    <div className="mybets-total-row">
+      <span className="mybets-at-divider">@</span>
+      {game.total != null ? (
+        <div className="mybets-total-buttons">
+          <button
+            type="button"
+            className={`mybets-total-btn ${overState ? `pick-${overState}` : ''}`}
+            onClick={onOverClick}
+            title={
+              overState
+                ? `Over ${game.total} — your total pick (${PICK_STATE_LABELS[overState] || overState})`
+                : `Pick Over ${game.total}`
+            }
+          >
+            O {game.total}
+          </button>
+          <button
+            type="button"
+            className={`mybets-total-btn ${underState ? `pick-${underState}` : ''}`}
+            onClick={onUnderClick}
+            title={
+              underState
+                ? `Under ${game.total} — your total pick (${PICK_STATE_LABELS[underState] || underState})`
+                : `Pick Under ${game.total}`
+            }
+          >
+            U {game.total}
+          </button>
+        </div>
+      ) : (
+        <span className="mybets-total-unavailable">O/U —</span>
+      )}
+    </div>
+  );
+}
 
 // One team = one horizontal row: logo+name, then this week's pick control,
 // then — stretching to fill (and scrolling if needed) the rest of the row —
@@ -384,6 +486,7 @@ function MyBets() {
           const games = schedule?.games || [];
           const weekPicks = picks[weekId] || {};
           const moneylineCount = games.filter((g) => weekPicks[g.id]?.moneyline).length;
+          const totalCount = games.filter((g) => weekPicks[g.id]?.total).length;
           const atsCount = games.filter((g) => weekPicks[g.id]?.ats).length;
           const atsUnlocked = games.length > 0 && moneylineCount === games.length;
           const historyWeekIds = priorWeekIds(weekIdx);
@@ -419,7 +522,7 @@ function MyBets() {
                 </span>
                 {schedule?.status === 'loaded' && games.length > 0 && (
                   <span className="mybets-game-count">
-                    ML {moneylineCount}/{games.length}
+                    ML {moneylineCount}/{games.length} · O/U {totalCount}/{games.length}
                     {atsUnlocked && <> · ATS {atsCount}/{games.length}</>}
                   </span>
                 )}
@@ -457,7 +560,12 @@ function MyBets() {
                                   onAtsClick={handlePick(weekId, game.id, 'ats', game.away?.id)}
                                   history={buildTeamHistory(game.away?.id, historyWeekIds, schedules, picks)}
                                 />
-                                <span className="mybets-at-divider">@</span>
+                                <TotalPickRow
+                                  game={game}
+                                  gamePicks={gamePicks}
+                                  onOverClick={handlePick(weekId, game.id, 'total', 'over')}
+                                  onUnderClick={handlePick(weekId, game.id, 'total', 'under')}
+                                />
                                 <TeamPickRow
                                   team={game.home}
                                   moneyline={game.home?.moneyline}

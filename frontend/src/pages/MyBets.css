@@ -134,6 +134,70 @@
   line-height: 1;
 }
 
+/* Game-level Over/Under control, sitting between the away and home rows in
+   place of a plain divider — visible from the start, same as moneyline. */
+.mybets-total-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 2px 0;
+}
+
+.mybets-total-buttons {
+  display: flex;
+  gap: 6px;
+}
+
+.mybets-total-btn {
+  padding: 3px 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  color: rgba(255, 255, 255, 0.7);
+  font: inherit;
+  font-size: 0.66rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s, transform 0.1s;
+}
+
+.mybets-total-btn:hover {
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.mybets-total-btn:active {
+  transform: scale(0.95);
+}
+
+.mybets-total-btn.pick-pending {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: #3b82f6;
+  color: #60a5fa;
+}
+
+.mybets-total-btn.pick-correct {
+  background: rgba(34, 197, 94, 0.15);
+  border-color: #22c55e;
+  color: #4ade80;
+}
+
+.mybets-total-btn.pick-incorrect {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: #ef4444;
+  color: #f87171;
+}
+
+.mybets-total-btn.pick-push {
+  background: rgba(234, 179, 8, 0.15);
+  border-color: #eab308;
+  color: #facc15;
+}
+
+.mybets-total-unavailable {
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 0.62rem;
+}
+
 .mybets-team-row {
   display: flex;
   align-items: center;
@@ -310,15 +374,16 @@
 
 /* Per-team history: nearest week first, reading left (last week) to right
    (further back), sitting right after this week's pick control and
-   stretching to fill the rest of the row. Each week's W/L and spread sit
-   side by side rather than stacked, and the whole strip scrolls
-   horizontally instead of wrapping if it runs out of width. Colored by
-   whether your prediction on that team was right — not by whether the team
-   won, so a correctly-called loss is a green L. */
+   stretching to fill the rest of the row — the whole strip scrolls
+   horizontally instead of wrapping if it runs out of width. Within a week,
+   the three bet types (W/L, total, spread) stack vertically, so each week
+   reads as one narrow column. Colored by whether your prediction on that
+   team was right — not by whether the team won, so a correctly-called
+   loss is a green L. */
 .mybets-team-history {
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 8px;
   flex: 1;
   min-width: 0;
   padding-left: 10px;
@@ -330,8 +395,9 @@
 
 .mybets-history-week {
   display: flex;
+  flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   flex-shrink: 0;
 }
 
@@ -349,7 +415,8 @@
   line-height: 1;
 }
 
-.mybets-history-ats {
+.mybets-history-ats,
+.mybets-history-total {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -374,35 +441,50 @@
   color: #f87171;
 }
 
-.mybets-history-ats--correct {
+.mybets-history-ats--correct,
+.mybets-history-total--correct {
   background: rgba(34, 197, 94, 0.18);
   border-color: #22c55e;
   color: #4ade80;
 }
 
-.mybets-history-ats--incorrect {
+.mybets-history-ats--incorrect,
+.mybets-history-total--incorrect {
   background: rgba(239, 68, 68, 0.18);
   border-color: #ef4444;
   color: #f87171;
 }
 
-/* No personal pick was made, but the spread is known — show whether the
-   team covered as plain information (muted), distinct from the bold
-   green/red above that grades an actual guess. */
-.mybets-history-ats--covered {
-  background: rgba(34, 197, 94, 0.08);
-  border-color: rgba(34, 197, 94, 0.4);
-  color: rgba(74, 222, 128, 0.75);
+/* No personal pick was made — red/green are reserved for a pick you
+   actually graded, so 'covered'/'not-covered' get no color of their own
+   and just fall back to the same neutral look as the base pill above.
+   'covered' additionally gets a small uncolored tag beneath it. */
+.mybets-history-ats-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
 }
 
-.mybets-history-ats--not-covered {
-  background: rgba(239, 68, 68, 0.08);
-  border-color: rgba(239, 68, 68, 0.4);
-  color: rgba(248, 113, 113, 0.75);
+/* Always takes up its line — hidden (not removed) when this team didn't
+   cover — so every ATS pill in a row sits at the same height whether or
+   not its neighbor has a "covered" tag beneath it. */
+.mybets-history-covered-tag {
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 0.5rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+.mybets-history-covered-tag.is-hidden {
+  visibility: hidden;
 }
 
 .mybets-history-ml--push,
-.mybets-history-ats--push {
+.mybets-history-ats--push,
+.mybets-history-total--push {
   color: rgba(250, 204, 21, 0.85);
 }
 
@@ -465,9 +547,19 @@
     font-size: 0.56rem;
   }
 
-  .mybets-history-ats {
+  .mybets-history-ats,
+  .mybets-history-total {
     min-width: 26px;
     font-size: 0.5rem;
     padding: 1px 4px;
+  }
+
+  .mybets-history-covered-tag {
+    font-size: 0.44rem;
+  }
+
+  .mybets-total-btn {
+    padding: 2px 8px;
+    font-size: 0.6rem;
   }
 }
