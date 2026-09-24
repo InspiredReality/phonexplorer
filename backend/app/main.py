@@ -78,6 +78,28 @@ async def lifespan(app: FastAPI):
             await conn.execute(
                 text("ALTER TABLE bet_week_locks ADD COLUMN IF NOT EXISTS funder_team_id VARCHAR(64)")
             )
+            # nfl_picks originally allowed one pick per (week, game_id); it now
+            # carries a separate moneyline and ATS pick per game, so the unique
+            # constraint needs game_id's sibling column and a matching index.
+            await conn.execute(
+                text("ALTER TABLE nfl_picks ADD COLUMN IF NOT EXISTS market VARCHAR(16) NOT NULL DEFAULT 'moneyline'")
+            )
+            await conn.execute(text("ALTER TABLE nfl_picks DROP CONSTRAINT IF EXISTS uq_nfl_picks_week_game"))
+            await conn.execute(
+                text(
+                    """
+                    DO $$
+                    BEGIN
+                        IF NOT EXISTS (
+                            SELECT 1 FROM pg_constraint WHERE conname = 'uq_nfl_picks_week_game_market'
+                        ) THEN
+                            ALTER TABLE nfl_picks
+                                ADD CONSTRAINT uq_nfl_picks_week_game_market UNIQUE (week, game_id, market);
+                        END IF;
+                    END $$;
+                    """
+                )
+            )
 
         async with SessionLocal() as db:
             count = await db.scalar(select(func.count()).select_from(SceneObject))
