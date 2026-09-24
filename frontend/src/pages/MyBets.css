@@ -181,10 +181,31 @@
   transform: scale(0.95);
 }
 
-.mybets-team-logo-btn.is-picked .mybets-team-icon-ring {
+/* Pick state: blue while the game hasn't finished yet, then green/red once
+   it has and the guess is graded right or wrong. No class at all (the
+   default look above) means no guess was made — stays grey. */
+.mybets-team-logo-btn.pick-pending .mybets-team-icon-ring {
+  border-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.15);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25);
+}
+
+.mybets-team-logo-btn.pick-correct .mybets-team-icon-ring {
   border-color: #22c55e;
   background: rgba(34, 197, 94, 0.15);
   box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.25);
+}
+
+.mybets-team-logo-btn.pick-incorrect .mybets-team-icon-ring {
+  border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.15);
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.25);
+}
+
+.mybets-team-logo-btn.pick-push .mybets-team-icon-ring {
+  border-color: #eab308;
+  background: rgba(234, 179, 8, 0.15);
+  box-shadow: 0 0 0 2px rgba(234, 179, 8, 0.25);
 }
 
 .mybets-team-icon {
@@ -205,8 +226,23 @@
   white-space: nowrap;
 }
 
-.mybets-team-logo-btn.is-picked .mybets-team-name {
+.mybets-team-logo-btn.pick-pending .mybets-team-name {
+  color: #60a5fa;
+  font-weight: 600;
+}
+
+.mybets-team-logo-btn.pick-correct .mybets-team-name {
   color: #4ade80;
+  font-weight: 600;
+}
+
+.mybets-team-logo-btn.pick-incorrect .mybets-team-name {
+  color: #f87171;
+  font-weight: 600;
+}
+
+.mybets-team-logo-btn.pick-push .mybets-team-name {
+  color: #facc15;
   font-weight: 600;
 }
 
@@ -248,10 +284,28 @@
   transform: scale(0.95);
 }
 
-.mybets-spread-btn.is-picked {
+.mybets-spread-btn.pick-pending {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: #3b82f6;
+  color: #60a5fa;
+}
+
+.mybets-spread-btn.pick-correct {
   background: rgba(34, 197, 94, 0.15);
   border-color: #22c55e;
   color: #4ade80;
+}
+
+.mybets-spread-btn.pick-incorrect {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: #ef4444;
+  color: #f87171;
+}
+
+.mybets-spread-btn.pick-push {
+  background: rgba(234, 179, 8, 0.15);
+  border-color: #eab308;
+  color: #facc15;
 }
 
 /* Per-team history: nearest week first, reading left (last week) to right
@@ -330,6 +384,21 @@
   background: rgba(239, 68, 68, 0.18);
   border-color: #ef4444;
   color: #f87171;
+}
+
+/* No personal pick was made, but the spread is known — show whether the
+   team covered as plain information (muted), distinct from the bold
+   green/red above that grades an actual guess. */
+.mybets-history-ats--covered {
+  background: rgba(34, 197, 94, 0.08);
+  border-color: rgba(34, 197, 94, 0.4);
+  color: rgba(74, 222, 128, 0.75);
+}
+
+.mybets-history-ats--not-covered {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: rgba(248, 113, 113, 0.75);
 }
 
 .mybets-history-ml--push,

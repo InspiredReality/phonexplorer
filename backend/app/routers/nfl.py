@@ -20,6 +20,7 @@ WEEK_COUNT = 15
 MARKETS = ("moneyline", "ats")
 
 ESPN_SCOREBOARD_URL = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard"
+ESPN_SUMMARY_URL = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary"
 
 log = logging.getLogger(__name__)
 
@@ -191,6 +192,68 @@ async def _save_week_cache(db: AsyncSession, week: int, season_year: int, games:
     await db.commit()
 
 
+async def _fetch_event_closing_odds(game_id: str) -> dict:
+    """Last-resort fallback for a completed game whose spread is already
+    gone from the weekly scoreboard (and was never captured in our cache,
+    e.g. because this game finished before that caching existed). ESPN's
+    per-event summary endpoint tends to keep a game's line around after the
+    fact, unlike the scoreboard, which drops it once the game airs.
+
+    ESPN has used more than one shape for this over time, so both are
+    tried. Never raises — a miss here just leaves the spread blank, same
+    as before this existed.
+    """
+    try:
+        resp = await client.get(ESPN_SUMMARY_URL, params={"event": game_id})
+        resp.raise_for_status()
+        payload = resp.json()
+    except Exception as exc:
+        log.warning("Could not backfill closing odds for event %s: %s", game_id, exc)
+        return {"home_moneyline": None, "away_moneyline": None, "home_spread": None, "away_spread": None}
+
+    entries = payload.get("pickcenter") or []
+    if not entries:
+        competitions = (payload.get("header") or {}).get("competitions") or []
+        if competitions:
+            entries = competitions[0].get("odds") or []
+    if not entries:
+        return {"home_moneyline": None, "away_moneyline": None, "home_spread": None, "away_spread": None}
+
+    entry = entries[0]
+    home_ml = (entry.get("homeTeamOdds") or {}).get("moneyLine")
+    away_ml = (entry.get("awayTeamOdds") or {}).get("moneyLine")
+    spread = entry.get("spread")
+    home_spread = spread if isinstance(spread, (int, float)) else None
+    away_spread = -spread if isinstance(spread, (int, float)) else None
+    return {
+        "home_moneyline": home_ml,
+        "away_moneyline": away_ml,
+        "home_spread": home_spread,
+        "away_spread": away_spread,
+    }
+
+
+async def _backfill_missing_odds(games: list[dict]) -> None:
+    """One per-event lookup for any completed game that still has no spread
+    after the scoreboard fetch and cache merge — only ever needed once per
+    game, since the result gets cached and a fully-completed week stops
+    calling out to ESPN at all afterward."""
+    for g in games:
+        if not g["completed"]:
+            continue
+        if g["home"]["spread"] is not None or g["away"]["spread"] is not None:
+            continue
+        odds = await _fetch_event_closing_odds(g["id"])
+        if odds["home_moneyline"] is not None:
+            g["home"]["moneyline"] = odds["home_moneyline"]
+        if odds["away_moneyline"] is not None:
+            g["away"]["moneyline"] = odds["away_moneyline"]
+        if odds["home_spread"] is not None:
+            g["home"]["spread"] = odds["home_spread"]
+        if odds["away_spread"] is not None:
+            g["away"]["spread"] = odds["away_spread"]
+
+
 async def _fetch_week_games(week: int, season_year: int) -> list[dict]:
     try:
         resp = await client.get(
@@ -242,6 +305,8 @@ async def get_week_schedule(week: int, season: int | None = None, db: AsyncSessi
 
     if cached_games:
         _merge_cached_fields(games, cached_games)
+
+    await _backfill_missing_odds(games)
 
     await _save_week_cache(db, week, season_year, games)
     return {"week": week, "season": season_year, "games": games}

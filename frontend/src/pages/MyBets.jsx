@@ -130,17 +130,20 @@ function gradeMoneylineHistory(teamId, game, gamePicks) {
   return { letter, state: correct ? 'correct' : 'incorrect' };
 }
 
-// label is always this team's spread for that game (so you can see the
-// number even with no pick made); state grades whether your ATS pick on
-// this team — cover if you picked them, no-cover if you picked their
-// opponent — matched what actually happened.
+// label is always this team's spread for that game, shown whether or not a
+// pick was made (spread == null only when we genuinely never got the
+// number — e.g. an old game whose line ESPN no longer has anywhere). With
+// no personal pick, state still reports the objective 'covered'/
+// 'not-covered' outcome (shown muted — informational, not a grade); with a
+// pick, state grades it against what you called: cover if you picked this
+// team, no-cover if you picked their opponent.
 function gradeAtsHistory(teamId, game, gamePicks) {
   const margin = teamScoreMargin(teamId, game);
   if (!game) return { label: null, state: 'bye' };
   if (!margin) return { label: null, state: 'pending' };
   const { teamScore, oppScore, spread, opponentId } = margin;
   const label = formatSigned(spread);
-  if (spread == null) return { label, state: 'no-pick' };
+  if (spread == null) return { label, state: 'no-data' };
 
   const adjusted = teamScore - oppScore + spread;
   if (adjusted === 0) return { label, state: 'push' };
@@ -150,7 +153,7 @@ function gradeAtsHistory(teamId, game, gamePicks) {
   let predictedCover;
   if (picked === teamId) predictedCover = true;
   else if (picked === opponentId) predictedCover = false;
-  else return { label, state: 'no-pick' };
+  else return { label, state: covered ? 'covered' : 'not-covered' };
 
   const correct = predictedCover === covered;
   return { label, state: correct ? 'correct' : 'incorrect' };
@@ -181,12 +184,29 @@ const HISTORY_STATE_LABELS = {
   correct: 'predicted correctly',
   incorrect: 'predicted wrong',
   push: 'push',
+  covered: 'covered the spread',
+  'not-covered': "didn't cover",
+  'no-data': 'spread unavailable',
   'no-pick': 'no pick made',
   bye: 'bye week',
   pending: 'not final yet',
   loading: 'loading…',
   unknown: 'unavailable',
 };
+
+// This week's own pick control reuses the same grading the history strip
+// uses — 'pending' (game not final yet, shown blue), 'correct' (green),
+// 'incorrect' (red), or 'push' — but only when this exact team is the one
+// picked; otherwise null, meaning "no guess" (default/grey).
+function currentMoneylineState(team, game, gamePicks) {
+  if (!team || gamePicks?.moneyline !== team.id) return null;
+  return gradeMoneylineHistory(team.id, game, gamePicks).state;
+}
+
+function currentAtsState(team, game, gamePicks) {
+  if (!team || gamePicks?.ats !== team.id) return null;
+  return gradeAtsHistory(team.id, game, gamePicks).state;
+}
 
 // Nearest week first, each week's W/L and spread sitting side by side
 // (not stacked) so the whole strip reads as one horizontal line that
@@ -215,24 +235,31 @@ function TeamHistoryRow({ team, history }) {
   );
 }
 
+const PICK_STATE_LABELS = { pending: 'pending', correct: 'right', incorrect: 'wrong', push: 'push' };
+
 // One team = one horizontal row: logo+name, then this week's pick control,
 // then — stretching to fill (and scrolling if needed) the rest of the row —
 // the team's history. Away/home stack as two rows so a matchup reads
 // top-to-bottom instead of side by side. The logo always picks the
 // moneyline (straight-up) winner; once ATS is unlocked for the week, the
 // number after the name switches from a plain moneyline readout to a
-// clickable spread pick. history is this team's last few weeks, nearest
-// first: a W/L letter (green if your moneyline call was right) and the
-// spread number (green if your ATS call was right).
-function TeamPickRow({ team, moneyline, spread, mlPicked, atsPicked, atsUnlocked, onMlClick, onAtsClick, history }) {
+// clickable spread pick. mlPickState/atsPickState are null (no guess on
+// this team — grey), 'pending' (guessed, game not final — blue), 'correct'
+// (green) or 'incorrect' (red). history is this team's last few weeks,
+// nearest first: a W/L letter and the spread number, graded the same way.
+function TeamPickRow({ team, moneyline, spread, mlPickState, atsPickState, atsUnlocked, onMlClick, onAtsClick, history }) {
   if (!team) return <div className="mybets-team-row" />;
   return (
     <div className="mybets-team-row">
       <button
         type="button"
-        className={`mybets-team-logo-btn ${mlPicked ? 'is-picked' : ''}`}
+        className={`mybets-team-logo-btn ${mlPickState ? `pick-${mlPickState}` : ''}`}
         onClick={onMlClick}
-        title={mlPicked ? `${team.name} — your moneyline pick` : `Pick ${team.name} to win`}
+        title={
+          mlPickState
+            ? `${team.name} — your moneyline pick (${PICK_STATE_LABELS[mlPickState] || mlPickState})`
+            : `Pick ${team.name} to win`
+        }
       >
         <span className="mybets-team-icon-ring">
           <img className="mybets-team-icon" src={team.logo} alt="" width={30} height={30} loading="lazy" />
@@ -242,9 +269,13 @@ function TeamPickRow({ team, moneyline, spread, mlPicked, atsPicked, atsUnlocked
       {atsUnlocked ? (
         <button
           type="button"
-          className={`mybets-spread-btn ${atsPicked ? 'is-picked' : ''}`}
+          className={`mybets-spread-btn ${atsPickState ? `pick-${atsPickState}` : ''}`}
           onClick={onAtsClick}
-          title={atsPicked ? `${team.name} — your ATS pick` : `Pick ${team.name} against the spread`}
+          title={
+            atsPickState
+              ? `${team.name} — your ATS pick (${PICK_STATE_LABELS[atsPickState] || atsPickState})`
+              : `Pick ${team.name} against the spread`
+          }
         >
           {formatSigned(spread)}
         </button>
@@ -419,8 +450,8 @@ function MyBets() {
                                   team={game.away}
                                   moneyline={game.away?.moneyline}
                                   spread={game.away?.spread}
-                                  mlPicked={gamePicks.moneyline === game.away?.id}
-                                  atsPicked={gamePicks.ats === game.away?.id}
+                                  mlPickState={currentMoneylineState(game.away, game, gamePicks)}
+                                  atsPickState={currentAtsState(game.away, game, gamePicks)}
                                   atsUnlocked={atsUnlocked}
                                   onMlClick={handlePick(weekId, game.id, 'moneyline', game.away?.id)}
                                   onAtsClick={handlePick(weekId, game.id, 'ats', game.away?.id)}
@@ -431,8 +462,8 @@ function MyBets() {
                                   team={game.home}
                                   moneyline={game.home?.moneyline}
                                   spread={game.home?.spread}
-                                  mlPicked={gamePicks.moneyline === game.home?.id}
-                                  atsPicked={gamePicks.ats === game.home?.id}
+                                  mlPickState={currentMoneylineState(game.home, game, gamePicks)}
+                                  atsPickState={currentAtsState(game.home, game, gamePicks)}
                                   atsUnlocked={atsUnlocked}
                                   onMlClick={handlePick(weekId, game.id, 'moneyline', game.home?.id)}
                                   onAtsClick={handlePick(weekId, game.id, 'ats', game.home?.id)}
