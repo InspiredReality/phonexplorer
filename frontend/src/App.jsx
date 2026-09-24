@@ -5,6 +5,7 @@ import AssignExplorer from './pages/AssignExplorer';
 import MondayPage from './pages/MondayPage';
 import DeepQuestionnaire from './pages/DeepQuestionnaire';
 import StickersPage from './pages/StickersPage';
+import MyBets from './pages/MyBets';
 
 import Realities from './pages/Realities'
 import OrgLevels  from './pages/OrgLevels'
@@ -26,6 +27,7 @@ function App() {
         <Route path="/monday" element={<MondayPage />} />
         <Route path="/deep" element={<DeepQuestionnaire />} />
         <Route path="/stickers" element={<StickersPage />} />
+        <Route path="/my-bets" element={<MyBets />} />
 
         <Route path="/realities"    element={<Realities />} />
         <Route path="/realities/:id" element={<OrgLevels />} />
