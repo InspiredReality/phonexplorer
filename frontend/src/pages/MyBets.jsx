@@ -73,12 +73,91 @@ function persistLocalPicks(data) {
   }
 }
 
+// How many prior weeks' worth of history dots to show per team, and how far
+// back (as a count of already-loaded weeks, not calendar weeks) to fetch.
+const HISTORY_WEEKS = 4;
+
+function findTeamGame(games, teamId) {
+  return games.find((g) => g.home?.id === teamId || g.away?.id === teamId);
+}
+
+// One game, graded from that team's point of view: did whichever pick(s) you
+// made on them that week (moneyline and/or ATS) hit? 'miss' if any missed,
+// 'hit' if every pick made hit, 'push' if the only picks made pushed, and
+// 'no-pick' if you didn't pick this team in that game at all.
+function gradeTeamGame(teamId, game, gamePicks) {
+  if (!game) return 'bye';
+  if (!game.completed) return 'pending';
+  const isHome = game.home?.id === teamId;
+  const teamScore = isHome ? game.home?.score : game.away?.score;
+  const oppScore = isHome ? game.away?.score : game.home?.score;
+  if (teamScore == null || oppScore == null) return 'pending';
+
+  const results = [];
+  if (gamePicks?.moneyline === teamId) {
+    results.push(teamScore === oppScore ? 'push' : teamScore > oppScore ? 'hit' : 'miss');
+  }
+  if (gamePicks?.ats === teamId) {
+    const spread = isHome ? game.home?.spread : game.away?.spread;
+    if (spread == null) {
+      results.push('push');
+    } else {
+      const adjusted = teamScore - oppScore + spread;
+      results.push(adjusted > 0 ? 'hit' : adjusted < 0 ? 'miss' : 'push');
+    }
+  }
+  if (results.length === 0) return 'no-pick';
+  if (results.includes('miss')) return 'miss';
+  if (results.every((r) => r === 'push')) return 'push';
+  return 'hit';
+}
+
+// priorWeekIds is nearest-week-first (last week, then the week before, …).
+function buildTeamHistory(teamId, priorWeekIds, schedules, picks) {
+  if (!teamId) return [];
+  return priorWeekIds.map((weekId) => {
+    const sched = schedules[weekId];
+    if (!sched || sched.status === 'loading') return { weekId, state: 'loading' };
+    if (sched.status === 'error') return { weekId, state: 'unknown' };
+    const game = findTeamGame(sched.games, teamId);
+    const gamePicks = game ? picks[weekId]?.[game.id] : undefined;
+    return { weekId, state: gradeTeamGame(teamId, game, gamePicks) };
+  });
+}
+
+const HISTORY_LABELS = {
+  hit: 'Right',
+  miss: 'Wrong',
+  push: 'Push',
+  'no-pick': 'No pick made',
+  bye: 'Bye week',
+  pending: 'Not final yet',
+  loading: 'Loading…',
+  unknown: 'Unavailable',
+};
+
+function HistoryStrip({ history }) {
+  if (!history.length) return null;
+  return (
+    <div className="mybets-history-strip">
+      {history.map((h) => (
+        <span
+          key={h.weekId}
+          className={`mybets-history-dot mybets-history-dot--${h.state}`}
+          title={`Week ${weekNumber(h.weekId)}: ${HISTORY_LABELS[h.state] || h.state}`}
+        />
+      ))}
+    </div>
+  );
+}
+
 // One row = one team, logo-name-odds left to right; away/home stack as two
 // rows so a matchup reads top-to-bottom instead of side by side. The logo
 // always picks the moneyline (straight-up) winner; once ATS is unlocked for
 // the week, the number after the name switches from a plain moneyline
-// readout to a clickable spread pick.
-function TeamPickRow({ team, moneyline, spread, mlPicked, atsPicked, atsUnlocked, onMlClick, onAtsClick }) {
+// readout to a clickable spread pick. history is this team's last few
+// weeks, nearest first, shown as small dots to the right.
+function TeamPickRow({ team, moneyline, spread, mlPicked, atsPicked, atsUnlocked, onMlClick, onAtsClick, history }) {
   if (!team) return <div className="mybets-team-row" />;
   return (
     <div className="mybets-team-row">
@@ -105,6 +184,7 @@ function TeamPickRow({ team, moneyline, spread, mlPicked, atsPicked, atsUnlocked
       ) : (
         <span className="mybets-team-odds">{formatSigned(moneyline)}</span>
       )}
+      <HistoryStrip history={history || []} />
     </div>
   );
 }
@@ -159,9 +239,20 @@ function MyBets() {
     }
   };
 
-  const handleChange = (weekId) => (_event, isExpanded) => {
+  // Nearest-first prior week ids for a given 0-based week index, capped at
+  // HISTORY_WEEKS and never going before Week 1.
+  const priorWeekIds = (weekIdx) => {
+    const ids = [];
+    for (let i = 1; i <= HISTORY_WEEKS && weekIdx - i >= 0; i++) ids.push(WEEKS[weekIdx - i]);
+    return ids;
+  };
+
+  const handleChange = (weekId, weekIdx) => (_event, isExpanded) => {
     setExpanded((prev) => ({ ...prev, [weekId]: isExpanded }));
-    if (isExpanded) loadSchedule(weekId);
+    if (isExpanded) {
+      loadSchedule(weekId);
+      priorWeekIds(weekIdx).forEach(loadSchedule);
+    }
   };
 
   const handlePick = (weekId, gameId, market, teamId) => () => {
@@ -197,12 +288,13 @@ function MyBets() {
           const moneylineCount = games.filter((g) => weekPicks[g.id]?.moneyline).length;
           const atsCount = games.filter((g) => weekPicks[g.id]?.ats).length;
           const atsUnlocked = games.length > 0 && moneylineCount === games.length;
+          const historyWeekIds = priorWeekIds(weekIdx);
 
           return (
             <Accordion
               key={weekId}
               expanded={!!expanded[weekId]}
-              onChange={handleChange(weekId)}
+              onChange={handleChange(weekId, weekIdx)}
               disableGutters
               sx={{
                 bgcolor: '#111122',
@@ -267,6 +359,7 @@ function MyBets() {
                               atsUnlocked={atsUnlocked}
                               onMlClick={handlePick(weekId, game.id, 'moneyline', game.away?.id)}
                               onAtsClick={handlePick(weekId, game.id, 'ats', game.away?.id)}
+                              history={buildTeamHistory(game.away?.id, historyWeekIds, schedules, picks)}
                             />
                             <span className="mybets-at-divider">@</span>
                             <TeamPickRow
@@ -278,6 +371,7 @@ function MyBets() {
                               atsUnlocked={atsUnlocked}
                               onMlClick={handlePick(weekId, game.id, 'moneyline', game.home?.id)}
                               onAtsClick={handlePick(weekId, game.id, 'ats', game.home?.id)}
+                              history={buildTeamHistory(game.home?.id, historyWeekIds, schedules, picks)}
                             />
                           </div>
                         </div>

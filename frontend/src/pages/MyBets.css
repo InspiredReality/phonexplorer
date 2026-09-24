@@ -252,6 +252,39 @@
   color: #4ade80;
 }
 
+/* Per-team history: nearest week first, reading left (last week) to right
+   (further back). Dots are neutral by default and only take a color once a
+   pick on that team is graded win/loss for that week. */
+.mybets-history-strip {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.mybets-history-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.mybets-history-dot--hit {
+  background: #22c55e;
+  border-color: #22c55e;
+}
+
+.mybets-history-dot--miss {
+  background: #ef4444;
+  border-color: #ef4444;
+}
+
+.mybets-history-dot--loading {
+  background: transparent;
+  border-style: dashed;
+}
+
 @media (max-width: 640px) {
   .mybets-page {
     padding: 16px;
@@ -300,5 +333,14 @@
   .mybets-spread-btn {
     padding: 5px 12px;
     font-size: 0.68rem;
+  }
+
+  .mybets-history-strip {
+    gap: 3px;
+  }
+
+  .mybets-history-dot {
+    width: 7px;
+    height: 7px;
   }
 }
