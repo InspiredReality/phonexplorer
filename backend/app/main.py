@@ -78,6 +78,9 @@ async def lifespan(app: FastAPI):
             await conn.execute(
                 text("ALTER TABLE bet_week_locks ADD COLUMN IF NOT EXISTS funder_team_id VARCHAR(64)")
             )
+            await conn.execute(
+                text("ALTER TABLE nfl_game_cache ADD COLUMN IF NOT EXISTS total DOUBLE PRECISION")
+            )
             # nfl_picks originally allowed one pick per (week, game_id); it now
             # carries a separate moneyline and ATS pick per game, so the unique
             # constraint needs game_id's sibling column and a matching index.
