@@ -386,6 +386,21 @@
   color: #f87171;
 }
 
+/* No personal pick was made, but the spread is known — show whether the
+   team covered as plain information (muted), distinct from the bold
+   green/red above that grades an actual guess. */
+.mybets-history-ats--covered {
+  background: rgba(34, 197, 94, 0.08);
+  border-color: rgba(34, 197, 94, 0.4);
+  color: rgba(74, 222, 128, 0.75);
+}
+
+.mybets-history-ats--not-covered {
+  background: rgba(239, 68, 68, 0.08);
+  border-color: rgba(239, 68, 68, 0.4);
+  color: rgba(248, 113, 113, 0.75);
+}
+
 .mybets-history-ml--push,
 .mybets-history-ats--push {
   color: rgba(250, 204, 21, 0.85);

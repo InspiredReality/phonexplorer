@@ -130,17 +130,20 @@ function gradeMoneylineHistory(teamId, game, gamePicks) {
   return { letter, state: correct ? 'correct' : 'incorrect' };
 }
 
-// label is always this team's spread for that game (so you can see the
-// number even with no pick made); state grades whether your ATS pick on
-// this team — cover if you picked them, no-cover if you picked their
-// opponent — matched what actually happened.
+// label is always this team's spread for that game, shown whether or not a
+// pick was made (spread == null only when we genuinely never got the
+// number — e.g. an old game whose line ESPN no longer has anywhere). With
+// no personal pick, state still reports the objective 'covered'/
+// 'not-covered' outcome (shown muted — informational, not a grade); with a
+// pick, state grades it against what you called: cover if you picked this
+// team, no-cover if you picked their opponent.
 function gradeAtsHistory(teamId, game, gamePicks) {
   const margin = teamScoreMargin(teamId, game);
   if (!game) return { label: null, state: 'bye' };
   if (!margin) return { label: null, state: 'pending' };
   const { teamScore, oppScore, spread, opponentId } = margin;
   const label = formatSigned(spread);
-  if (spread == null) return { label, state: 'no-pick' };
+  if (spread == null) return { label, state: 'no-data' };
 
   const adjusted = teamScore - oppScore + spread;
   if (adjusted === 0) return { label, state: 'push' };
@@ -150,7 +153,7 @@ function gradeAtsHistory(teamId, game, gamePicks) {
   let predictedCover;
   if (picked === teamId) predictedCover = true;
   else if (picked === opponentId) predictedCover = false;
-  else return { label, state: 'no-pick' };
+  else return { label, state: covered ? 'covered' : 'not-covered' };
 
   const correct = predictedCover === covered;
   return { label, state: correct ? 'correct' : 'incorrect' };
@@ -181,6 +184,9 @@ const HISTORY_STATE_LABELS = {
   correct: 'predicted correctly',
   incorrect: 'predicted wrong',
   push: 'push',
+  covered: 'covered the spread',
+  'not-covered': "didn't cover",
+  'no-data': 'spread unavailable',
   'no-pick': 'no pick made',
   bye: 'bye week',
   pending: 'not final yet',
