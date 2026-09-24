@@ -17,7 +17,7 @@ router = APIRouter(prefix="/api/nfl", tags=["nfl"])
 # 1-15 week span as the rest of the site.
 WEEK_COUNT = 15
 
-MARKETS = ("moneyline", "ats")
+MARKETS = ("moneyline", "ats", "total")
 
 ESPN_SCOREBOARD_URL = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/scoreboard"
 ESPN_SUMMARY_URL = "https://site.api.espn.com/apis/site/v2/sports/football/nfl/summary"
@@ -30,15 +30,19 @@ class PickUpdate(BaseModel):
 
 
 def _extract_odds(competition: dict) -> dict:
-    """Pull moneyline/spread numbers from ESPN's odds block, if present.
+    """Pull moneyline/spread/total numbers from ESPN's odds block, if present.
 
     ESPN only publishes odds once a book has posted a line (usually not far
     in advance), so every field here is nullable — the frontend shows
-    whatever's available and still lets a pick be made without it.
+    whatever's available and still lets a pick be made without it. Total
+    (over/under) is a single game-level number, not per-team.
     """
     odds_list = competition.get("odds") or []
     if not odds_list:
-        return {"home_moneyline": None, "away_moneyline": None, "home_spread": None, "away_spread": None}
+        return {
+            "home_moneyline": None, "away_moneyline": None,
+            "home_spread": None, "away_spread": None, "total": None,
+        }
 
     odds = odds_list[0]
     home_ml = (odds.get("homeTeamOdds") or {}).get("moneyLine")
@@ -47,12 +51,15 @@ def _extract_odds(competition: dict) -> dict:
     spread = odds.get("spread")
     home_spread = spread if isinstance(spread, (int, float)) else None
     away_spread = -spread if isinstance(spread, (int, float)) else None
+    total = odds.get("overUnder")
+    total = total if isinstance(total, (int, float)) else None
 
     return {
         "home_moneyline": home_ml,
         "away_moneyline": away_ml,
         "home_spread": home_spread,
         "away_spread": away_spread,
+        "total": total,
     }
 
 
@@ -94,6 +101,7 @@ def _game_dict(event: dict) -> dict | None:
         "id": event.get("id"),
         "date": event.get("date"),
         "completed": completed,
+        "total": odds["total"],
         "home": _team_dict(home, odds["home_moneyline"], odds["home_spread"]),
         "away": _team_dict(away, odds["away_moneyline"], odds["away_spread"]),
     }
@@ -104,6 +112,7 @@ def _row_to_game(row: NflGameCache) -> dict:
         "id": row.game_id,
         "date": row.date,
         "completed": row.completed,
+        "total": row.total,
         "home": {
             "id": row.home_id,
             "name": row.home_name,
@@ -146,6 +155,8 @@ def _merge_cached_fields(games: list[dict], cached_games: list[dict]) -> None:
         cached = cached_by_id.get(g["id"])
         if not cached:
             continue
+        if g.get("total") is None and cached.get("total") is not None:
+            g["total"] = cached["total"]
         for side in ("home", "away"):
             live_team, cached_team = g[side], cached[side]
             for field in ("id", "name", "logo", "score", "moneyline", "spread"):
@@ -175,6 +186,8 @@ async def _save_week_cache(db: AsyncSession, week: int, season_year: int, games:
         row.season = season_year
         row.date = g["date"]
         row.completed = g["completed"]
+        if g.get("total") is not None:
+            row.total = g["total"]
         for side in ("home", "away"):
             team = g[side]
             if team["id"] is not None:
@@ -203,13 +216,17 @@ async def _fetch_event_closing_odds(game_id: str) -> dict:
     tried. Never raises — a miss here just leaves the spread blank, same
     as before this existed.
     """
+    empty = {
+        "home_moneyline": None, "away_moneyline": None,
+        "home_spread": None, "away_spread": None, "total": None,
+    }
     try:
         resp = await client.get(ESPN_SUMMARY_URL, params={"event": game_id})
         resp.raise_for_status()
         payload = resp.json()
     except Exception as exc:
         log.warning("Could not backfill closing odds for event %s: %s", game_id, exc)
-        return {"home_moneyline": None, "away_moneyline": None, "home_spread": None, "away_spread": None}
+        return empty
 
     entries = payload.get("pickcenter") or []
     if not entries:
@@ -217,7 +234,7 @@ async def _fetch_event_closing_odds(game_id: str) -> dict:
         if competitions:
             entries = competitions[0].get("odds") or []
     if not entries:
-        return {"home_moneyline": None, "away_moneyline": None, "home_spread": None, "away_spread": None}
+        return empty
 
     entry = entries[0]
     home_ml = (entry.get("homeTeamOdds") or {}).get("moneyLine")
@@ -225,23 +242,28 @@ async def _fetch_event_closing_odds(game_id: str) -> dict:
     spread = entry.get("spread")
     home_spread = spread if isinstance(spread, (int, float)) else None
     away_spread = -spread if isinstance(spread, (int, float)) else None
+    total = entry.get("overUnder")
+    total = total if isinstance(total, (int, float)) else None
     return {
         "home_moneyline": home_ml,
         "away_moneyline": away_ml,
         "home_spread": home_spread,
         "away_spread": away_spread,
+        "total": total,
     }
 
 
 async def _backfill_missing_odds(games: list[dict]) -> None:
     """One per-event lookup for any completed game that still has no spread
-    after the scoreboard fetch and cache merge — only ever needed once per
-    game, since the result gets cached and a fully-completed week stops
-    calling out to ESPN at all afterward."""
+    or total after the scoreboard fetch and cache merge — only ever needed
+    once per game, since the result gets cached and a fully-completed week
+    stops calling out to ESPN at all afterward."""
     for g in games:
         if not g["completed"]:
             continue
-        if g["home"]["spread"] is not None or g["away"]["spread"] is not None:
+        missing_spread = g["home"]["spread"] is None and g["away"]["spread"] is None
+        missing_total = g.get("total") is None
+        if not (missing_spread or missing_total):
             continue
         odds = await _fetch_event_closing_odds(g["id"])
         if odds["home_moneyline"] is not None:
@@ -252,6 +274,8 @@ async def _backfill_missing_odds(games: list[dict]) -> None:
             g["home"]["spread"] = odds["home_spread"]
         if odds["away_spread"] is not None:
             g["away"]["spread"] = odds["away_spread"]
+        if odds.get("total") is not None:
+            g["total"] = odds["total"]
 
 
 async def _fetch_week_games(week: int, season_year: int) -> list[dict]:
@@ -322,7 +346,7 @@ async def get_week_schedule(week: int, season: int | None = None, db: AsyncSessi
 
 @router.get("/picks")
 async def list_picks(db: AsyncSession = Depends(get_db)):
-    """Returns { picks: { week1: { <game_id>: { moneyline: <team_id>, ats: <team_id> } } } }."""
+    """Returns { picks: { week1: { <game_id>: { moneyline: <team_id>, ats: <team_id>, total: "over"|"under" } } } }."""
     rows = (await db.execute(select(NflPick))).scalars().all()
     picks: dict[str, dict[str, dict[str, str]]] = {}
     for row in rows:
@@ -335,7 +359,10 @@ async def list_picks(db: AsyncSession = Depends(get_db)):
 async def set_pick(
     week: int, game_id: str, market: str, body: PickUpdate, db: AsyncSession = Depends(get_db)
 ):
-    """Set (or, with team_id omitted, clear) the pick for one game's moneyline or ATS market."""
+    """Set (or, with team_id omitted, clear) the pick for one game's moneyline,
+    ATS, or total market. For "total", team_id holds "over" or "under"
+    rather than a team abbreviation — same field, reused for a game-level
+    pick that has no team."""
     if market not in MARKETS:
         raise HTTPException(status_code=404, detail="Unknown market")
 

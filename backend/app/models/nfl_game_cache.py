@@ -26,6 +26,7 @@ class NflGameCache(Base):
     season         = Column(Integer, nullable=False)
     date           = Column(String(40), nullable=True)
     completed      = Column(Boolean, nullable=False, default=False)
+    total          = Column(Float, nullable=True)  # over/under line — game-level, not per-team
 
     home_id        = Column(String(16), nullable=True)
     home_name      = Column(String(64), nullable=True)
