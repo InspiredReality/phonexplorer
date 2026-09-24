@@ -30,19 +30,30 @@ function weekNumber(weekId) {
   return Number(weekId.slice(4));
 }
 
-function formatGameTime(isoDate) {
-  if (!isoDate) return 'Time TBD';
+function formatGameDate(isoDate) {
+  if (!isoDate) return { day: 'TBD', time: '' };
   const d = new Date(isoDate);
-  if (Number.isNaN(d.getTime())) return 'Time TBD';
-  return d.toLocaleString('en-US', {
+  if (Number.isNaN(d.getTime())) return { day: 'TBD', time: '' };
+  const day = d.toLocaleString('en-US', {
     timeZone: 'America/New_York',
     weekday: 'short',
-    month: 'short',
+    month: 'numeric',
     day: 'numeric',
+  });
+  const time = d.toLocaleString('en-US', {
+    timeZone: 'America/New_York',
     hour: 'numeric',
     minute: '2-digit',
     timeZoneName: 'short',
   });
+  return { day, time };
+}
+
+// Odds are signed numbers where the sign matters (e.g. +150 vs -180), but
+// JS's default number-to-string drops the "+" on positive values.
+function formatSigned(value) {
+  if (value === null || value === undefined) return '—';
+  return value > 0 ? `+${value}` : `${value}`;
 }
 
 function loadLocalPicks() {
@@ -62,7 +73,7 @@ function persistLocalPicks(data) {
   }
 }
 
-function TeamColumn({ team, picked, onClick }) {
+function TeamPickColumn({ team, oddsValue, picked, onClick }) {
   if (!team) return <div className="mybets-team-col" />;
   return (
     <button
@@ -72,9 +83,10 @@ function TeamColumn({ team, picked, onClick }) {
       title={picked ? `${team.name} — your pick` : `Pick ${team.name}`}
     >
       <span className="mybets-team-icon-ring">
-        <img className="mybets-team-icon" src={team.logo} alt="" width={40} height={40} loading="lazy" />
+        <img className="mybets-team-icon" src={team.logo} alt="" width={36} height={36} loading="lazy" />
       </span>
       <span className="mybets-team-name">{team.name}</span>
+      <span className="mybets-team-odds">{formatSigned(oddsValue)}</span>
     </button>
   );
 }
@@ -134,22 +146,23 @@ function MyBets() {
     if (isExpanded) loadSchedule(weekId);
   };
 
-  const handlePick = (weekId, gameId, teamId) => () => {
-    const current = picks[weekId]?.[gameId];
+  const handlePick = (weekId, gameId, market, teamId) => () => {
+    const current = picks[weekId]?.[gameId]?.[market];
     const nextTeamId = current === teamId ? null : teamId;
 
     setPicks((prev) => {
-      const weekPicks = { ...prev[weekId] };
-      if (nextTeamId) weekPicks[gameId] = nextTeamId;
-      else delete weekPicks[gameId];
+      const gamePicks = { ...prev[weekId]?.[gameId] };
+      if (nextTeamId) gamePicks[market] = nextTeamId;
+      else delete gamePicks[market];
+      const weekPicks = { ...prev[weekId], [gameId]: gamePicks };
       const next = { ...prev, [weekId]: weekPicks };
       persistLocalPicks(next);
       return next;
     });
 
     api
-      .put(`/api/nfl/picks/${weekNumber(weekId)}/${gameId}`, { team_id: nextTeamId })
-      .catch((err) => console.error('Failed to save pick', weekId, gameId, err));
+      .put(`/api/nfl/picks/${weekNumber(weekId)}/${gameId}/${market}`, { team_id: nextTeamId })
+      .catch((err) => console.error('Failed to save pick', weekId, gameId, market, err));
   };
 
   return (
@@ -161,7 +174,12 @@ function MyBets() {
       <div className="mybets-accordions">
         {WEEKS.slice(0, activeWeek).map((weekId, weekIdx) => {
           const schedule = schedules[weekId];
+          const games = schedule?.games || [];
           const weekPicks = picks[weekId] || {};
+          const moneylineCount = games.filter((g) => weekPicks[g.id]?.moneyline).length;
+          const atsCount = games.filter((g) => weekPicks[g.id]?.ats).length;
+          const atsUnlocked = games.length > 0 && moneylineCount === games.length;
+
           return (
             <Accordion
               key={weekId}
@@ -191,9 +209,10 @@ function MyBets() {
                   <span className="mybets-week-label-main">Week {weekIdx + 1}</span>
                   <span className="mybets-week-label-dates">({formatWeekRange(weekIdx + 1)})</span>
                 </span>
-                {schedule?.status === 'loaded' && (
+                {schedule?.status === 'loaded' && games.length > 0 && (
                   <span className="mybets-game-count">
-                    {Object.keys(weekPicks).length}/{schedule.games.length} picked
+                    ML {moneylineCount}/{games.length}
+                    {atsUnlocked && <> · ATS {atsCount}/{games.length}</>}
                   </span>
                 )}
               </AccordionSummary>
@@ -206,34 +225,62 @@ function MyBets() {
                     Couldn't load this week's matchups. Try reopening the week.
                   </p>
                 )}
-                {schedule?.status === 'loaded' && schedule.games.length === 0 && (
+                {schedule?.status === 'loaded' && games.length === 0 && (
                   <p className="mybets-status-text">No matchups posted for this week yet.</p>
                 )}
-                {schedule?.status === 'loaded' && schedule.games.length > 0 && (
+                {schedule?.status === 'loaded' && games.length > 0 && (
                   <div className="mybets-matchups">
-                    <div className="mybets-matchups-header">
-                      <span>Home</span>
+                    <div className={`mybets-matchups-header ${atsUnlocked ? 'has-ats' : ''}`}>
                       <span />
-                      <span>Away</span>
+                      <span>Moneyline Home</span>
+                      <span>Moneyline Away</span>
+                      {atsUnlocked && (
+                        <>
+                          <span>ATS Home</span>
+                          <span>ATS Away</span>
+                        </>
+                      )}
                     </div>
-                    {schedule.games.map((game) => (
-                      <div key={game.id} className="mybets-matchup-row">
-                        <TeamColumn
-                          team={game.home}
-                          picked={weekPicks[game.id] === game.home?.id}
-                          onClick={handlePick(weekId, game.id, game.home?.id)}
-                        />
-                        <div className="mybets-matchup-meta">
-                          <span className="mybets-vs-label">vs</span>
-                          <span className="mybets-game-time">{formatGameTime(game.date)}</span>
+                    {games.map((game) => {
+                      const gamePicks = weekPicks[game.id] || {};
+                      const { day, time } = formatGameDate(game.date);
+                      return (
+                        <div key={game.id} className={`mybets-matchup-row ${atsUnlocked ? 'has-ats' : ''}`}>
+                          <div className="mybets-date-col">
+                            <span className="mybets-date-day">{day}</span>
+                            <span className="mybets-date-time">{time}</span>
+                          </div>
+                          <TeamPickColumn
+                            team={game.home}
+                            oddsValue={game.home?.moneyline}
+                            picked={gamePicks.moneyline === game.home?.id}
+                            onClick={handlePick(weekId, game.id, 'moneyline', game.home?.id)}
+                          />
+                          <TeamPickColumn
+                            team={game.away}
+                            oddsValue={game.away?.moneyline}
+                            picked={gamePicks.moneyline === game.away?.id}
+                            onClick={handlePick(weekId, game.id, 'moneyline', game.away?.id)}
+                          />
+                          {atsUnlocked && (
+                            <>
+                              <TeamPickColumn
+                                team={game.home}
+                                oddsValue={game.home?.spread}
+                                picked={gamePicks.ats === game.home?.id}
+                                onClick={handlePick(weekId, game.id, 'ats', game.home?.id)}
+                              />
+                              <TeamPickColumn
+                                team={game.away}
+                                oddsValue={game.away?.spread}
+                                picked={gamePicks.ats === game.away?.id}
+                                onClick={handlePick(weekId, game.id, 'ats', game.away?.id)}
+                              />
+                            </>
+                          )}
                         </div>
-                        <TeamColumn
-                          team={game.away}
-                          picked={weekPicks[game.id] === game.away?.id}
-                          onClick={handlePick(weekId, game.id, game.away?.id)}
-                        />
-                      </div>
-                    ))}
+                      );
+                    })}
                   </div>
                 )}
               </AccordionDetails>
