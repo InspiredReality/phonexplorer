@@ -385,31 +385,26 @@
 
 /* Per-team history: nearest week first, reading left (last week) to right
    (further back), sitting right after this week's pick control and
-   stretching to fill the rest of the row — the whole strip scrolls
-   horizontally instead of wrapping if it runs out of width. Within a week,
-   the three bet types (W/L, total, spread) stack vertically, so each week
-   reads as one narrow column. Colored by whether your prediction on that
-   team was right — not by whether the team won, so a correctly-called
-   loss is a green L. */
+   filling the rest of the row. Wraps onto additional lines instead of
+   scrolling horizontally — a nested horizontal scroller here (there can be
+   dozens on a page, two per matchup row) fights the page's own vertical
+   scroll on touch devices no matter how its touch-action is tuned, so
+   there's deliberately nothing here for a touch gesture to claim; the page
+   is the only scrollable thing. Within a week, the three bet types (W/L,
+   total, spread) stack vertically, so each week reads as one narrow
+   column. Colored by whether your prediction on that team was right — not
+   by whether the team won, so a correctly-called loss is a green L. */
 .mybets-team-history {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: 8px;
+  row-gap: 4px;
   flex: 1;
   min-width: 0;
   padding-left: 10px;
   margin-left: 4px;
   border-left: 1px solid rgba(255, 255, 255, 0.1);
-  overflow-x: auto;
-  scrollbar-width: thin;
-  /* A page with an expanded week can have dozens of these small horizontal
-     scrollers stacked vertically (two per matchup row). Without this, a
-     touch that starts on one gets claimed for horizontal panning even when
-     the gesture is a vertical page swipe, so the swipe is silently eaten —
-     this restricts each one to the horizontal axis only and lets vertical
-     swipes fall through to the page. */
-  touch-action: pan-x;
-  overscroll-behavior-x: contain;
 }
 
 .mybets-history-week {
