@@ -54,13 +54,24 @@
 
 .mybets-summary-label {
   display: flex;
-  align-items: baseline;
-  gap: 6px;
-  font-size: 1rem;
+  flex-direction: column;
+  gap: 2px;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   color: #ffffff;
+  text-align: left;
+}
+
+.mybets-week-label-main {
+  font-size: 1rem;
+}
+
+.mybets-week-label-dates {
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.55);
 }
 
 .mybets-expand-icon {
@@ -391,6 +402,14 @@
   border-left: 1px solid rgba(255, 255, 255, 0.1);
   overflow-x: auto;
   scrollbar-width: thin;
+  /* A page with an expanded week can have dozens of these small horizontal
+     scrollers stacked vertically (two per matchup row). Without this, a
+     touch that starts on one gets claimed for horizontal panning even when
+     the gesture is a vertical page swipe, so the swipe is silently eaten —
+     this restricts each one to the horizontal axis only and lets vertical
+     swipes fall through to the page. */
+  touch-action: pan-x;
+  overscroll-behavior-x: contain;
 }
 
 .mybets-history-week {
