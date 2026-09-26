@@ -156,6 +156,29 @@
   color: rgba(255, 255, 255, 0.3);
 }
 
+.bett-select-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 7px 9px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  color: #ffffff;
+  font: inherit;
+  font-size: 0.8rem;
+}
+
+.bett-select-input:focus {
+  outline: none;
+  border-color: #eab308;
+  background: rgba(234, 179, 8, 0.08);
+}
+
+.bett-select-input option {
+  background: #111122;
+  color: #ffffff;
+}
+
 /* Hide the native file input; a styled button below triggers it. */
 .bett-image-input {
   display: none;

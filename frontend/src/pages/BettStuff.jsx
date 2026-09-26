@@ -7,6 +7,7 @@ import './BettStuff.css';
 
 const STORAGE_KEY = 'phonexplorer-bett-stuff-v1';
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const SPORTSBOOKS = ['Draft Kings', 'BetMGM', 'Fanatics', 'Kalshi', 'theScore'];
 
 function toDateKey(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -45,7 +46,7 @@ function persistEntries(data) {
 }
 
 function makeRow() {
-  return { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, text: '', image: null, bet: '', toWin: '' };
+  return { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, text: '', image: null, bet: '', toWin: '', sportsbook: '' };
 }
 
 function ImageCell({ row, onChange, onPreview }) {
@@ -137,6 +138,21 @@ function BetRow({ row, onField, onImageChange, onPreview, onRemove }) {
             readOnly
           />
         </div>
+      </div>
+      <div className="bett-cell bett-cell-sportsbook">
+        <span className="bett-cell-label">Sportsbook</span>
+        <select
+          className="bett-select-input"
+          value={row.sportsbook}
+          onChange={(e) => onField('sportsbook', e.target.value)}
+        >
+          <option value="">Select…</option>
+          {SPORTSBOOKS.map((name) => (
+            <option key={name} value={name}>
+              {name}
+            </option>
+          ))}
+        </select>
       </div>
     </div>
   );
