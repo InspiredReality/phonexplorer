@@ -110,3 +110,13 @@
   background: #22c55e;
   color: #ffffff;
 }
+
+.home-btn--bett-stuff {
+  border-color: #eab308;
+  color: #eab308;
+}
+
+.home-btn--bett-stuff:hover {
+  background: #eab308;
+  color: #ffffff;
+}
