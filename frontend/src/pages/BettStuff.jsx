@@ -54,7 +54,7 @@ function makeRow() {
     toWin: '',
     sportsbook: '',
     status: 'open',
-    result: 'win',
+    result: 'live',
   };
 }
 
@@ -174,9 +174,9 @@ function BetRow({ row, onField, onImageChange, onPreview, onRemove }) {
         <button
           type="button"
           className={`bett-toggle-btn bett-toggle-result bett-toggle-result-${row.result}`}
-          onClick={() => onField('result', row.result === 'win' ? 'loss' : 'win')}
+          onClick={() => onField('result', row.result === 'win' ? 'live' : 'win')}
         >
-          {row.result === 'win' ? 'Win' : 'Loss'}
+          {row.result === 'win' ? 'Win' : 'Live'}
         </button>
       </div>
     </div>
