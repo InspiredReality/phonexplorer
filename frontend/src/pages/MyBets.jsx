@@ -481,7 +481,8 @@ function MyBets() {
       {loadError && <p className="mybets-load-error">{loadError}</p>}
 
       <div className="mybets-accordions">
-        {WEEKS.slice(0, activeWeek).map((weekId, weekIdx) => {
+        {[...WEEKS.slice(0, activeWeek)].reverse().map((weekId) => {
+          const weekIdx = weekNumber(weekId) - 1; // 0-based, independent of display order
           const schedule = schedules[weekId];
           const games = schedule?.games || [];
           const weekPicks = picks[weekId] || {};
@@ -511,7 +512,7 @@ function MyBets() {
                   '.MuiAccordionSummary-content': {
                     margin: '12px 0',
                     display: 'flex',
-                    alignItems: 'baseline',
+                    alignItems: 'center',
                     justifyContent: 'space-between',
                   },
                 }}
