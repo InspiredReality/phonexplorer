@@ -14,7 +14,7 @@ from app.config import settings
 from app.db import Base, SessionLocal, engine
 from app.models.scene_object import SceneObject
 from app.models import sticker as _sticker_models  # noqa: F401 — registers Image/Tag with Base
-from app.routers import data, monday, objects, org_obs, realities, stickers, tags, admin_stickers
+from app.routers import bets, data, monday, nfl, objects, org_obs, realities, stickers, tags, admin_stickers
 from app.services import github_sync
 from app.services.http_client import client
 
@@ -75,6 +75,34 @@ async def lifespan(app: FastAPI):
             # create_all only creates missing tables — it won't add columns to
             # tables that already existed before this column was introduced.
             await conn.execute(text("ALTER TABLE images ADD COLUMN IF NOT EXISTS name TEXT"))
+            await conn.execute(
+                text("ALTER TABLE bet_week_locks ADD COLUMN IF NOT EXISTS funder_team_id VARCHAR(64)")
+            )
+            await conn.execute(
+                text("ALTER TABLE nfl_game_cache ADD COLUMN IF NOT EXISTS total DOUBLE PRECISION")
+            )
+            # nfl_picks originally allowed one pick per (week, game_id); it now
+            # carries a separate moneyline and ATS pick per game, so the unique
+            # constraint needs game_id's sibling column and a matching index.
+            await conn.execute(
+                text("ALTER TABLE nfl_picks ADD COLUMN IF NOT EXISTS market VARCHAR(16) NOT NULL DEFAULT 'moneyline'")
+            )
+            await conn.execute(text("ALTER TABLE nfl_picks DROP CONSTRAINT IF EXISTS uq_nfl_picks_week_game"))
+            await conn.execute(
+                text(
+                    """
+                    DO $$
+                    BEGIN
+                        IF NOT EXISTS (
+                            SELECT 1 FROM pg_constraint WHERE conname = 'uq_nfl_picks_week_game_market'
+                        ) THEN
+                            ALTER TABLE nfl_picks
+                                ADD CONSTRAINT uq_nfl_picks_week_game_market UNIQUE (week, game_id, market);
+                        END IF;
+                    END $$;
+                    """
+                )
+            )
 
         async with SessionLocal() as db:
             count = await db.scalar(select(func.count()).select_from(SceneObject))
@@ -120,6 +148,8 @@ app.include_router(admin_stickers.router)
 app.include_router(realities.router)
 app.include_router(tags.router)
 app.include_router(org_obs.router)
+app.include_router(bets.router)
+app.include_router(nfl.router)
 app.mount("/static", StaticFiles(directory=str(Path(__file__).parent / "static")), name="static")
 
 _UPLOADS_DIR = Path("uploads")

@@ -1,120 +1,50 @@
 import { useEffect, useState } from 'react';
-import { onInitialized } from '@needle-tools/engine';
+import { onStart, findObjectOfType } from '@needle-tools/engine';
 import '@needle-tools/engine';
 import { useNavigate } from 'react-router-dom';
+import { AppStateController } from '../scripts/AppStateController';
 import './NeedlePage.css';
 
-const ANIMATION_LABELS = [
-  '1-Sources',
-  '2-Teams',
-  '3-AssignFindings',
+const STATES = [
+  { code: 'STATE_1', label: 'Animation 1', className: 'needle-side-btn--anim1' },
+  { code: 'STATE_2', label: 'Animation 2', className: 'needle-side-btn--anim2' },
+  { code: 'STATE_3', label: 'Animation 3', className: 'needle-side-btn--anim3' },
 ];
 
 export default function NeedlePage() {
-  const [context, setContext] = useState(null);
-  const [activeAnimation, setActiveAnimation] = useState(1);
-  const [animations, setAnimations] = useState([]);
+  const [activeState, setActiveState] = useState(null);
   const navigate = useNavigate();
 
+  // Make sure the scene has a controller waiting to receive state codes.
   useEffect(() => {
-    return onInitialized(ctx => setContext(ctx));
+    return onStart((ctx) => {
+      if (!findObjectOfType(AppStateController, ctx)) {
+        ctx.scene.addComponent(AppStateController);
+      }
+    });
   }, []);
 
+  // Reflect state changes the 3D scene reports back: highlight as soon as a
+  // transition starts, and log once it actually finishes.
   useEffect(() => {
-    if (!context) return;
-    console.log('Scene ready', context.scene);
+    const el = document.querySelector('needle-engine');
+    const onStarted = (evt) => setActiveState(evt.detail?.code ?? null);
+    const onComplete = (evt) => console.log('Scene finished transitioning to', evt.detail?.code);
+    el?.addEventListener('app-state-started', onStarted);
+    el?.addEventListener('app-state-complete', onComplete);
+    return () => {
+      el?.removeEventListener('app-state-started', onStarted);
+      el?.removeEventListener('app-state-complete', onComplete);
+    };
+  }, []);
 
-    // Find all animation actions in the scene
-    const foundAnimations = [];
-
-    // Search for AnimationMixer and AnimationActions
-    context.scene.traverse((object) => {
-      // Check for animations stored in userData (Needle exports)
-      if (object.userData?.animations) {
-        foundAnimations.push(...object.userData.animations);
-      }
-      // Check for animations directly on the object
-      if (object.animations && object.animations.length > 0) {
-        foundAnimations.push(...object.animations);
-      }
-    });
-
-    // Also check scene animations
-    if (context.scene.animations && context.scene.animations.length > 0) {
-      foundAnimations.push(...context.scene.animations);
-    }
-
-    console.log('Found animations:', foundAnimations);
-    console.log('Animation names:', foundAnimations.map(a => a.name));
-    setAnimations(foundAnimations);
-  }, [context]);
-
-  const handleAnimation = (animIndex) => {
-    setActiveAnimation(animIndex);
-
-    if (!context) {
-      console.warn('No context available');
+  const handleState = (code) => {
+    const controller = findObjectOfType(AppStateController);
+    if (!controller) {
+      console.warn('AppStateController not ready yet');
       return;
     }
-
-    // Handle different actions based on which button was clicked
-    switch(animIndex) {
-      case 1: // Animation 1 - Sources
-        handleAnimation1();
-        break;
-      case 2: // Animation 2 - Teams (Color Switch Example)
-        handleColorSwitch();
-        break;
-      case 3: // Animation 3 - AssignFindings
-        handleAnimation3();
-        break;
-      default:
-        console.warn('Unknown animation index:', animIndex);
-    }
-  };
-
-  // Example: Find and call a method on a Needle component
-  const handleColorSwitch = () => {
-    // Find the ColorSwitcher component in the scene
-    let colorSwitcher = null;
-
-    context.scene.traverse((object) => {
-      // Needle components are stored in the object's components
-      if (object.components) {
-        const switcher = object.components.find(c => c.constructor.name === 'ColorSwitcher');
-        if (switcher) {
-          colorSwitcher = switcher;
-        }
-      }
-    });
-
-    if (colorSwitcher) {
-      console.log('Found ColorSwitcher, switching color');
-      colorSwitcher.SwitchColor();
-    } else {
-      console.warn('ColorSwitcher component not found in scene');
-    }
-  };
-
-  const handleAnimation1 = () => {
-    // Your animation logic or other state changes
-    console.log('Animation 1 triggered');
-
-    // Example: Play an actual animation if you have one
-    if (animations.length > 0) {
-      const targetName = ANIMATION_LABELS[0];
-      const anim = animations.find(a => a.name === targetName);
-
-      if (anim) {
-        // Animation playback logic here
-        console.log('Playing animation:', anim.name);
-      }
-    }
-  };
-
-  const handleAnimation3 = () => {
-    // Another state change example
-    console.log('Animation 3 triggered');
+    controller.setState(code);
   };
 
   return (
@@ -123,11 +53,11 @@ export default function NeedlePage() {
         <button className="needle-side-btn needle-side-btn--back" onClick={() => navigate('/')}>
           ← Back to Home
         </button>
-        {ANIMATION_LABELS.map((label, idx) => (
+        {STATES.map(({ code, label, className }) => (
           <button
-            key={label}
-            className={`needle-side-btn needle-side-btn--anim${idx + 1}${activeAnimation === idx + 1 ? ' is-active' : ''}`}
-            onClick={() => handleAnimation(idx + 1)}
+            key={code}
+            className={`needle-side-btn ${className}${activeState === code ? ' is-active' : ''}`}
+            onClick={() => handleState(code)}
           >
             {label}
           </button>

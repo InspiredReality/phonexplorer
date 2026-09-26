@@ -1,0 +1,579 @@
+.mybets-page {
+  position: relative;
+  min-height: 100vh;
+  background: #0a0a0a;
+  padding: 24px;
+  box-sizing: border-box;
+  font-family: sans-serif;
+}
+
+.mybets-back-btn {
+  padding: 10px 20px;
+  background: transparent;
+  color: #ffffff;
+  border: 2px solid #ffffff;
+  border-radius: 8px;
+  cursor: pointer;
+  font-size: 0.9rem;
+  transition: background 0.2s, color 0.2s;
+}
+
+.mybets-back-btn:hover {
+  background: #ffffff;
+  color: #0a0a0a;
+}
+
+.mybets-heading {
+  color: #ffffff;
+  font-size: 1.4rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  text-align: center;
+  margin: 16px 0 24px;
+}
+
+.mybets-load-error {
+  max-width: 960px;
+  margin: 0 auto 16px;
+  padding: 10px 14px;
+  background: rgba(239, 68, 68, 0.1);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  border-radius: 8px;
+  color: #fca5a5;
+  font-size: 0.82rem;
+  text-align: center;
+}
+
+.mybets-accordions {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 960px;
+  margin: 0 auto;
+}
+
+.mybets-summary-label {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #ffffff;
+  text-align: left;
+}
+
+.mybets-week-label-main {
+  font-size: 1rem;
+}
+
+.mybets-week-label-dates {
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+.mybets-expand-icon {
+  color: #ffffff;
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.mybets-game-count {
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.03em;
+  white-space: nowrap;
+}
+
+.mybets-status-text {
+  margin: 0;
+  padding: 18px 16px;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.mybets-status-error {
+  color: #fca5a5;
+}
+
+.mybets-matchups {
+  display: flex;
+  flex-direction: column;
+}
+
+/* One header per kickoff time, shown once above every game that starts
+   then, instead of repeating the date/time on each matchup row. */
+.mybets-timeslot:not(:last-child) {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.mybets-timeslot-header {
+  padding: 10px 16px 2px;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+}
+
+.mybets-matchup-row {
+  padding: 10px 16px;
+}
+
+.mybets-matchup-row:not(:last-child) {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+/* Away row stacked above home row, so a matchup's two logos sit one above
+   the other instead of side by side — leaves the row's remaining width
+   free for future columns (e.g. per-week result history) to its right. */
+.mybets-matchup-teams {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+  min-width: 0;
+}
+
+.mybets-at-divider {
+  margin-left: 46px;
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 0.62rem;
+  line-height: 1;
+}
+
+/* Game-level Over/Under control, sitting between the away and home rows in
+   place of a plain divider — visible from the start, same as moneyline. */
+.mybets-total-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 2px 0;
+}
+
+.mybets-total-buttons {
+  display: flex;
+  gap: 6px;
+}
+
+.mybets-total-btn {
+  padding: 3px 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  color: rgba(255, 255, 255, 0.7);
+  font: inherit;
+  font-size: 0.66rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s, transform 0.1s;
+}
+
+.mybets-total-btn:hover {
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.mybets-total-btn:active {
+  transform: scale(0.95);
+}
+
+.mybets-total-btn.pick-pending {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: #3b82f6;
+  color: #60a5fa;
+}
+
+.mybets-total-btn.pick-correct {
+  background: rgba(34, 197, 94, 0.15);
+  border-color: #22c55e;
+  color: #4ade80;
+}
+
+.mybets-total-btn.pick-incorrect {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: #ef4444;
+  color: #f87171;
+}
+
+.mybets-total-btn.pick-push {
+  background: rgba(234, 179, 8, 0.15);
+  border-color: #eab308;
+  color: #facc15;
+}
+
+.mybets-total-unavailable {
+  color: rgba(255, 255, 255, 0.3);
+  font-size: 0.62rem;
+}
+
+.mybets-team-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+/* A fixed width (not max-width) so every row's icon/name column is exactly
+   the same size regardless of how long that team's name is — otherwise a
+   short name (e.g. "Bills") shrinks its button and everything after it
+   (this week's pick, the whole history strip) shifts left out of column
+   with rows that have a longer name. */
+.mybets-team-logo-btn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+  width: 138px;
+  padding: 4px 8px 4px 2px;
+  background: transparent;
+  border: none;
+  border-radius: 999px;
+  cursor: pointer;
+  font: inherit;
+  color: #ffffff;
+  text-align: left;
+}
+
+.mybets-team-logo-btn:hover {
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.mybets-team-icon-ring {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 3px solid transparent;
+  flex-shrink: 0;
+  transition: border-color 0.15s, background 0.15s, transform 0.1s;
+}
+
+.mybets-team-logo-btn:active .mybets-team-icon-ring {
+  transform: scale(0.95);
+}
+
+/* Pick state: blue while the game hasn't finished yet, then green/red once
+   it has and the guess is graded right or wrong. No class at all (the
+   default look above) means no guess was made — stays grey. */
+.mybets-team-logo-btn.pick-pending .mybets-team-icon-ring {
+  border-color: #3b82f6;
+  background: rgba(59, 130, 246, 0.15);
+  box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25);
+}
+
+.mybets-team-logo-btn.pick-correct .mybets-team-icon-ring {
+  border-color: #22c55e;
+  background: rgba(34, 197, 94, 0.15);
+  box-shadow: 0 0 0 2px rgba(34, 197, 94, 0.25);
+}
+
+.mybets-team-logo-btn.pick-incorrect .mybets-team-icon-ring {
+  border-color: #ef4444;
+  background: rgba(239, 68, 68, 0.15);
+  box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.25);
+}
+
+.mybets-team-logo-btn.pick-push .mybets-team-icon-ring {
+  border-color: #eab308;
+  background: rgba(234, 179, 8, 0.15);
+  box-shadow: 0 0 0 2px rgba(234, 179, 8, 0.25);
+}
+
+.mybets-team-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  object-fit: cover;
+  background: rgba(255, 255, 255, 0.06);
+}
+
+.mybets-team-name {
+  min-width: 0;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.78rem;
+  line-height: 1.2;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mybets-team-logo-btn.pick-pending .mybets-team-name {
+  color: #60a5fa;
+  font-weight: 600;
+}
+
+.mybets-team-logo-btn.pick-correct .mybets-team-name {
+  color: #4ade80;
+  font-weight: 600;
+}
+
+.mybets-team-logo-btn.pick-incorrect .mybets-team-name {
+  color: #f87171;
+  font-weight: 600;
+}
+
+.mybets-team-logo-btn.pick-push .mybets-team-name {
+  color: #facc15;
+  font-weight: 600;
+}
+
+/* Fixed width on both (not just a min-width) so the history strip that
+   follows always starts at the same x position, whatever the odds/spread
+   text happens to be that week. */
+.mybets-team-odds {
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: 64px;
+  text-align: center;
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 0.72rem;
+  font-weight: 600;
+}
+
+.mybets-spread-btn {
+  flex-shrink: 0;
+  box-sizing: border-box;
+  width: 64px;
+  padding: 7px 4px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  color: rgba(255, 255, 255, 0.75);
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  text-align: center;
+  cursor: pointer;
+  transition: border-color 0.15s, background 0.15s, color 0.15s, transform 0.1s;
+}
+
+.mybets-spread-btn:hover {
+  border-color: rgba(255, 255, 255, 0.4);
+}
+
+.mybets-spread-btn:active {
+  transform: scale(0.95);
+}
+
+.mybets-spread-btn.pick-pending {
+  background: rgba(59, 130, 246, 0.15);
+  border-color: #3b82f6;
+  color: #60a5fa;
+}
+
+.mybets-spread-btn.pick-correct {
+  background: rgba(34, 197, 94, 0.15);
+  border-color: #22c55e;
+  color: #4ade80;
+}
+
+.mybets-spread-btn.pick-incorrect {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: #ef4444;
+  color: #f87171;
+}
+
+.mybets-spread-btn.pick-push {
+  background: rgba(234, 179, 8, 0.15);
+  border-color: #eab308;
+  color: #facc15;
+}
+
+/* Per-team history: nearest week first, reading left (last week) to right
+   (further back), sitting right after this week's pick control and
+   filling the rest of the row. Wraps onto additional lines instead of
+   scrolling horizontally — a nested horizontal scroller here (there can be
+   dozens on a page, two per matchup row) fights the page's own vertical
+   scroll on touch devices no matter how its touch-action is tuned, so
+   there's deliberately nothing here for a touch gesture to claim; the page
+   is the only scrollable thing. Within a week, the three bet types (W/L,
+   total, spread) stack vertically, so each week reads as one narrow
+   column. Colored by whether your prediction on that team was right — not
+   by whether the team won, so a correctly-called loss is a green L. */
+.mybets-team-history {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  row-gap: 4px;
+  flex: 1;
+  min-width: 0;
+  padding-left: 10px;
+  margin-left: 4px;
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.mybets-history-week {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  flex-shrink: 0;
+}
+
+.mybets-history-ml {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 4px;
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 0.64rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.mybets-history-ats,
+.mybets-history-total {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 32px;
+  padding: 1px 5px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 0.58rem;
+  font-weight: 700;
+  line-height: 1.3;
+}
+
+.mybets-history-ml--correct {
+  background: rgba(34, 197, 94, 0.25);
+  color: #4ade80;
+}
+
+.mybets-history-ml--incorrect {
+  background: rgba(239, 68, 68, 0.25);
+  color: #f87171;
+}
+
+.mybets-history-ats--correct,
+.mybets-history-total--correct {
+  background: rgba(34, 197, 94, 0.18);
+  border-color: #22c55e;
+  color: #4ade80;
+}
+
+.mybets-history-ats--incorrect,
+.mybets-history-total--incorrect {
+  background: rgba(239, 68, 68, 0.18);
+  border-color: #ef4444;
+  color: #f87171;
+}
+
+/* No personal pick was made — red/green are reserved for a pick you
+   actually graded, so 'covered'/'not-covered' get no color of their own
+   and just fall back to the same neutral look as the base pill above.
+   'covered' additionally gets a small uncolored tag beneath it. */
+.mybets-history-ats-col {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1px;
+}
+
+/* Always takes up its line — hidden (not removed) when this team didn't
+   cover — so every ATS pill in a row sits at the same height whether or
+   not its neighbor has a "covered" tag beneath it. */
+.mybets-history-covered-tag {
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 0.5rem;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+  text-transform: uppercase;
+  line-height: 1;
+}
+
+.mybets-history-covered-tag.is-hidden {
+  visibility: hidden;
+}
+
+.mybets-history-ml--push,
+.mybets-history-ats--push,
+.mybets-history-total--push {
+  color: rgba(250, 204, 21, 0.85);
+}
+
+@media (max-width: 640px) {
+  .mybets-page {
+    padding: 16px;
+  }
+
+  .mybets-timeslot-header {
+    padding: 8px 8px 2px;
+    font-size: 0.6rem;
+  }
+
+  .mybets-matchup-row {
+    padding: 8px 8px;
+  }
+
+  .mybets-at-divider {
+    margin-left: 34px;
+  }
+
+  .mybets-team-logo-btn {
+    width: 96px;
+    gap: 6px;
+  }
+
+  .mybets-team-icon-ring {
+    width: 32px;
+    height: 32px;
+  }
+
+  .mybets-team-icon {
+    width: 24px;
+    height: 24px;
+  }
+
+  .mybets-team-name {
+    font-size: 0.66rem;
+  }
+
+  .mybets-team-odds,
+  .mybets-spread-btn {
+    width: 48px;
+    font-size: 0.62rem;
+  }
+
+  .mybets-spread-btn {
+    padding: 5px 2px;
+  }
+
+  .mybets-team-history {
+    gap: 6px;
+    padding-left: 6px;
+    margin-left: 2px;
+  }
+
+  .mybets-history-ml {
+    width: 15px;
+    height: 15px;
+    font-size: 0.56rem;
+  }
+
+  .mybets-history-ats,
+  .mybets-history-total {
+    min-width: 26px;
+    font-size: 0.5rem;
+    padding: 1px 4px;
+  }
+
+  .mybets-history-covered-tag {
+    font-size: 0.44rem;
+  }
+
+  .mybets-total-btn {
+    padding: 2px 8px;
+    font-size: 0.6rem;
+  }
+}
