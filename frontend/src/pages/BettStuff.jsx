@@ -46,7 +46,16 @@ function persistEntries(data) {
 }
 
 function makeRow() {
-  return { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, text: '', image: null, bet: '', toWin: '', sportsbook: '' };
+  return {
+    id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+    text: '',
+    image: null,
+    bet: '',
+    toWin: '',
+    sportsbook: '',
+    status: 'open',
+    result: 'win',
+  };
 }
 
 function ImageCell({ row, onChange, onPreview }) {
@@ -153,6 +162,22 @@ function BetRow({ row, onField, onImageChange, onPreview, onRemove }) {
             </option>
           ))}
         </select>
+      </div>
+      <div className="bett-toggle-row">
+        <button
+          type="button"
+          className={`bett-toggle-btn bett-toggle-status bett-toggle-status-${row.status}`}
+          onClick={() => onField('status', row.status === 'open' ? 'closed' : 'open')}
+        >
+          {row.status === 'open' ? 'Open' : 'Closed'}
+        </button>
+        <button
+          type="button"
+          className={`bett-toggle-btn bett-toggle-result bett-toggle-result-${row.result}`}
+          onClick={() => onField('result', row.result === 'win' ? 'loss' : 'win')}
+        >
+          {row.result === 'win' ? 'Win' : 'Loss'}
+        </button>
       </div>
     </div>
   );
