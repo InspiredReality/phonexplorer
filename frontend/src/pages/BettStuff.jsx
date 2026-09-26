@@ -45,14 +45,13 @@ function persistEntries(data) {
 }
 
 function makeRow() {
-  return { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, text: '', image: null, bet: '', toWin: '', profit: '' };
+  return { id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`, text: '', image: null, bet: '', toWin: '' };
 }
 
 function ImageCell({ row, onChange, onPreview }) {
   const inputRef = useRef(null);
   return (
     <div className="bett-cell bett-cell-image">
-      <span className="bett-cell-label">Image</span>
       <input
         ref={inputRef}
         type="file"
@@ -65,12 +64,17 @@ function ImageCell({ row, onChange, onPreview }) {
         }}
       />
       {row.image ? (
-        <button type="button" className="bett-image-thumb-btn" onClick={() => onPreview(row.image)}>
-          <img src={row.image} alt="" className="bett-image-thumb" />
-        </button>
+        <div className="bett-image-wrap">
+          <button type="button" className="bett-image-preview-btn" onClick={() => onPreview(row.image)}>
+            <img src={row.image} alt="" className="bett-image-full" />
+          </button>
+          <button type="button" className="bett-image-replace-btn" onClick={() => inputRef.current?.click()}>
+            Replace
+          </button>
+        </div>
       ) : (
         <button type="button" className="bett-image-upload-btn" onClick={() => inputRef.current?.click()}>
-          + Photo
+          + Add Photo
         </button>
       )}
     </div>
@@ -78,10 +82,18 @@ function ImageCell({ row, onChange, onPreview }) {
 }
 
 function BetRow({ row, onField, onImageChange, onPreview, onRemove }) {
+  const bet = parseFloat(row.bet);
+  const toWin = parseFloat(row.toWin);
+  const hasProfit = !Number.isNaN(bet) && !Number.isNaN(toWin);
+  const profit = hasProfit ? toWin - bet : '';
+
   return (
     <div className="bett-row">
+      <button type="button" className="bett-row-remove" onClick={onRemove} title="Remove row" aria-label="Remove row">
+        ×
+      </button>
       <div className="bett-cell bett-cell-text">
-        <span className="bett-cell-label">Notes</span>
+        <span className="bett-cell-label">Pick</span>
         <input
           type="text"
           className="bett-text-input"
@@ -91,42 +103,41 @@ function BetRow({ row, onField, onImageChange, onPreview, onRemove }) {
         />
       </div>
       <ImageCell row={row} onChange={onImageChange} onPreview={onPreview} />
-      <div className="bett-cell bett-cell-bet">
-        <span className="bett-cell-label">Bet</span>
-        <input
-          type="number"
-          inputMode="decimal"
-          className="bett-number-input"
-          placeholder="$0"
-          value={row.bet}
-          onChange={(e) => onField('bet', e.target.value)}
-        />
+      <div className="bett-fields-row">
+        <div className="bett-cell bett-cell-bet">
+          <span className="bett-cell-label">Bet</span>
+          <input
+            type="number"
+            inputMode="decimal"
+            className="bett-number-input"
+            placeholder="$0"
+            value={row.bet}
+            onChange={(e) => onField('bet', e.target.value)}
+          />
+        </div>
+        <div className="bett-cell bett-cell-towin">
+          <span className="bett-cell-label">To Win</span>
+          <input
+            type="number"
+            inputMode="decimal"
+            className="bett-number-input"
+            placeholder="$0"
+            value={row.toWin}
+            onChange={(e) => onField('toWin', e.target.value)}
+          />
+        </div>
+        <div className="bett-cell bett-cell-profit">
+          <span className="bett-cell-label">Profit</span>
+          <input
+            type="number"
+            className="bett-number-input"
+            placeholder="$0"
+            value={profit}
+            disabled
+            readOnly
+          />
+        </div>
       </div>
-      <div className="bett-cell bett-cell-towin">
-        <span className="bett-cell-label">To Win</span>
-        <input
-          type="number"
-          inputMode="decimal"
-          className="bett-number-input"
-          placeholder="$0"
-          value={row.toWin}
-          onChange={(e) => onField('toWin', e.target.value)}
-        />
-      </div>
-      <div className="bett-cell bett-cell-profit">
-        <span className="bett-cell-label">Profit</span>
-        <input
-          type="number"
-          inputMode="decimal"
-          className="bett-number-input"
-          placeholder="$0"
-          value={row.profit}
-          onChange={(e) => onField('profit', e.target.value)}
-        />
-      </div>
-      <button type="button" className="bett-row-remove" onClick={onRemove} title="Remove row" aria-label="Remove row">
-        ×
-      </button>
     </div>
   );
 }
@@ -220,16 +231,6 @@ function BettStuff() {
               <AccordionDetails sx={{ p: 0, borderTop: '1px solid rgba(255, 255, 255, 0.12)' }}>
                 <div className="bett-rows">
                   {rows.length === 0 && <p className="bett-status-text">No bets logged yet.</p>}
-                  {rows.length > 0 && (
-                    <div className="bett-header-row">
-                      <span className="bett-header-text">Notes</span>
-                      <span className="bett-header-image">Image</span>
-                      <span className="bett-header-bet">Bet</span>
-                      <span className="bett-header-towin">To Win</span>
-                      <span className="bett-header-profit">Profit</span>
-                      <span className="bett-header-spacer" />
-                    </div>
-                  )}
                   {rows.map((row) => (
                     <BetRow
                       key={row.id}

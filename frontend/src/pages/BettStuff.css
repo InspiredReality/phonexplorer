@@ -89,38 +89,12 @@
   flex-direction: column;
 }
 
-/* Column headers, desktop only — mobile rows get an inline label per field
-   instead since the columns collapse into a stacked layout there. */
-.bett-header-row {
-  display: grid;
-  grid-template-columns: 1fr 90px 84px 84px 84px 28px;
-  gap: 8px;
-  padding: 8px 16px 4px;
-  color: rgba(255, 255, 255, 0.4);
-  font-size: 0.64rem;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  text-transform: uppercase;
-}
-
-.bett-header-bet,
-.bett-header-towin,
-.bett-header-profit {
-  text-align: center;
-}
-
-.bett-header-image {
-  text-align: center;
-}
-
 .bett-row {
   position: relative;
-  display: grid;
-  grid-template-columns: 1fr 90px 84px 84px 84px 28px;
-  grid-template-areas: "text image bet towin profit remove";
-  gap: 8px;
-  align-items: center;
-  padding: 10px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 16px;
 }
 
 .bett-row:not(:last-child) {
@@ -135,7 +109,7 @@
 }
 
 .bett-cell-label {
-  display: none;
+  display: block;
   color: rgba(255, 255, 255, 0.4);
   font-size: 0.6rem;
   font-weight: 700;
@@ -144,24 +118,13 @@
 }
 
 .bett-cell-text {
-  grid-area: text;
+  padding-right: 28px;
 }
 
-.bett-cell-image {
-  grid-area: image;
-  align-items: center;
-}
-
-.bett-cell-bet {
-  grid-area: bet;
-}
-
-.bett-cell-towin {
-  grid-area: towin;
-}
-
-.bett-cell-profit {
-  grid-area: profit;
+.bett-fields-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
 }
 
 .bett-text-input,
@@ -199,16 +162,18 @@
 }
 
 .bett-image-upload-btn {
-  padding: 7px 8px;
+  display: block;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 28px 10px;
   background: rgba(255, 255, 255, 0.06);
   border: 1px dashed rgba(255, 255, 255, 0.3);
   border-radius: 8px;
   color: rgba(255, 255, 255, 0.6);
   font: inherit;
-  font-size: 0.68rem;
+  font-size: 0.8rem;
   font-weight: 600;
   cursor: pointer;
-  white-space: nowrap;
 }
 
 .bett-image-upload-btn:hover {
@@ -216,7 +181,14 @@
   color: #eab308;
 }
 
-.bett-image-thumb-btn {
+.bett-image-wrap {
+  position: relative;
+  width: 100%;
+}
+
+.bett-image-preview-btn {
+  display: block;
+  width: 100%;
   padding: 0;
   background: transparent;
   border: 1px solid rgba(255, 255, 255, 0.18);
@@ -225,17 +197,37 @@
   line-height: 0;
 }
 
-.bett-image-thumb {
-  width: 36px;
-  height: 36px;
+.bett-image-full {
+  width: 100%;
+  height: auto;
   border-radius: 7px;
-  object-fit: cover;
   display: block;
 }
 
+.bett-image-replace-btn {
+  position: absolute;
+  bottom: 8px;
+  right: 8px;
+  padding: 5px 10px;
+  background: rgba(0, 0, 0, 0.65);
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 6px;
+  color: #ffffff;
+  font: inherit;
+  font-size: 0.65rem;
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.bett-image-replace-btn:hover {
+  border-color: #eab308;
+  color: #eab308;
+}
+
 .bett-row-remove {
-  grid-area: remove;
-  justify-self: end;
+  position: absolute;
+  top: 10px;
+  right: 10px;
   width: 22px;
   height: 22px;
   padding: 0;
@@ -296,29 +288,5 @@
 @media (max-width: 640px) {
   .bett-page {
     padding: 16px;
-  }
-
-  .bett-header-row {
-    display: none;
-  }
-
-  .bett-row {
-    grid-template-columns: 1fr 1fr;
-    grid-template-areas:
-      "text text"
-      "image bet"
-      "towin profit";
-    padding: 10px 30px 12px 10px;
-    gap: 8px 10px;
-  }
-
-  .bett-cell-label {
-    display: block;
-  }
-
-  .bett-row-remove {
-    top: 10px;
-    right: 6px;
-    position: absolute;
   }
 }
