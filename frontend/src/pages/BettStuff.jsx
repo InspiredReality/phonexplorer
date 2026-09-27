@@ -218,7 +218,7 @@ function BettStuff() {
   };
 
   const handleAddRow = (dateKey) => {
-    updateEntries(dateKey, (rows) => [...rows, makeRow()]);
+    updateEntries(dateKey, (rows) => [makeRow(), ...rows]);
   };
 
   const handleRemoveRow = (dateKey, rowId) => {
@@ -252,7 +252,7 @@ function BettStuff() {
       <h1 className="bett-heading">Bett Stuff</h1>
 
       <div className="bett-accordions">
-        {days.map(({ dateKey, dayName, dateLabel, isToday }) => {
+        {[...days].reverse().map(({ dateKey, dayName, dateLabel, isToday }) => {
           const rows = rowsFor(dateKey);
           return (
             <Accordion
@@ -286,6 +286,9 @@ function BettStuff() {
                 {rows.length > 0 && <span className="bett-row-count">{rows.length} bet{rows.length === 1 ? '' : 's'}</span>}
               </AccordionSummary>
               <AccordionDetails sx={{ p: 0, borderTop: '1px solid rgba(255, 255, 255, 0.12)' }}>
+                <button type="button" className="bett-add-row-btn" onClick={() => handleAddRow(dateKey)}>
+                  + Add Row
+                </button>
                 <div className="bett-rows">
                   {rows.length === 0 && <p className="bett-status-text">No bets logged yet.</p>}
                   {rows.map((row) => (
@@ -299,9 +302,6 @@ function BettStuff() {
                     />
                   ))}
                 </div>
-                <button type="button" className="bett-add-row-btn" onClick={() => handleAddRow(dateKey)}>
-                  + Add Row
-                </button>
               </AccordionDetails>
             </Accordion>
           );
