@@ -1,14 +1,15 @@
 import { useNavigate } from 'react-router-dom';
-import { amountClass, formatMoney, sumProfit } from '../pages/bettStuffData';
+import { amountClass, formatMoney, openBetTotal, sumProfit } from '../pages/bettStuffData';
 import '../pages/BettStuff.css';
 
 // Always-visible footer shared by the picks page (Bett Stuff) and the
-// stats page (Bett Stuff Stats): same Day/Week totals, plus a toggle
+// stats page (Bett Stuff Stats): Table/Day/Week totals, plus a toggle
 // button that swaps between the two pages.
 function BettSummaryBar({ days, entries, activePage }) {
   const navigate = useNavigate();
   const rowsFor = (dateKey) => entries[dateKey] || [];
   const todayKey = days.find((d) => d.isToday)?.dateKey;
+  const tableTotal = openBetTotal(entries);
   const dayProfit = sumProfit(rowsFor(todayKey));
   const weekProfit = sumProfit(days.flatMap((d) => rowsFor(d.dateKey)));
 
@@ -19,6 +20,10 @@ function BettSummaryBar({ days, entries, activePage }) {
   return (
     <div className="bett-summary-bar">
       <div className="bett-summary-stats">
+        <div className="bett-summary-item">
+          <span className="bett-summary-label-text">Table</span>
+          <span className="bett-summary-value">{formatMoney(tableTotal)}</span>
+        </div>
         <div className="bett-summary-item">
           <span className="bett-summary-label-text">Day</span>
           <span className={`bett-summary-value ${amountClass(dayProfit)}`}>{formatMoney(dayProfit)}</span>

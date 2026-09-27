@@ -119,6 +119,16 @@ export function sumProfit(rows) {
   return rows.reduce((total, row) => total + resultProfit(row), 0);
 }
 
+// Money currently at the table: the Bet amount (never To Win or Profit) of
+// every still-Open row, across every day ever logged — not scoped to a
+// particular day or week like the other totals.
+export function openBetTotal(entries) {
+  return Object.values(entries)
+    .flat()
+    .filter((row) => row.status === 'open')
+    .reduce((total, row) => total + (parseFloat(row.bet) || 0), 0);
+}
+
 export function formatMoney(amount) {
   const sign = amount < 0 ? '-' : '';
   return `${sign}$${Math.abs(amount).toFixed(2)}`;

@@ -610,7 +610,7 @@
   flex: 1;
   display: flex;
   justify-content: center;
-  gap: 48px;
+  gap: 28px;
 }
 
 .bett-summary-item {
@@ -652,6 +652,7 @@
 .bett-summary-value {
   font-size: 1.1rem;
   font-weight: 700;
+  color: #ffffff;
 }
 
 .bett-summary-value-positive {
@@ -678,5 +679,13 @@
 
   .bett-stats-cell {
     padding: 8px 1px;
+  }
+
+  .bett-summary-stats {
+    gap: 14px;
+  }
+
+  .bett-summary-value {
+    font-size: 0.95rem;
   }
 }
