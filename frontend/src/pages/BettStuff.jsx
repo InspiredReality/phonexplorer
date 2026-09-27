@@ -9,6 +9,9 @@ import './BettStuff.css';
 const STORAGE_KEY = 'phonexplorer-bett-stuff-v1';
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const SPORTSBOOKS = ['Draft Kings', 'BetMGM', 'Fanatics', 'Kalshi', 'theScore'];
+// Cycles Live -> Win -> Loss -> Live each time the result toggle is clicked.
+const NEXT_RESULT = { live: 'win', win: 'loss', loss: 'live' };
+const RESULT_LABEL = { live: 'Live', win: 'Win', loss: 'Loss' };
 
 function toDateKey(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
@@ -56,6 +59,30 @@ function computeProfit(row) {
 // Live means the outcome isn't known yet, so there's nothing to save.
 function isSettled(row) {
   return row.status === 'closed' && row.result !== 'live';
+}
+
+// The Day/Week totals count every Win or Loss row regardless of whether
+// it's still Open or already Closed — only Live (outcome unknown) is
+// excluded. A win nets To Win minus Bet; a loss nets the Bet amount lost.
+function resultProfit(row) {
+  if (row.result === 'win') return computeProfit(row) ?? 0;
+  if (row.result === 'loss') return -(parseFloat(row.bet) || 0);
+  return 0;
+}
+
+function sumProfit(rows) {
+  return rows.reduce((total, row) => total + resultProfit(row), 0);
+}
+
+function formatMoney(amount) {
+  const sign = amount < 0 ? '-' : '';
+  return `${sign}$${Math.abs(amount).toFixed(2)}`;
+}
+
+function amountClass(amount) {
+  if (amount > 0) return 'bett-summary-value-positive';
+  if (amount < 0) return 'bett-summary-value-negative';
+  return 'bett-summary-value-zero';
 }
 
 // Saves (or, once unsettled again, deletes) a row's settlement record.
@@ -212,9 +239,9 @@ function BetRow({ row, onField, onImageChange, onPreview, onRemove }) {
         <button
           type="button"
           className={`bett-toggle-btn bett-toggle-result bett-toggle-result-${row.result}`}
-          onClick={() => onField('result', row.result === 'win' ? 'live' : 'win')}
+          onClick={() => onField('result', NEXT_RESULT[row.result] || 'live')}
         >
-          {row.result === 'win' ? 'Win' : 'Live'}
+          {RESULT_LABEL[row.result] || 'Live'}
         </button>
       </div>
     </div>
@@ -232,6 +259,10 @@ function BettStuff() {
   const [previewImage, setPreviewImage] = useState(null);
 
   const rowsFor = (dateKey) => entries[dateKey] || [];
+
+  const todayKey = days.find((d) => d.isToday)?.dateKey;
+  const dayProfit = sumProfit(rowsFor(todayKey));
+  const weekProfit = sumProfit(days.flatMap((d) => rowsFor(d.dateKey)));
 
   // Always derives the next rows from the latest state (not a closed-over
   // snapshot), so rapid clicks/edits in the same tick don't clobber each other.
@@ -340,6 +371,17 @@ function BettStuff() {
           <img src={previewImage} alt="" className="bett-lightbox-img" />
         </div>
       )}
+
+      <div className="bett-summary-bar">
+        <div className="bett-summary-item">
+          <span className="bett-summary-label-text">Day</span>
+          <span className={`bett-summary-value ${amountClass(dayProfit)}`}>{formatMoney(dayProfit)}</span>
+        </div>
+        <div className="bett-summary-item">
+          <span className="bett-summary-label-text">Week</span>
+          <span className={`bett-summary-value ${amountClass(weekProfit)}`}>{formatMoney(weekProfit)}</span>
+        </div>
+      </div>
     </div>
   );
 }
