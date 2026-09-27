@@ -4,7 +4,6 @@ import BettSummaryBar from '../components/BettSummaryBar';
 import {
   amountClass,
   currentBettingWeekDays,
-  currentWeekDays,
   formatMoneyShort,
   loadEntries,
   loadWeeklyGoal,
@@ -15,7 +14,6 @@ import './BettStuff.css';
 
 function BettStuffStats() {
   const navigate = useNavigate();
-  const [days] = useState(currentWeekDays);
   const [statsDays] = useState(currentBettingWeekDays);
   const [entries] = useState(loadEntries);
   const [weeklyGoal, setWeeklyGoal] = useState(loadWeeklyGoal);
@@ -78,7 +76,7 @@ function BettStuffStats() {
         ))}
       </div>
 
-      <BettSummaryBar days={days} entries={entries} activePage="stats" />
+      <BettSummaryBar days={statsDays} entries={entries} activePage="stats" />
     </div>
   );
 }
