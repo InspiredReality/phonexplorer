@@ -1,13 +1,15 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BettSummaryBar from '../components/BettSummaryBar';
 import {
   allBettingWeeks,
   amountClass,
   currentBettingWeekDays,
+  fetchEntriesFromApi,
   formatMoneyShort,
   loadEntries,
   loadWeeklyGoal,
+  persistEntries,
   saveWeeklyGoal,
   sumProfit,
 } from './bettStuffData';
@@ -50,11 +52,28 @@ function BettStuffStats() {
   // The bottom summary bar always tracks just the current week; the grid
   // below shows every week back through the earliest logged day.
   const [summaryDays] = useState(currentBettingWeekDays);
-  const [weeks] = useState(allBettingWeeks);
-  const [entries] = useState(loadEntries);
+  // Local storage hydrates the first paint; the database fetch then
+  // overwrites it as the source of truth (and refreshes the cache), so
+  // this matches whatever the picks page has saved from any browser.
+  const [entries, setEntries] = useState(loadEntries);
   const [weeklyGoal, setWeeklyGoal] = useState(loadWeeklyGoal);
 
+  useEffect(() => {
+    let cancelled = false;
+    fetchEntriesFromApi()
+      .then((dbEntries) => {
+        if (cancelled) return;
+        setEntries(dbEntries);
+        persistEntries(dbEntries);
+      })
+      .catch((err) => console.error('Failed to load bets from database, using local cache:', err));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
   const rowsFor = (dateKey) => entries[dateKey] || [];
+  const weeks = allBettingWeeks(entries);
   const goalValue = parseFloat(weeklyGoal) || 0;
 
   const handleGoalChange = (value) => {

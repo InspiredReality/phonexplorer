@@ -1,4 +1,4 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Accordion from '@mui/material/Accordion';
 import AccordionSummary from '@mui/material/AccordionSummary';
@@ -9,10 +9,11 @@ import {
   computeProfit,
   currentBettingWeekDays,
   dateKeyInfo,
+  fetchEntriesFromApi,
   loadEntries,
   loadExtraDays,
+  persistEntries,
   saveExtraDays,
-  STORAGE_KEY,
   todayDateKey,
 } from './bettStuffData';
 import './BettStuff.css';
@@ -22,45 +23,27 @@ const SPORTSBOOKS = ['Draft Kings', 'BetMGM', 'Fanatics', 'Kalshi', 'theScore'];
 const NEXT_RESULT = { live: 'win', win: 'loss', loss: 'live' };
 const RESULT_LABEL = { live: 'Live', win: 'Win', loss: 'Loss' };
 
-function persistEntries(data) {
-  try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
-  } catch {
-    // e.g. private browsing / storage quota — used only as a local store
-  }
-}
-
-// A row is only worth a database record once it's fully settled — still
-// Live means the outcome isn't known yet, so there's nothing to save.
-function isSettled(row) {
-  return row.status === 'closed' && row.result !== 'live';
-}
-
-// Saves (or, once unsettled again, deletes) a row's settlement record.
-// Fire-and-forget: a page reload always rebuilds this from the panel's own
-// localStorage state, so a dropped request here just means a slightly
+// Saves a row's full state to the database on every edit, regardless of
+// status or result — the database is the source of truth on load, so
+// anything not yet written there wouldn't survive opening the app
+// elsewhere. Fire-and-forget: local state (and its localStorage cache)
+// already has the change, so a dropped request here just means a slightly
 // stale copy on the server until the next edit retries it.
 function syncSettlement(dateKey, row) {
-  if (isSettled(row)) {
-    const profit = computeProfit(row);
-    api
-      .put(`/api/bett-stuff/settlements/${row.id}`, {
-        bet_date: dateKey,
-        pick: row.text,
-        image: row.image,
-        bet_amount: parseFloat(row.bet) || 0,
-        to_win: parseFloat(row.toWin) || 0,
-        profit: profit ?? 0,
-        sportsbook: row.sportsbook || null,
-        status: row.status,
-        result: row.result,
-      })
-      .catch((err) => console.error('Failed to save bet settlement:', err));
-  } else {
-    api.delete(`/api/bett-stuff/settlements/${row.id}`).catch((err) => {
-      console.error('Failed to clear bet settlement:', err);
-    });
-  }
+  const profit = computeProfit(row);
+  api
+    .put(`/api/bett-stuff/settlements/${row.id}`, {
+      bet_date: dateKey,
+      pick: row.text,
+      image: row.image,
+      bet_amount: parseFloat(row.bet) || 0,
+      to_win: parseFloat(row.toWin) || 0,
+      profit: profit ?? 0,
+      sportsbook: row.sportsbook || null,
+      status: row.status,
+      result: row.result,
+    })
+    .catch((err) => console.error('Failed to save bet:', err));
 }
 
 function makeRow() {
@@ -237,11 +220,28 @@ function BettStuff() {
   // Tuesday-through-Monday week, independent of which day accordions are
   // showing above it.
   const [summaryDays] = useState(currentBettingWeekDays);
+  // Local storage hydrates the very first paint; the database fetch below
+  // then overwrites it as the source of truth (and refreshes the cache),
+  // so a different browser sees the same bets instead of starting empty.
   const [entries, setEntries] = useState(loadEntries);
   const [extraDays, setExtraDaysState] = useState(loadExtraDays);
   const [drafts, setDrafts] = useState([]);
   const [expanded, setExpanded] = useState(() => ({ [todayDateKey()]: true }));
   const [previewImage, setPreviewImage] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchEntriesFromApi()
+      .then((dbEntries) => {
+        if (cancelled) return;
+        setEntries(dbEntries);
+        persistEntries(dbEntries);
+      })
+      .catch((err) => console.error('Failed to load bets from database, using local cache:', err));
+    return () => {
+      cancelled = true;
+    };
+  }, []);
 
   const rowsFor = (dateKey) => entries[dateKey] || [];
 

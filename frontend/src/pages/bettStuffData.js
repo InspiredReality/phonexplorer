@@ -1,6 +1,9 @@
-// Shared between BettStuff (the picks page) and BettStuffStats: both read
-// the same localStorage-backed weekly entries and need the same Day/Week
-// profit math for the always-visible summary bar.
+// Shared between BettStuff (the picks page) and BettStuffStats: both load
+// the same bet entries (from the database, with localStorage as a local
+// cache/fallback) and need the same Day/Week profit math for the
+// always-visible summary bar.
+
+import api from '../services/api';
 
 export const STORAGE_KEY = 'phonexplorer-bett-stuff-v1';
 const WEEKLY_GOAL_KEY = 'phonexplorer-bett-stuff-weekly-goal-v1';
@@ -69,8 +72,9 @@ export function currentBettingWeekDays() {
 // Every Tuesday-through-Monday week from the one containing the earliest
 // logged (or manually added) day through the current week, newest first —
 // the stats page's full calendar-like history instead of just this week.
-export function allBettingWeeks() {
-  const entries = loadEntries();
+// Takes entries as a parameter (rather than loading them itself) so it
+// stays correct once entries are hydrated from the database.
+export function allBettingWeeks(entries) {
   const dataKeys = Object.keys(entries).filter((k) => (entries[k] || []).length > 0);
   const allKeys = [...dataKeys, ...loadExtraDays()];
 
@@ -98,6 +102,46 @@ export function loadEntries() {
   } catch {
     return {};
   }
+}
+
+// Local cache only — the database (see fetchEntriesFromApi) is the source
+// of truth on load; this just keeps a working copy for instant first paint
+// and for the app to keep functioning if the database is unreachable.
+export function persistEntries(entries) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+  } catch {
+    // e.g. private browsing / storage quota — used only as a local cache
+  }
+}
+
+function settlementToRow(record) {
+  return {
+    id: record.id,
+    text: record.pick || '',
+    image: record.image || null,
+    bet: record.bet_amount || record.bet_amount === 0 ? String(record.bet_amount) : '',
+    toWin: record.to_win || record.to_win === 0 ? String(record.to_win) : '',
+    sportsbook: record.sportsbook || '',
+    status: record.status || 'open',
+    result: record.result || 'live',
+  };
+}
+
+function settlementsToEntries(records) {
+  const entries = {};
+  for (const record of records) {
+    (entries[record.bet_date] ??= []).push(settlementToRow(record));
+  }
+  return entries;
+}
+
+// Every bet, from the database — the source of truth on app open. Falls
+// back to the local cache (see persistEntries/loadEntries) if the request
+// fails, e.g. offline.
+export async function fetchEntriesFromApi() {
+  const res = await api.get('/api/bett-stuff/settlements');
+  return settlementsToEntries(res.data);
 }
 
 export function computeProfit(row) {
