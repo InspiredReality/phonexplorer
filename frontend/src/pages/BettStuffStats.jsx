@@ -3,8 +3,9 @@ import { useNavigate } from 'react-router-dom';
 import BettSummaryBar from '../components/BettSummaryBar';
 import {
   amountClass,
+  currentBettingWeekDays,
   currentWeekDays,
-  formatMoney,
+  formatMoneyShort,
   loadEntries,
   loadWeeklyGoal,
   saveWeeklyGoal,
@@ -15,13 +16,15 @@ import './BettStuff.css';
 function BettStuffStats() {
   const navigate = useNavigate();
   const [days] = useState(currentWeekDays);
+  const [statsDays] = useState(currentBettingWeekDays);
   const [entries] = useState(loadEntries);
   const [weeklyGoal, setWeeklyGoal] = useState(loadWeeklyGoal);
 
   const rowsFor = (dateKey) => entries[dateKey] || [];
-  const dayProfits = days.map((d) => ({ ...d, profit: sumProfit(rowsFor(d.dateKey)) }));
+  const dayProfits = statsDays.map((d) => ({ ...d, profit: sumProfit(rowsFor(d.dateKey)) }));
   const weekProfit = dayProfits.reduce((total, d) => total + d.profit, 0);
   const goalMet = weekProfit >= (parseFloat(weeklyGoal) || 0);
+  const weekRangeLabel = `${statsDays[0].shortLabel} - ${statsDays[6].shortLabel}`;
 
   const handleGoalChange = (value) => {
     setWeeklyGoal(value);
@@ -46,18 +49,18 @@ function BettStuffStats() {
       </div>
 
       <div className="bett-stats-grid">
-        {dayProfits.map((d) => (
-          <div key={d.dateKey} className="bett-stats-cell">
-            <span className="bett-stats-cell-label">{d.dayName.slice(0, 3)}</span>
-            <span className={`bett-stats-cell-value ${amountClass(d.profit)}`}>{formatMoney(d.profit)}</span>
-          </div>
-        ))}
         <div className="bett-stats-cell bett-stats-cell-week">
-          <span className="bett-stats-cell-label">Week</span>
+          <span className="bett-stats-cell-label">{weekRangeLabel}</span>
           <span className={`bett-stats-cell-value ${goalMet ? 'bett-stats-goal-met' : 'bett-stats-goal-missed'}`}>
             {goalMet ? '✓' : '✗'}
           </span>
         </div>
+        {dayProfits.map((d) => (
+          <div key={d.dateKey} className="bett-stats-cell">
+            <span className="bett-stats-cell-label">{d.dayName.slice(0, 3)}</span>
+            <span className={`bett-stats-cell-value ${amountClass(d.profit)}`}>{formatMoneyShort(d.profit)}</span>
+          </div>
+        ))}
       </div>
 
       <BettSummaryBar days={days} entries={entries} activePage="stats" />

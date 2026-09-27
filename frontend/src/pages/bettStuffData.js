@@ -14,6 +14,17 @@ function formatDateLabel(d) {
   return d.toLocaleString('en-US', { month: 'short', day: 'numeric' });
 }
 
+function formatShortDate(d) {
+  return `${d.getMonth() + 1}/${d.getDate()}`;
+}
+
+// The Tuesday on or before the given date — the start of that date's
+// betting week (Tue-Mon), regardless of which day of the week it falls on.
+function mostRecentTuesday(date) {
+  const diff = (date.getDay() - 2 + 7) % 7;
+  return new Date(date.getFullYear(), date.getMonth(), date.getDate() - diff);
+}
+
 // Sunday-through-Saturday of the current (local) week, each with its own
 // calendar date so entries persist under the actual day, not just its name.
 export function currentWeekDays() {
@@ -22,6 +33,23 @@ export function currentWeekDays() {
   return Array.from({ length: 7 }, (_, i) => {
     const d = new Date(sunday.getFullYear(), sunday.getMonth(), sunday.getDate() + i);
     return { dateKey: toDateKey(d), dayName: DAY_NAMES[i], dateLabel: formatDateLabel(d), isToday: toDateKey(d) === toDateKey(today) };
+  });
+}
+
+// The stats page's week runs Tuesday-through-Monday instead of the picks
+// page's Sunday-through-Saturday, so it gets its own 7-day builder.
+export function currentBettingWeekDays() {
+  const today = new Date();
+  const tuesday = mostRecentTuesday(today);
+  return Array.from({ length: 7 }, (_, i) => {
+    const d = new Date(tuesday.getFullYear(), tuesday.getMonth(), tuesday.getDate() + i);
+    return {
+      dateKey: toDateKey(d),
+      dayName: DAY_NAMES[d.getDay()],
+      dateLabel: formatDateLabel(d),
+      shortLabel: formatShortDate(d),
+      isToday: toDateKey(d) === toDateKey(today),
+    };
   });
 }
 
@@ -56,6 +84,13 @@ export function sumProfit(rows) {
 export function formatMoney(amount) {
   const sign = amount < 0 ? '-' : '';
   return `${sign}$${Math.abs(amount).toFixed(2)}`;
+}
+
+// Whole-dollar rendering for the stats grid, where 8 columns need to fit in
+// a single row without wrapping.
+export function formatMoneyShort(amount) {
+  const sign = amount < 0 ? '-' : '';
+  return `${sign}$${Math.round(Math.abs(amount))}`;
 }
 
 export function amountClass(amount) {
