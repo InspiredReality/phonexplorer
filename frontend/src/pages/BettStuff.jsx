@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import Accordion from '@mui/material/Accordion';
 import AccordionSummary from '@mui/material/AccordionSummary';
 import AccordionDetails from '@mui/material/AccordionDetails';
+import api from '../services/api';
 import './BettStuff.css';
 
 const STORAGE_KEY = 'phonexplorer-bett-stuff-v1';
@@ -42,6 +43,45 @@ function persistEntries(data) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
   } catch {
     // e.g. private browsing / storage quota — used only as a local store
+  }
+}
+
+function computeProfit(row) {
+  const bet = parseFloat(row.bet);
+  const toWin = parseFloat(row.toWin);
+  return Number.isNaN(bet) || Number.isNaN(toWin) ? null : toWin - bet;
+}
+
+// A row is only worth a database record once it's fully settled — still
+// Live means the outcome isn't known yet, so there's nothing to save.
+function isSettled(row) {
+  return row.status === 'closed' && row.result !== 'live';
+}
+
+// Saves (or, once unsettled again, deletes) a row's settlement record.
+// Fire-and-forget: a page reload always rebuilds this from the panel's own
+// localStorage state, so a dropped request here just means a slightly
+// stale copy on the server until the next edit retries it.
+function syncSettlement(dateKey, row) {
+  if (isSettled(row)) {
+    const profit = computeProfit(row);
+    api
+      .put(`/api/bett-stuff/settlements/${row.id}`, {
+        bet_date: dateKey,
+        pick: row.text,
+        image: row.image,
+        bet_amount: parseFloat(row.bet) || 0,
+        to_win: parseFloat(row.toWin) || 0,
+        profit: profit ?? 0,
+        sportsbook: row.sportsbook || null,
+        status: row.status,
+        result: row.result,
+      })
+      .catch((err) => console.error('Failed to save bet settlement:', err));
+  } else {
+    api.delete(`/api/bett-stuff/settlements/${row.id}`).catch((err) => {
+      console.error('Failed to clear bet settlement:', err);
+    });
   }
 }
 
@@ -92,10 +132,8 @@ function ImageCell({ row, onChange, onPreview }) {
 }
 
 function BetRow({ row, onField, onImageChange, onPreview, onRemove }) {
-  const bet = parseFloat(row.bet);
-  const toWin = parseFloat(row.toWin);
-  const hasProfit = !Number.isNaN(bet) && !Number.isNaN(toWin);
-  const profit = hasProfit ? toWin - bet : '';
+  const computedProfit = computeProfit(row);
+  const profit = computedProfit ?? '';
 
   return (
     <div className="bett-row">
@@ -212,10 +250,15 @@ function BettStuff() {
 
   const handleRemoveRow = (dateKey, rowId) => {
     updateEntries(dateKey, (rows) => rows.filter((r) => r.id !== rowId));
+    api.delete(`/api/bett-stuff/settlements/${rowId}`).catch((err) => {
+      console.error('Failed to clear bet settlement:', err);
+    });
   };
 
   const handleField = (dateKey, rowId, field, value) => {
     updateEntries(dateKey, (rows) => rows.map((r) => (r.id === rowId ? { ...r, [field]: value } : r)));
+    const current = rowsFor(dateKey).find((r) => r.id === rowId);
+    if (current) syncSettlement(dateKey, { ...current, [field]: value });
   };
 
   const handleImageChange = (dateKey, rowId, file) => {
