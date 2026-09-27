@@ -7,6 +7,7 @@ import DeepQuestionnaire from './pages/DeepQuestionnaire';
 import StickersPage from './pages/StickersPage';
 import MyBets from './pages/MyBets';
 import BettStuff from './pages/BettStuff';
+import BettStuffStats from './pages/BettStuffStats';
 
 import Realities from './pages/Realities'
 import OrgLevels  from './pages/OrgLevels'
@@ -30,6 +31,7 @@ function App() {
         <Route path="/stickers" element={<StickersPage />} />
         <Route path="/my-bets" element={<MyBets />} />
         <Route path="/bett-stuff" element={<BettStuff />} />
+        <Route path="/bett-stuff-stats" element={<BettStuffStats />} />
 
         <Route path="/realities"    element={<Realities />} />
         <Route path="/realities/:id" element={<OrgLevels />} />

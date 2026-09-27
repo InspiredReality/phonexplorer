@@ -4,42 +4,14 @@ import Accordion from '@mui/material/Accordion';
 import AccordionSummary from '@mui/material/AccordionSummary';
 import AccordionDetails from '@mui/material/AccordionDetails';
 import api from '../services/api';
+import BettSummaryBar from '../components/BettSummaryBar';
+import { computeProfit, currentWeekDays, loadEntries, STORAGE_KEY } from './bettStuffData';
 import './BettStuff.css';
 
-const STORAGE_KEY = 'phonexplorer-bett-stuff-v1';
-const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 const SPORTSBOOKS = ['Draft Kings', 'BetMGM', 'Fanatics', 'Kalshi', 'theScore'];
 // Cycles Live -> Win -> Loss -> Live each time the result toggle is clicked.
 const NEXT_RESULT = { live: 'win', win: 'loss', loss: 'live' };
 const RESULT_LABEL = { live: 'Live', win: 'Win', loss: 'Loss' };
-
-function toDateKey(d) {
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
-}
-
-function formatDateLabel(d) {
-  return d.toLocaleString('en-US', { month: 'short', day: 'numeric' });
-}
-
-// Sunday-through-Saturday of the current (local) week, each with its own
-// calendar date so entries persist under the actual day, not just its name.
-function currentWeekDays() {
-  const today = new Date();
-  const sunday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - today.getDay());
-  return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(sunday.getFullYear(), sunday.getMonth(), sunday.getDate() + i);
-    return { dateKey: toDateKey(d), dayName: DAY_NAMES[i], dateLabel: formatDateLabel(d), isToday: toDateKey(d) === toDateKey(today) };
-  });
-}
-
-function loadEntries() {
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : {};
-  } catch {
-    return {};
-  }
-}
 
 function persistEntries(data) {
   try {
@@ -49,40 +21,10 @@ function persistEntries(data) {
   }
 }
 
-function computeProfit(row) {
-  const bet = parseFloat(row.bet);
-  const toWin = parseFloat(row.toWin);
-  return Number.isNaN(bet) || Number.isNaN(toWin) ? null : toWin - bet;
-}
-
 // A row is only worth a database record once it's fully settled — still
 // Live means the outcome isn't known yet, so there's nothing to save.
 function isSettled(row) {
   return row.status === 'closed' && row.result !== 'live';
-}
-
-// The Day/Week totals count every Win or Loss row regardless of whether
-// it's still Open or already Closed — only Live (outcome unknown) is
-// excluded. A win nets To Win minus Bet; a loss nets the Bet amount lost.
-function resultProfit(row) {
-  if (row.result === 'win') return computeProfit(row) ?? 0;
-  if (row.result === 'loss') return -(parseFloat(row.bet) || 0);
-  return 0;
-}
-
-function sumProfit(rows) {
-  return rows.reduce((total, row) => total + resultProfit(row), 0);
-}
-
-function formatMoney(amount) {
-  const sign = amount < 0 ? '-' : '';
-  return `${sign}$${Math.abs(amount).toFixed(2)}`;
-}
-
-function amountClass(amount) {
-  if (amount > 0) return 'bett-summary-value-positive';
-  if (amount < 0) return 'bett-summary-value-negative';
-  return 'bett-summary-value-zero';
 }
 
 // Saves (or, once unsettled again, deletes) a row's settlement record.
@@ -260,10 +202,6 @@ function BettStuff() {
 
   const rowsFor = (dateKey) => entries[dateKey] || [];
 
-  const todayKey = days.find((d) => d.isToday)?.dateKey;
-  const dayProfit = sumProfit(rowsFor(todayKey));
-  const weekProfit = sumProfit(days.flatMap((d) => rowsFor(d.dateKey)));
-
   // Always derives the next rows from the latest state (not a closed-over
   // snapshot), so rapid clicks/edits in the same tick don't clobber each other.
   const updateEntries = (dateKey, updateRows) => {
@@ -372,16 +310,7 @@ function BettStuff() {
         </div>
       )}
 
-      <div className="bett-summary-bar">
-        <div className="bett-summary-item">
-          <span className="bett-summary-label-text">Day</span>
-          <span className={`bett-summary-value ${amountClass(dayProfit)}`}>{formatMoney(dayProfit)}</span>
-        </div>
-        <div className="bett-summary-item">
-          <span className="bett-summary-label-text">Week</span>
-          <span className={`bett-summary-value ${amountClass(weekProfit)}`}>{formatMoney(weekProfit)}</span>
-        </div>
-      </div>
+      <BettSummaryBar days={days} entries={entries} activePage="picks" />
     </div>
   );
 }
