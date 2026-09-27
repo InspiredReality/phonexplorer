@@ -78,6 +78,23 @@
   background: rgba(234, 179, 8, 0.08);
 }
 
+.bett-stats-header-row {
+  display: grid;
+  grid-template-columns: repeat(8, minmax(0, 1fr));
+  gap: 4px;
+  max-width: 960px;
+  margin: 0 auto 6px;
+}
+
+.bett-stats-header-cell {
+  text-align: center;
+  color: rgba(255, 255, 255, 0.55);
+  font-size: 0.6rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
 .bett-stats-grid {
   display: grid;
   grid-template-columns: repeat(8, minmax(0, 1fr));
@@ -125,6 +142,11 @@
   white-space: normal;
   text-align: center;
   line-height: 1.15;
+}
+
+.bett-stats-cell-day {
+  aspect-ratio: 1 / 1;
+  padding: 4px;
 }
 
 .bett-stats-goal-met {

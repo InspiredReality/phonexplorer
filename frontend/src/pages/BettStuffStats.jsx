@@ -48,16 +48,21 @@ function BettStuffStats() {
         />
       </div>
 
+      <div className="bett-stats-header-row">
+        <div className="bett-stats-header-cell bett-stats-header-week">Week</div>
+        {dayProfits.map((d) => (
+          <div key={d.dateKey} className="bett-stats-header-cell">{d.dayName.slice(0, 3)}</div>
+        ))}
+      </div>
+
       <div className="bett-stats-grid">
         <div className="bett-stats-cell bett-stats-cell-week">
           <span className="bett-stats-cell-label">{weekRangeLabel}</span>
-          <span className={`bett-stats-cell-value ${goalMet ? 'bett-stats-goal-met' : 'bett-stats-goal-missed'}`}>
-            {goalMet ? '✓' : '✗'}
-          </span>
+          <span className={`bett-stats-cell-value ${amountClass(weekProfit)}`}>{formatMoneyShort(weekProfit)}</span>
+          <span className={goalMet ? 'bett-stats-goal-met' : 'bett-stats-goal-missed'}>{goalMet ? '✓' : '✗'}</span>
         </div>
         {dayProfits.map((d) => (
-          <div key={d.dateKey} className="bett-stats-cell">
-            <span className="bett-stats-cell-label">{d.dayName.slice(0, 3)}</span>
+          <div key={d.dateKey} className="bett-stats-cell bett-stats-cell-day">
             <span className={`bett-stats-cell-value ${amountClass(d.profit)}`}>{formatMoneyShort(d.profit)}</span>
           </div>
         ))}
