@@ -115,7 +115,7 @@ function ImageCell({ row, onChange, onPreview }) {
 // no separate "edit" path — cancel this draft (or delete the day once it's
 // been created) and add a fresh one instead.
 function DraftDayRow({ maxDate, onConfirm, onCancel }) {
-  const [value, setValue] = useState('');
+  const [value, setValue] = useState(maxDate);
 
   return (
     <div className="bett-draft-day">
