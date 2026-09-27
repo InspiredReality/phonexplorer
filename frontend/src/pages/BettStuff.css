@@ -194,12 +194,18 @@
   text-transform: uppercase;
 }
 
+.bett-stats-weeks {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  max-width: 960px;
+  margin: 0 auto 32px;
+}
+
 .bett-stats-grid {
   display: grid;
   grid-template-columns: repeat(8, minmax(0, 1fr));
   gap: 4px;
-  max-width: 960px;
-  margin: 0 auto 32px;
 }
 
 .bett-stats-cell {

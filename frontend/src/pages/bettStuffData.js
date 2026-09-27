@@ -43,11 +43,7 @@ function mostRecentTuesday(date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate() - diff);
 }
 
-// The stats page's Tuesday-through-Monday week, used for its grid and both
-// pages' bottom summary bar.
-export function currentBettingWeekDays() {
-  const today = new Date();
-  const tuesday = mostRecentTuesday(today);
+function buildBettingWeek(tuesday) {
   return Array.from({ length: 7 }, (_, i) => {
     const d = new Date(tuesday.getFullYear(), tuesday.getMonth(), tuesday.getDate() + i);
     return {
@@ -55,9 +51,44 @@ export function currentBettingWeekDays() {
       dayName: DAY_NAMES[d.getDay()],
       dateLabel: formatDateLabel(d),
       shortLabel: formatShortDate(d),
-      isToday: toDateKey(d) === toDateKey(today),
+      isToday: dateKeyIsToday(toDateKey(d)),
     };
   });
+}
+
+function dateKeyIsToday(dateKey) {
+  return dateKey === todayDateKey();
+}
+
+// The stats page's Tuesday-through-Monday week, used for the bottom summary
+// bar on both pages.
+export function currentBettingWeekDays() {
+  return buildBettingWeek(mostRecentTuesday(new Date()));
+}
+
+// Every Tuesday-through-Monday week from the one containing the earliest
+// logged (or manually added) day through the current week, newest first —
+// the stats page's full calendar-like history instead of just this week.
+export function allBettingWeeks() {
+  const entries = loadEntries();
+  const dataKeys = Object.keys(entries).filter((k) => (entries[k] || []).length > 0);
+  const allKeys = [...dataKeys, ...loadExtraDays()];
+
+  const currentTuesday = mostRecentTuesday(new Date());
+  let earliestTuesday = currentTuesday;
+  for (const key of allKeys) {
+    const [year, month, day] = key.split('-').map(Number);
+    const tuesday = mostRecentTuesday(new Date(year, month - 1, day));
+    if (tuesday < earliestTuesday) earliestTuesday = tuesday;
+  }
+
+  const weeks = [];
+  const cursor = new Date(currentTuesday);
+  while (cursor >= earliestTuesday) {
+    weeks.push(buildBettingWeek(cursor));
+    cursor.setDate(cursor.getDate() - 7);
+  }
+  return weeks;
 }
 
 export function loadEntries() {
