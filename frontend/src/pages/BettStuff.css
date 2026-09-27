@@ -150,14 +150,16 @@
   padding: 4px;
 }
 
-.bett-stats-goal-met {
+.bett-stats-amount-good {
   color: #16a34a;
-  font-size: 1.3rem;
 }
 
-.bett-stats-goal-missed {
+.bett-stats-amount-neutral {
+  color: #ffffff;
+}
+
+.bett-stats-amount-bad {
   color: #dc2626;
-  font-size: 1.3rem;
 }
 
 .bett-summary-label {
