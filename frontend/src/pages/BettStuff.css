@@ -137,10 +137,11 @@
 }
 
 .bett-stats-cell-week .bett-stats-cell-label {
+  align-self: stretch;
   font-size: 0.5rem;
   letter-spacing: 0;
   white-space: normal;
-  text-align: center;
+  text-align: left;
   line-height: 1.15;
 }
 
