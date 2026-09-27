@@ -141,8 +141,14 @@
   font-size: 0.5rem;
   letter-spacing: 0;
   white-space: normal;
-  text-align: left;
+  text-align: center;
   line-height: 1.15;
+}
+
+.bett-stats-week-range {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
 }
 
 .bett-stats-cell-day {

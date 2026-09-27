@@ -23,7 +23,6 @@ function BettStuffStats() {
   const rowsFor = (dateKey) => entries[dateKey] || [];
   const dayProfits = statsDays.map((d) => ({ ...d, profit: sumProfit(rowsFor(d.dateKey)) }));
   const weekProfit = dayProfits.reduce((total, d) => total + d.profit, 0);
-  const weekRangeLabel = `${statsDays[0].shortLabel} - ${statsDays[6].shortLabel}`;
 
   // Green once the week hits its goal, white if it's still positive but
   // short of the goal, red if the week is in the red.
@@ -58,7 +57,7 @@ function BettStuffStats() {
       </div>
 
       <div className="bett-stats-header-row">
-        <div className="bett-stats-header-cell bett-stats-header-week">Week</div>
+        <div className="bett-stats-header-cell bett-stats-header-week" />
         {dayProfits.map((d) => (
           <div key={d.dateKey} className="bett-stats-header-cell">{d.dayName.slice(0, 3)}</div>
         ))}
@@ -66,7 +65,10 @@ function BettStuffStats() {
 
       <div className="bett-stats-grid">
         <div className="bett-stats-cell bett-stats-cell-week">
-          <span className="bett-stats-cell-label">{weekRangeLabel}</span>
+          <span className="bett-stats-cell-label bett-stats-week-range">
+            <span>{statsDays[0].shortLabel}</span>
+            <span>{statsDays[6].shortLabel}</span>
+          </span>
           <span className={`bett-stats-cell-value ${weekValueClass}`}>{formatMoneyShort(weekProfit)}</span>
         </div>
         {dayProfits.map((d) => (
