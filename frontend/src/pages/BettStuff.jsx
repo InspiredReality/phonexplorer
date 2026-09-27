@@ -5,7 +5,7 @@ import AccordionSummary from '@mui/material/AccordionSummary';
 import AccordionDetails from '@mui/material/AccordionDetails';
 import api from '../services/api';
 import BettSummaryBar from '../components/BettSummaryBar';
-import { computeProfit, currentWeekDays, loadEntries, STORAGE_KEY } from './bettStuffData';
+import { computeProfit, currentBettingWeekDays, currentWeekDays, loadEntries, STORAGE_KEY } from './bettStuffData';
 import './BettStuff.css';
 
 const SPORTSBOOKS = ['Draft Kings', 'BetMGM', 'Fanatics', 'Kalshi', 'theScore'];
@@ -193,6 +193,10 @@ function BetRow({ row, onField, onImageChange, onPreview, onRemove }) {
 function BettStuff() {
   const navigate = useNavigate();
   const [days] = useState(currentWeekDays);
+  // The bottom summary bar's "Week" total follows the stats page's
+  // Tuesday-through-Monday week, not this page's Sunday-through-Saturday
+  // accordion layout.
+  const [summaryDays] = useState(currentBettingWeekDays);
   const [entries, setEntries] = useState(loadEntries);
   const [expanded, setExpanded] = useState(() => {
     const today = days.find((d) => d.isToday);
@@ -310,7 +314,7 @@ function BettStuff() {
         </div>
       )}
 
-      <BettSummaryBar days={days} entries={entries} activePage="picks" />
+      <BettSummaryBar days={summaryDays} entries={entries} activePage="picks" />
     </div>
   );
 }
