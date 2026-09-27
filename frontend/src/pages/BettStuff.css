@@ -33,12 +33,111 @@
   margin: 16px 0 24px;
 }
 
+.bett-add-day-row {
+  display: flex;
+  justify-content: center;
+  max-width: 960px;
+  margin: 0 auto 16px;
+}
+
+.bett-add-day-btn {
+  padding: 8px 18px;
+  background: rgba(234, 179, 8, 0.1);
+  border: 1px dashed rgba(234, 179, 8, 0.5);
+  border-radius: 8px;
+  color: #eab308;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  transition: background 0.15s, border-color 0.15s;
+}
+
+.bett-add-day-btn:hover {
+  background: rgba(234, 179, 8, 0.18);
+  border-color: #eab308;
+}
+
 .bett-accordions {
   display: flex;
   flex-direction: column;
   gap: 14px;
   max-width: 960px;
   margin: 0 auto;
+}
+
+.bett-draft-day {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 16px;
+  background: #111122;
+  border: 1px dashed rgba(234, 179, 8, 0.6);
+  border-radius: 8px;
+}
+
+.bett-day-date-input {
+  flex: 1;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+  color: #ffffff;
+  font: inherit;
+  font-size: 0.85rem;
+  color-scheme: dark;
+}
+
+.bett-day-date-input:focus {
+  outline: none;
+  border-color: #eab308;
+  background: rgba(234, 179, 8, 0.08);
+}
+
+.bett-day-confirm-btn {
+  padding: 8px 16px;
+  background: rgba(234, 179, 8, 0.15);
+  border: 1px solid rgba(234, 179, 8, 0.5);
+  border-radius: 8px;
+  color: #eab308;
+  font: inherit;
+  font-size: 0.8rem;
+  font-weight: 700;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.bett-day-confirm-btn:disabled {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+.bett-day-confirm-btn:not(:disabled):hover {
+  background: rgba(234, 179, 8, 0.25);
+}
+
+.bett-accordion-trailing {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.bett-day-remove {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.4);
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.bett-day-remove:hover {
+  color: #f87171;
 }
 
 .bett-goal-row {

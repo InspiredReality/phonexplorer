@@ -4,10 +4,28 @@
 
 export const STORAGE_KEY = 'phonexplorer-bett-stuff-v1';
 const WEEKLY_GOAL_KEY = 'phonexplorer-bett-stuff-weekly-goal-v1';
+const EXTRA_DAYS_KEY = 'phonexplorer-bett-stuff-extra-days-v1';
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
-function toDateKey(d) {
+export function toDateKey(d) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+export function todayDateKey() {
+  return toDateKey(new Date());
+}
+
+// Turns a "YYYY-MM-DD" key (the same format <input type="date"> produces)
+// back into display info for an accordion header.
+export function dateKeyInfo(dateKey) {
+  const [year, month, day] = dateKey.split('-').map(Number);
+  const date = new Date(year, month - 1, day);
+  return {
+    dateKey,
+    dayName: DAY_NAMES[date.getDay()],
+    dateLabel: formatDateLabel(date),
+    isToday: dateKey === todayDateKey(),
+  };
 }
 
 function formatDateLabel(d) {
@@ -25,19 +43,8 @@ function mostRecentTuesday(date) {
   return new Date(date.getFullYear(), date.getMonth(), date.getDate() - diff);
 }
 
-// Sunday-through-Saturday of the current (local) week, each with its own
-// calendar date so entries persist under the actual day, not just its name.
-export function currentWeekDays() {
-  const today = new Date();
-  const sunday = new Date(today.getFullYear(), today.getMonth(), today.getDate() - today.getDay());
-  return Array.from({ length: 7 }, (_, i) => {
-    const d = new Date(sunday.getFullYear(), sunday.getMonth(), sunday.getDate() + i);
-    return { dateKey: toDateKey(d), dayName: DAY_NAMES[i], dateLabel: formatDateLabel(d), isToday: toDateKey(d) === toDateKey(today) };
-  });
-}
-
-// The stats page's week runs Tuesday-through-Monday instead of the picks
-// page's Sunday-through-Saturday, so it gets its own 7-day builder.
+// The stats page's Tuesday-through-Monday week, used for its grid and both
+// pages' bottom summary bar.
 export function currentBettingWeekDays() {
   const today = new Date();
   const tuesday = mostRecentTuesday(today);
@@ -110,6 +117,25 @@ export function loadWeeklyGoal() {
 export function saveWeeklyGoal(value) {
   try {
     localStorage.setItem(WEEKLY_GOAL_KEY, value);
+  } catch {
+    // e.g. private browsing / storage quota — used only as a local store
+  }
+}
+
+// Manually added day accordions (via "+ Add Day") that should stay visible
+// even before any bet is logged under them.
+export function loadExtraDays() {
+  try {
+    const raw = localStorage.getItem(EXTRA_DAYS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch {
+    return [];
+  }
+}
+
+export function saveExtraDays(dateKeys) {
+  try {
+    localStorage.setItem(EXTRA_DAYS_KEY, JSON.stringify(dateKeys));
   } catch {
     // e.g. private browsing / storage quota — used only as a local store
   }

@@ -5,7 +5,16 @@ import AccordionSummary from '@mui/material/AccordionSummary';
 import AccordionDetails from '@mui/material/AccordionDetails';
 import api from '../services/api';
 import BettSummaryBar from '../components/BettSummaryBar';
-import { computeProfit, currentBettingWeekDays, currentWeekDays, loadEntries, STORAGE_KEY } from './bettStuffData';
+import {
+  computeProfit,
+  currentBettingWeekDays,
+  dateKeyInfo,
+  loadEntries,
+  loadExtraDays,
+  saveExtraDays,
+  STORAGE_KEY,
+  todayDateKey,
+} from './bettStuffData';
 import './BettStuff.css';
 
 const SPORTSBOOKS = ['Draft Kings', 'BetMGM', 'Fanatics', 'Kalshi', 'theScore'];
@@ -96,6 +105,38 @@ function ImageCell({ row, onChange, onPreview }) {
           + Add Photo
         </button>
       )}
+    </div>
+  );
+}
+
+// A newly added day before its date has been set. The date input is a
+// one-time affair: once a valid date is picked the draft graduates into a
+// normal accordion and this component unmounts. Typing the wrong date has
+// no separate "edit" path — cancel this draft (or delete the day once it's
+// been created) and add a fresh one instead.
+function DraftDayRow({ maxDate, onConfirm, onCancel }) {
+  const [value, setValue] = useState('');
+
+  return (
+    <div className="bett-draft-day">
+      <input
+        type="date"
+        className="bett-day-date-input"
+        max={maxDate}
+        value={value}
+        onChange={(e) => setValue(e.target.value)}
+      />
+      <button
+        type="button"
+        className="bett-day-confirm-btn"
+        disabled={!value}
+        onClick={() => value && onConfirm(value)}
+      >
+        Add
+      </button>
+      <button type="button" className="bett-day-remove" onClick={onCancel} aria-label="Cancel new day">
+        ×
+      </button>
     </div>
   );
 }
@@ -192,19 +233,40 @@ function BetRow({ row, onField, onImageChange, onPreview, onRemove }) {
 
 function BettStuff() {
   const navigate = useNavigate();
-  const [days] = useState(currentWeekDays);
   // The bottom summary bar's "Week" total follows the stats page's
-  // Tuesday-through-Monday week, not this page's Sunday-through-Saturday
-  // accordion layout.
+  // Tuesday-through-Monday week, independent of which day accordions are
+  // showing above it.
   const [summaryDays] = useState(currentBettingWeekDays);
   const [entries, setEntries] = useState(loadEntries);
-  const [expanded, setExpanded] = useState(() => {
-    const today = days.find((d) => d.isToday);
-    return today ? { [today.dateKey]: true } : {};
-  });
+  const [extraDays, setExtraDaysState] = useState(loadExtraDays);
+  const [drafts, setDrafts] = useState([]);
+  const [expanded, setExpanded] = useState(() => ({ [todayDateKey()]: true }));
   const [previewImage, setPreviewImage] = useState(null);
 
   const rowsFor = (dateKey) => entries[dateKey] || [];
+
+  const setExtraDays = (updater) => {
+    setExtraDaysState((prev) => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      saveExtraDays(next);
+      return next;
+    });
+  };
+
+  // What actually shows as an accordion: today, any day that already has a
+  // bet logged, and any day manually added via "+ Add Day" — never a date
+  // later than today, and newest first.
+  const todayKey = todayDateKey();
+  const visibleDateKeys = Array.from(
+    new Set([
+      todayKey,
+      ...extraDays,
+      ...Object.keys(entries).filter((k) => (entries[k] || []).length > 0),
+    ])
+  )
+    .filter((k) => k <= todayKey)
+    .sort()
+    .reverse();
 
   // Always derives the next rows from the latest state (not a closed-over
   // snapshot), so rapid clicks/edits in the same tick don't clobber each other.
@@ -246,14 +308,63 @@ function BettStuff() {
     setExpanded((prev) => ({ ...prev, [dateKey]: isExpanded }));
   };
 
+  const handleAddDraftDay = () => {
+    setDrafts((prev) => [{ id: `draft-${Date.now()}-${Math.random().toString(36).slice(2, 8)}` }, ...prev]);
+  };
+
+  const handleCancelDraftDay = (draftId) => {
+    setDrafts((prev) => prev.filter((d) => d.id !== draftId));
+  };
+
+  const handleConfirmDraftDay = (draftId, dateKey) => {
+    if (dateKey > todayKey) return; // never a future day, even by direct entry
+    setExtraDays((prev) => (prev.includes(dateKey) ? prev : [...prev, dateKey]));
+    setDrafts((prev) => prev.filter((d) => d.id !== draftId));
+    setExpanded((prev) => ({ ...prev, [dateKey]: true }));
+  };
+
+  // Only for manually added days: deletes the day (and any bets already
+  // entered under it) entirely, so a wrong date can be thrown out and
+  // re-added rather than edited in place.
+  const handleRemoveDay = (dateKey) => {
+    rowsFor(dateKey).forEach((row) => {
+      api.delete(`/api/bett-stuff/settlements/${row.id}`).catch((err) => {
+        console.error('Failed to clear bet settlement:', err);
+      });
+    });
+    setExtraDays((prev) => prev.filter((k) => k !== dateKey));
+    setEntries((prev) => {
+      const next = { ...prev };
+      delete next[dateKey];
+      persistEntries(next);
+      return next;
+    });
+  };
+
   return (
     <div className="bett-page">
       <button className="bett-back-btn" onClick={() => navigate('/')}>← Back</button>
       <h1 className="bett-heading">Bett Stuff</h1>
 
+      <div className="bett-add-day-row">
+        <button type="button" className="bett-add-day-btn" onClick={handleAddDraftDay}>
+          + Add Day
+        </button>
+      </div>
+
       <div className="bett-accordions">
-        {[...days].reverse().map(({ dateKey, dayName, dateLabel, isToday }) => {
+        {drafts.map((draft) => (
+          <DraftDayRow
+            key={draft.id}
+            maxDate={todayKey}
+            onConfirm={(dateKey) => handleConfirmDraftDay(draft.id, dateKey)}
+            onCancel={() => handleCancelDraftDay(draft.id)}
+          />
+        ))}
+        {visibleDateKeys.map((dateKey) => {
+          const { dayName, dateLabel, isToday } = dateKeyInfo(dateKey);
           const rows = rowsFor(dateKey);
+          const isCustomDay = extraDays.includes(dateKey);
           return (
             <Accordion
               key={dateKey}
@@ -283,7 +394,22 @@ function BettStuff() {
                   <span className="bett-day-label-main">{dayName}</span>
                   <span className="bett-day-label-date">({dateLabel})</span>
                 </span>
-                {rows.length > 0 && <span className="bett-row-count">{rows.length} bet{rows.length === 1 ? '' : 's'}</span>}
+                <span className="bett-accordion-trailing">
+                  {rows.length > 0 && <span className="bett-row-count">{rows.length} bet{rows.length === 1 ? '' : 's'}</span>}
+                  {isCustomDay && (
+                    <button
+                      type="button"
+                      className="bett-day-remove"
+                      aria-label="Delete this day"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRemoveDay(dateKey);
+                      }}
+                    >
+                      ×
+                    </button>
+                  )}
+                </span>
               </AccordionSummary>
               <AccordionDetails sx={{ p: 0, borderTop: '1px solid rgba(255, 255, 255, 0.12)' }}>
                 <button type="button" className="bett-add-row-btn" onClick={() => handleAddRow(dateKey)}>
