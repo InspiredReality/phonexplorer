@@ -13,7 +13,7 @@ function BettSummaryBar({ days, entries, activePage }) {
   const weekProfit = sumProfit(days.flatMap((d) => rowsFor(d.dateKey)));
 
   const isStats = activePage === 'stats';
-  const toggleLabel = isStats ? 'Picks' : 'Stats';
+  const toggleLabel = isStats ? 'Bett' : 'Stuff';
   const togglePath = isStats ? '/bett-stuff' : '/bett-stuff-stats';
 
   return (

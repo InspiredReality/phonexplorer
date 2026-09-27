@@ -3,6 +3,7 @@
 // profit math for the always-visible summary bar.
 
 export const STORAGE_KEY = 'phonexplorer-bett-stuff-v1';
+const WEEKLY_GOAL_KEY = 'phonexplorer-bett-stuff-weekly-goal-v1';
 const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 function toDateKey(d) {
@@ -61,4 +62,20 @@ export function amountClass(amount) {
   if (amount > 0) return 'bett-summary-value-positive';
   if (amount < 0) return 'bett-summary-value-negative';
   return 'bett-summary-value-zero';
+}
+
+export function loadWeeklyGoal() {
+  try {
+    return localStorage.getItem(WEEKLY_GOAL_KEY) ?? '';
+  } catch {
+    return '';
+  }
+}
+
+export function saveWeeklyGoal(value) {
+  try {
+    localStorage.setItem(WEEKLY_GOAL_KEY, value);
+  } catch {
+    // e.g. private browsing / storage quota — used only as a local store
+  }
 }
