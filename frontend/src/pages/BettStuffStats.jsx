@@ -5,11 +5,11 @@ import {
   allBettingWeeks,
   amountClass,
   currentBettingWeekDays,
-  fetchEntriesFromApi,
   formatMoneyShort,
   loadEntries,
   loadWeeklyGoal,
   persistEntries,
+  reconcileEntriesWithApi,
   saveWeeklyGoal,
   sumProfit,
 } from './bettStuffData';
@@ -60,11 +60,14 @@ function BettStuffStats() {
 
   useEffect(() => {
     let cancelled = false;
-    fetchEntriesFromApi()
-      .then((dbEntries) => {
+    // Anything only in this browser's local cache (e.g. bets logged before
+    // database sync existed here) gets pushed up as part of this call, so
+    // it isn't lost once the database becomes the source of truth.
+    reconcileEntriesWithApi(loadEntries())
+      .then((merged) => {
         if (cancelled) return;
-        setEntries(dbEntries);
-        persistEntries(dbEntries);
+        setEntries(merged);
+        persistEntries(merged);
       })
       .catch((err) => console.error('Failed to load bets from database, using local cache:', err));
     return () => {

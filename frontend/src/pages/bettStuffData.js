@@ -144,6 +144,49 @@ export async function fetchEntriesFromApi() {
   return settlementsToEntries(res.data);
 }
 
+export async function saveBetToApi(dateKey, row) {
+  await api.put(`/api/bett-stuff/settlements/${row.id}`, {
+    bet_date: dateKey,
+    pick: row.text,
+    image: row.image,
+    bet_amount: parseFloat(row.bet) || 0,
+    to_win: parseFloat(row.toWin) || 0,
+    profit: computeProfit(row) ?? 0,
+    sportsbook: row.sportsbook || null,
+    status: row.status,
+    result: row.result,
+  });
+}
+
+export async function deleteBetFromApi(rowId) {
+  await api.delete(`/api/bett-stuff/settlements/${rowId}`);
+}
+
+// One-time bridge for bets that predate database sync entirely (or were
+// saved while offline): anything sitting only in this browser's local
+// cache — not already in the database, matched by row id — gets pushed up
+// now. Returns the database's copy plus whatever was just backfilled, so a
+// browser that's never talked to the database still keeps what it has
+// instead of it looking deleted.
+export async function reconcileEntriesWithApi(localEntries) {
+  const dbEntries = await fetchEntriesFromApi();
+  const dbIds = new Set(Object.values(dbEntries).flat().map((row) => row.id));
+
+  const merged = { ...dbEntries };
+  const pushes = [];
+  for (const [dateKey, rows] of Object.entries(localEntries)) {
+    for (const row of rows) {
+      if (dbIds.has(row.id)) continue;
+      merged[dateKey] = [...(merged[dateKey] || []), row];
+      pushes.push(saveBetToApi(dateKey, row));
+    }
+  }
+  if (pushes.length > 0) {
+    await Promise.allSettled(pushes);
+  }
+  return merged;
+}
+
 export function computeProfit(row) {
   const bet = parseFloat(row.bet);
   const toWin = parseFloat(row.toWin);

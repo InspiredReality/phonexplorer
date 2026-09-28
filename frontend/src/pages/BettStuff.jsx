@@ -3,16 +3,17 @@ import { useNavigate } from 'react-router-dom';
 import Accordion from '@mui/material/Accordion';
 import AccordionSummary from '@mui/material/AccordionSummary';
 import AccordionDetails from '@mui/material/AccordionDetails';
-import api from '../services/api';
 import BettSummaryBar from '../components/BettSummaryBar';
 import {
   computeProfit,
   currentBettingWeekDays,
   dateKeyInfo,
-  fetchEntriesFromApi,
+  deleteBetFromApi,
   loadEntries,
   loadExtraDays,
   persistEntries,
+  reconcileEntriesWithApi,
+  saveBetToApi,
   saveExtraDays,
   todayDateKey,
 } from './bettStuffData';
@@ -30,20 +31,7 @@ const RESULT_LABEL = { live: 'Live', win: 'Win', loss: 'Loss' };
 // already has the change, so a dropped request here just means a slightly
 // stale copy on the server until the next edit retries it.
 function syncSettlement(dateKey, row) {
-  const profit = computeProfit(row);
-  api
-    .put(`/api/bett-stuff/settlements/${row.id}`, {
-      bet_date: dateKey,
-      pick: row.text,
-      image: row.image,
-      bet_amount: parseFloat(row.bet) || 0,
-      to_win: parseFloat(row.toWin) || 0,
-      profit: profit ?? 0,
-      sportsbook: row.sportsbook || null,
-      status: row.status,
-      result: row.result,
-    })
-    .catch((err) => console.error('Failed to save bet:', err));
+  saveBetToApi(dateKey, row).catch((err) => console.error('Failed to save bet:', err));
 }
 
 function makeRow() {
@@ -231,11 +219,14 @@ function BettStuff() {
 
   useEffect(() => {
     let cancelled = false;
-    fetchEntriesFromApi()
-      .then((dbEntries) => {
+    // Anything only in this browser's local cache (e.g. bets logged before
+    // database sync existed here) gets pushed up as part of this call, so
+    // it isn't lost once the database becomes the source of truth.
+    reconcileEntriesWithApi(loadEntries())
+      .then((merged) => {
         if (cancelled) return;
-        setEntries(dbEntries);
-        persistEntries(dbEntries);
+        setEntries(merged);
+        persistEntries(merged);
       })
       .catch((err) => console.error('Failed to load bets from database, using local cache:', err));
     return () => {
@@ -285,9 +276,7 @@ function BettStuff() {
 
   const handleRemoveRow = (dateKey, rowId) => {
     updateEntries(dateKey, (rows) => rows.filter((r) => r.id !== rowId));
-    api.delete(`/api/bett-stuff/settlements/${rowId}`).catch((err) => {
-      console.error('Failed to clear bet settlement:', err);
-    });
+    deleteBetFromApi(rowId).catch((err) => console.error('Failed to clear bet:', err));
   };
 
   const handleField = (dateKey, rowId, field, value) => {
@@ -328,9 +317,7 @@ function BettStuff() {
   // re-added rather than edited in place.
   const handleRemoveDay = (dateKey) => {
     rowsFor(dateKey).forEach((row) => {
-      api.delete(`/api/bett-stuff/settlements/${row.id}`).catch((err) => {
-        console.error('Failed to clear bet settlement:', err);
-      });
+      deleteBetFromApi(row.id).catch((err) => console.error('Failed to clear bet:', err));
     });
     setExtraDays((prev) => prev.filter((k) => k !== dateKey));
     setEntries((prev) => {
