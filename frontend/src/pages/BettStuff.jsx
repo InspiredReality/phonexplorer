@@ -339,22 +339,6 @@ function BettStuff() {
     setExpanded((prev) => ({ ...prev, [dateKey]: true }));
   };
 
-  // Only for manually added days: deletes the day (and any bets already
-  // entered under it) entirely, so a wrong date can be thrown out and
-  // re-added rather than edited in place.
-  const handleRemoveDay = (dateKey) => {
-    rowsFor(dateKey).forEach((row) => {
-      deleteBetFromApi(row.id).catch((err) => console.error('Failed to clear bet:', err));
-    });
-    setExtraDays((prev) => prev.filter((k) => k !== dateKey));
-    setEntries((prev) => {
-      const next = { ...prev };
-      delete next[dateKey];
-      persistEntries(next);
-      return next;
-    });
-  };
-
   return (
     <div className="bett-page">
       <button className="bett-back-btn" onClick={() => navigate('/')}>← Back</button>
@@ -384,7 +368,6 @@ function BettStuff() {
         {visibleDateKeys.map((dateKey) => {
           const { dayName, dateLabel, isToday } = dateKeyInfo(dateKey);
           const rows = rowsFor(dateKey);
-          const isCustomDay = extraDays.includes(dateKey);
           return (
             <Accordion
               key={dateKey}
@@ -416,19 +399,6 @@ function BettStuff() {
                 </span>
                 <span className="bett-accordion-trailing">
                   {rows.length > 0 && <span className="bett-row-count">{rows.length} bet{rows.length === 1 ? '' : 's'}</span>}
-                  {isCustomDay && (
-                    <button
-                      type="button"
-                      className="bett-day-remove"
-                      aria-label="Delete this day"
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleRemoveDay(dateKey);
-                      }}
-                    >
-                      ×
-                    </button>
-                  )}
                 </span>
               </AccordionSummary>
               <AccordionDetails sx={{ p: 0, borderTop: '1px solid rgba(255, 255, 255, 0.12)' }}>
