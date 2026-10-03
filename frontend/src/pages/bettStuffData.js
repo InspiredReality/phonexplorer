@@ -115,17 +115,46 @@ export function persistEntries(entries) {
   }
 }
 
+// Tags are edited as a single comma-separated textbox (like Pick or Notes),
+// so the row only ever holds the display string; splitting into a real
+// array happens at the API boundary (see tagsStringToArray/saveBetToApi).
+function tagsToString(tags) {
+  return Array.isArray(tags) ? tags.join(', ') : '';
+}
+
+function tagsStringToArray(value) {
+  return (value || '')
+    .split(',')
+    .map((t) => t.trim())
+    .filter(Boolean);
+}
+
 function settlementToRow(record) {
   return {
     id: record.id,
     text: record.pick || '',
+    notes: record.notes || '',
     image: record.image || null,
     bet: record.bet_amount || record.bet_amount === 0 ? String(record.bet_amount) : '',
     toWin: record.to_win || record.to_win === 0 ? String(record.to_win) : '',
     sportsbook: record.sportsbook || '',
+    tags: tagsToString(record.tags),
     status: record.status || 'open',
     result: record.result || 'live',
   };
+}
+
+// Every distinct tag used across every bet, for the Tags textbox's
+// suggestion list — so a tag becomes selectable again once it's been used
+// anywhere, without needing its own table.
+export function collectKnownTags(entries) {
+  const tags = new Set();
+  for (const rows of Object.values(entries)) {
+    for (const row of rows) {
+      for (const tag of tagsStringToArray(row.tags)) tags.add(tag);
+    }
+  }
+  return Array.from(tags).sort((a, b) => a.localeCompare(b));
 }
 
 function settlementsToEntries(records) {
@@ -148,11 +177,13 @@ export async function saveBetToApi(dateKey, row) {
   await api.put(`/api/bett-stuff/settlements/${row.id}`, {
     bet_date: dateKey,
     pick: row.text,
+    notes: row.notes || null,
     image: row.image,
     bet_amount: parseFloat(row.bet) || 0,
     to_win: parseFloat(row.toWin) || 0,
     profit: computeProfit(row) ?? 0,
     sportsbook: row.sportsbook || null,
+    tags: tagsStringToArray(row.tags),
     status: row.status,
     result: row.result,
   });

@@ -21,11 +21,15 @@ class BettStuffSettlement(Base):
     user_id    = Column(String(128), nullable=False, default="default", index=True)
     bet_date   = Column(Date, nullable=False)
     pick       = Column(Text, nullable=False, default="")
+    notes      = Column(Text, nullable=True)
     image      = Column(Text, nullable=True)
     bet_amount = Column(Float, nullable=False, default=0)
     to_win     = Column(Float, nullable=False, default=0)
     profit     = Column(Float, nullable=False, default=0)
     sportsbook = Column(String(64), nullable=True)
+    # JSON-encoded list of strings — stored as plain text rather than a
+    # Postgres ARRAY column so it works the same under sqlite in tests.
+    tags       = Column(Text, nullable=False, default="[]")
     status     = Column(String(16), nullable=False, default="closed")
     result     = Column(String(16), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)

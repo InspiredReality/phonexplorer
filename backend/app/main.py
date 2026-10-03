@@ -89,6 +89,12 @@ async def lifespan(app: FastAPI):
             )
             await conn.execute(text("ALTER TABLE nfl_picks DROP CONSTRAINT IF EXISTS uq_nfl_picks_week_game"))
             await conn.execute(
+                text("ALTER TABLE bett_stuff_settlements ADD COLUMN IF NOT EXISTS notes TEXT")
+            )
+            await conn.execute(
+                text("ALTER TABLE bett_stuff_settlements ADD COLUMN IF NOT EXISTS tags TEXT NOT NULL DEFAULT '[]'")
+            )
+            await conn.execute(
                 text(
                     """
                     DO $$

@@ -5,6 +5,7 @@ import AccordionSummary from '@mui/material/AccordionSummary';
 import AccordionDetails from '@mui/material/AccordionDetails';
 import BettSummaryBar from '../components/BettSummaryBar';
 import {
+  collectKnownTags,
   computeProfit,
   currentBettingWeekDays,
   dateKeyInfo,
@@ -38,10 +39,12 @@ function makeRow() {
   return {
     id: `${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
     text: '',
+    notes: '',
     image: null,
     bet: '',
     toWin: '',
     sportsbook: '',
+    tags: '',
     status: 'open',
     result: 'live',
   };
@@ -167,20 +170,43 @@ function BetRow({ row, onField, onImageChange, onPreview, onRemove }) {
           />
         </div>
       </div>
-      <div className="bett-cell bett-cell-sportsbook">
-        <span className="bett-cell-label">Sportsbook</span>
-        <select
-          className="bett-select-input"
-          value={row.sportsbook}
-          onChange={(e) => onField('sportsbook', e.target.value)}
-        >
-          <option value="">Select…</option>
-          {SPORTSBOOKS.map((name) => (
-            <option key={name} value={name}>
-              {name}
-            </option>
-          ))}
-        </select>
+      <div className="bett-cell bett-cell-notes">
+        <span className="bett-cell-label">Notes</span>
+        <input
+          type="text"
+          className="bett-text-input"
+          placeholder="Notes…"
+          value={row.notes}
+          onChange={(e) => onField('notes', e.target.value)}
+        />
+      </div>
+      <div className="bett-sportsbook-tags-row">
+        <div className="bett-cell bett-cell-sportsbook">
+          <span className="bett-cell-label">Sportsbook</span>
+          <select
+            className="bett-select-input"
+            value={row.sportsbook}
+            onChange={(e) => onField('sportsbook', e.target.value)}
+          >
+            <option value="">Select…</option>
+            {SPORTSBOOKS.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="bett-cell bett-cell-tags">
+          <span className="bett-cell-label">Tags</span>
+          <input
+            type="text"
+            className="bett-text-input"
+            list="bett-known-tags"
+            placeholder="e.g. parlay, primetime"
+            value={row.tags}
+            onChange={(e) => onField('tags', e.target.value)}
+          />
+        </div>
       </div>
       <div className="bett-toggle-row">
         <button
@@ -235,6 +261,7 @@ function BettStuff() {
   }, []);
 
   const rowsFor = (dateKey) => entries[dateKey] || [];
+  const knownTags = collectKnownTags(entries);
 
   const setExtraDays = (updater) => {
     setExtraDaysState((prev) => {
@@ -332,6 +359,12 @@ function BettStuff() {
     <div className="bett-page">
       <button className="bett-back-btn" onClick={() => navigate('/')}>← Back</button>
       <h1 className="bett-heading">Bett Stuff</h1>
+
+      <datalist id="bett-known-tags">
+        {knownTags.map((tag) => (
+          <option key={tag} value={tag} />
+        ))}
+      </datalist>
 
       <div className="bett-add-day-row">
         <button type="button" className="bett-add-day-btn" onClick={handleAddDraftDay}>

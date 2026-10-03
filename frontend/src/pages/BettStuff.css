@@ -360,6 +360,12 @@
   gap: 10px;
 }
 
+.bett-sportsbook-tags-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
 .bett-text-input,
 .bett-number-input {
   width: 100%;
