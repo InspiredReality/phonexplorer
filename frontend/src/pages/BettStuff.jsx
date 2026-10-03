@@ -87,16 +87,17 @@ function ImageCell({ row, onChange, onPreview }) {
 // one-time affair: once a valid date is picked the draft graduates into a
 // normal accordion and this component unmounts. Typing the wrong date has
 // no separate "edit" path — cancel this draft (or delete the day once it's
-// been created) and add a fresh one instead.
-function DraftDayRow({ maxDate, onConfirm, onCancel }) {
-  const [value, setValue] = useState(maxDate);
+// been created) and add a fresh one instead. Defaults to today but isn't
+// capped at it — future days are allowed, e.g. logging Sunday's NFL slate
+// the day before.
+function DraftDayRow({ defaultDate, onConfirm, onCancel }) {
+  const [value, setValue] = useState(defaultDate);
 
   return (
     <div className="bett-draft-day">
       <input
         type="date"
         className="bett-day-date-input"
-        max={maxDate}
         value={value}
         onChange={(e) => setValue(e.target.value)}
       />
@@ -272,8 +273,9 @@ function BettStuff() {
   };
 
   // What actually shows as an accordion: today, any day that already has a
-  // bet logged, and any day manually added via "+ Add Day" — never a date
-  // later than today, and newest first.
+  // bet logged, and any day manually added via "+ Add Day" — including
+  // future days added on purpose (e.g. Sunday's slate logged on Saturday) —
+  // newest first.
   const todayKey = todayDateKey();
   const visibleDateKeys = Array.from(
     new Set([
@@ -282,7 +284,6 @@ function BettStuff() {
       ...Object.keys(entries).filter((k) => (entries[k] || []).length > 0),
     ])
   )
-    .filter((k) => k <= todayKey)
     .sort()
     .reverse();
 
@@ -333,7 +334,6 @@ function BettStuff() {
   };
 
   const handleConfirmDraftDay = (draftId, dateKey) => {
-    if (dateKey > todayKey) return; // never a future day, even by direct entry
     setExtraDays((prev) => (prev.includes(dateKey) ? prev : [...prev, dateKey]));
     setDrafts((prev) => prev.filter((d) => d.id !== draftId));
     setExpanded((prev) => ({ ...prev, [dateKey]: true }));
@@ -376,7 +376,7 @@ function BettStuff() {
         {drafts.map((draft) => (
           <DraftDayRow
             key={draft.id}
-            maxDate={todayKey}
+            defaultDate={todayKey}
             onConfirm={(dateKey) => handleConfirmDraftDay(draft.id, dateKey)}
             onCancel={() => handleCancelDraftDay(draft.id)}
           />
