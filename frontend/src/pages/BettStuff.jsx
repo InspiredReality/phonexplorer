@@ -339,6 +339,14 @@ function BettStuff() {
     setExpanded((prev) => ({ ...prev, [dateKey]: true }));
   };
 
+  // Only ever called for a day with zero bets (the button itself doesn't
+  // render otherwise) — there's nothing to lose, so no confirmation or API
+  // delete is needed. Lets a day added with the wrong date be thrown out
+  // before anything's entered under it.
+  const handleRemoveEmptyDay = (dateKey) => {
+    setExtraDays((prev) => prev.filter((k) => k !== dateKey));
+  };
+
   return (
     <div className="bett-page">
       <button className="bett-back-btn" onClick={() => navigate('/')}>← Back</button>
@@ -399,6 +407,19 @@ function BettStuff() {
                 </span>
                 <span className="bett-accordion-trailing">
                   {rows.length > 0 && <span className="bett-row-count">{rows.length} bet{rows.length === 1 ? '' : 's'}</span>}
+                  {rows.length === 0 && (
+                    <button
+                      type="button"
+                      className="bett-day-remove"
+                      aria-label="Delete this empty day"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleRemoveEmptyDay(dateKey);
+                      }}
+                    >
+                      ×
+                    </button>
+                  )}
                 </span>
               </AccordionSummary>
               <AccordionDetails sx={{ p: 0, borderTop: '1px solid rgba(255, 255, 255, 0.12)' }}>
