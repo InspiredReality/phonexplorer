@@ -261,7 +261,11 @@ function BettStuff() {
     };
   }, []);
 
-  const rowsFor = (dateKey) => entries[dateKey] || [];
+  // Newest first, by creation time — each row's id is `${Date.now()}-...`,
+  // so a plain descending string sort on it works. Sorting here (rather
+  // than relying on insertion order) keeps the order correct even after a
+  // reload, since the database fetch has no guaranteed row order of its own.
+  const rowsFor = (dateKey) => [...(entries[dateKey] || [])].sort((a, b) => (a.id < b.id ? 1 : a.id > b.id ? -1 : 0));
   const knownTags = collectKnownTags(entries);
 
   const setExtraDays = (updater) => {
