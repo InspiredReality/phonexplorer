@@ -146,7 +146,8 @@ function settlementToRow(record) {
 
 // Every distinct tag used across every bet, for the Tags textbox's
 // suggestion list — so a tag becomes selectable again once it's been used
-// anywhere, without needing its own table.
+// anywhere, without needing its own table. Also backs the stats page's tag
+// filter dropdown.
 export function collectKnownTags(entries) {
   const tags = new Set();
   for (const rows of Object.values(entries)) {
@@ -155,6 +156,10 @@ export function collectKnownTags(entries) {
     }
   }
   return Array.from(tags).sort((a, b) => a.localeCompare(b));
+}
+
+export function rowHasTag(row, tag) {
+  return tagsStringToArray(row.tags).includes(tag);
 }
 
 function settlementsToEntries(records) {

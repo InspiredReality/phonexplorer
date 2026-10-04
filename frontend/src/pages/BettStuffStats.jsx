@@ -4,12 +4,14 @@ import BettSummaryBar from '../components/BettSummaryBar';
 import {
   allBettingWeeks,
   amountClass,
+  collectKnownTags,
   currentBettingWeekDays,
   formatMoneyShort,
   loadEntries,
   loadWeeklyGoal,
   persistEntries,
   reconcileEntriesWithApi,
+  rowHasTag,
   saveWeeklyGoal,
   sumProfit,
 } from './bettStuffData';
@@ -57,6 +59,7 @@ function BettStuffStats() {
   // this matches whatever the picks page has saved from any browser.
   const [entries, setEntries] = useState(loadEntries);
   const [weeklyGoal, setWeeklyGoal] = useState(loadWeeklyGoal);
+  const [tagFilter, setTagFilter] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -75,7 +78,13 @@ function BettStuffStats() {
     };
   }, []);
 
-  const rowsFor = (dateKey) => entries[dateKey] || [];
+  const knownTags = collectKnownTags(entries);
+  // Only the grid's per-day and week totals are scoped to the selected tag —
+  // the bottom summary bar (Table/Day/Week) always reflects everything.
+  const rowsFor = (dateKey) => {
+    const rows = entries[dateKey] || [];
+    return tagFilter ? rows.filter((row) => rowHasTag(row, tagFilter)) : rows;
+  };
   const weeks = allBettingWeeks(entries);
   const goalValue = parseFloat(weeklyGoal) || 0;
 
@@ -90,6 +99,19 @@ function BettStuffStats() {
       <h1 className="bett-heading">Bett Stuff Stats</h1>
 
       <div className="bett-goal-row">
+        <span className="bett-goal-label">Tag</span>
+        <select
+          className="bett-select-input bett-tag-filter-select"
+          value={tagFilter}
+          onChange={(e) => setTagFilter(e.target.value)}
+        >
+          <option value="">All Tags</option>
+          {knownTags.map((tag) => (
+            <option key={tag} value={tag}>
+              {tag}
+            </option>
+          ))}
+        </select>
         <span className="bett-goal-label">Weekly Profit Goal</span>
         <input
           type="number"

@@ -144,9 +144,14 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-wrap: wrap;
   gap: 12px;
   max-width: 960px;
   margin: 0 auto 24px;
+}
+
+.bett-tag-filter-select {
+  width: 140px;
 }
 
 .bett-goal-label {
