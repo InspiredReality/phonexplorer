@@ -2,7 +2,11 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  height: 100vh;
+  /* min-height (not height) so a tall button stack grows the page and scrolls,
+     instead of the top buttons being clipped above the viewport. */
+  min-height: 100vh;
+  padding: 24px 0;
+  box-sizing: border-box;
   background: #0a0a0a;
 }
 
