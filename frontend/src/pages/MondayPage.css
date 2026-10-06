@@ -307,3 +307,93 @@
   white-space: nowrap;
 }
 .badge--empty { color: rgba(255,255,255,0.25); background: transparent; }
+
+/* ── Activity timeline (horizontal, oldest → newest, left to right) ── */
+.timeline-warn {
+  padding: 10px 20px;
+  font-size: 0.78rem;
+  color: #fbbf24;
+  background: rgba(251,191,36,0.08);
+}
+
+.timeline-legend {
+  display: flex;
+  gap: 18px;
+  padding: 12px 20px 0;
+  font-size: 0.75rem;
+  color: rgba(255,255,255,0.5);
+}
+.timeline-legend span { display: flex; align-items: center; gap: 6px; }
+
+.timeline-scroll {
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 8px 20px 20px;
+}
+
+.timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  width: max-content;
+  min-width: 100%;
+  position: relative;
+}
+
+.tl-event {
+  position: relative;
+  width: 170px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 0 6px;
+}
+/* The horizontal line runs through every node's dot */
+.tl-event::before {
+  content: '';
+  position: absolute;
+  top: 37px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: rgba(255,255,255,0.15);
+}
+
+.tl-time {
+  font-size: 0.7rem;
+  color: rgba(255,255,255,0.45);
+  height: 18px;
+  margin-top: 6px;
+  white-space: nowrap;
+}
+
+.tl-dot {
+  display: inline-block;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  position: relative;
+  z-index: 1;
+  margin-top: 7px;
+  border: 2px solid #1a1a2e;
+}
+.tl-dot--update { background: #f6287e; }
+.tl-dot--status { background: #579bfc; }
+.timeline-legend .tl-dot { width: 10px; height: 10px; margin-top: 0; border: none; }
+
+.tl-card {
+  margin-top: 12px;
+  width: 100%;
+  background: rgba(255,255,255,0.05);
+  border-radius: 8px;
+  padding: 8px 10px;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  border-top: 2px solid #f6287e;
+}
+.tl-event--status .tl-card { border-top-color: #579bfc; }
+.tl-item { font-weight: 600; color: #fff; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tl-text { color: rgba(255,255,255,0.7); margin-top: 3px; overflow-wrap: anywhere; }
+.tl-who  { color: rgba(255,255,255,0.35); margin-top: 4px; font-size: 0.68rem; }
