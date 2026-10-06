@@ -184,6 +184,28 @@ query NextProjectItems($limit: Int!, $cursor: String!) {
 }
 """ % {"cols": _PROJECT_COLUMN_FIELDS}
 
+# Board-level Activity log. Status changes are the `update_column_value` events
+# whose data carries a status column (type "color") with old/new labels.
+ACTIVITY_LOGS_QUERY = """
+query GetActivityLogs($boardId: [ID!]!, $from: ISO8601DateTime!, $to: ISO8601DateTime!, $limit: Int!, $page: Int!) {
+  boards(ids: $boardId) {
+    id
+    name
+    activity_logs(from: $from, to: $to, limit: $limit, page: $page) {
+      id
+      event
+      data
+      created_at
+      user_id
+    }
+  }
+}
+"""
+
+USERS_QUERY = """
+query GetUsers { users { id name } }
+"""
+
 CREATE_ITEM_MUTATION = """
 mutation CreateItem($boardId: ID!, $itemName: String!, $columnValues: JSON) {
   create_item(
@@ -338,6 +360,62 @@ class MondayClient:
 
         all_updates.sort(key=lambda u: u.get("created_at", ""), reverse=True)
         return all_updates
+
+    async def get_status_changes(
+        self,
+        days: int = 7,
+        max_boards: int = 50,
+        page_size: int = 100,
+        max_pages: int = 5,
+    ) -> list[dict]:
+        """
+        Return status-column changes from the boards' Activity logs in the last
+        `days` days, newest first:
+
+            {id, timestamp (ISO), item_id, item_name, board: {id, name},
+             column, from_status, to_status, user}
+
+        A board whose activity log can't be read is skipped, not fatal.
+        """
+        to_dt = datetime.now(timezone.utc)
+        from_dt = to_dt - timedelta(days=days)
+        variables = {
+            "from": from_dt.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "to": to_dt.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "limit": page_size,
+        }
+
+        boards = (await self._gql(BOARDS_QUERY, {"limit": max_boards, "page": 1})).get("boards", [])
+        try:
+            users = {
+                str(u["id"]): u["name"]
+                for u in (await self._gql(USERS_QUERY)).get("users", [])
+            }
+        except RuntimeError:
+            users = {}
+
+        changes: list[dict] = []
+        for board in boards:
+            for page in range(1, max_pages + 1):
+                try:
+                    data = await self._gql(
+                        ACTIVITY_LOGS_QUERY, {**variables, "boardId": [board["id"]], "page": page}
+                    )
+                except RuntimeError as exc:
+                    log.warning("Activity log fetch failed for board %s: %s", board["id"], exc)
+                    break
+                logs = (data.get("boards") or [{}])[0].get("activity_logs") or []
+                for entry in logs:
+                    change = _parse_status_change(entry, board, users)
+                    if change:
+                        changes.append(change)
+                if len(logs) < page_size:
+                    break
+                await asyncio.sleep(PAGE_DELAY_S)
+            await asyncio.sleep(PAGE_DELAY_S)
+
+        changes.sort(key=lambda c: c["timestamp"], reverse=True)
+        return changes
 
     async def _fetch_item_meta(self, item_ids: list[str], batch_size: int = 50) -> dict[str, dict]:
         meta: dict[str, dict] = {}
@@ -501,6 +579,46 @@ def _parse_dt(value: str | None) -> datetime | None:
         return datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:
         return None
+
+
+def _activity_ts(created_at: str | int | None) -> str | None:
+    """Activity log timestamps are 17-digit Unix time in 1/10 microseconds."""
+    try:
+        raw = int(created_at)
+    except (TypeError, ValueError):
+        return None
+    seconds = raw / 1e7 if raw > 1e14 else raw
+    return datetime.fromtimestamp(seconds, tz=timezone.utc).isoformat()
+
+
+def _parse_status_change(entry: dict, board: dict, users: dict[str, str]) -> dict | None:
+    """Turn one activity-log entry into a status change, or None if it isn't one."""
+    if entry.get("event") != "update_column_value":
+        return None
+    try:
+        data = json.loads(entry["data"]) if isinstance(entry.get("data"), str) else entry.get("data") or {}
+    except ValueError:
+        return None
+    if data.get("column_type") not in ("color", "status"):
+        return None
+
+    def label(key: str) -> str | None:
+        return ((data.get(key) or {}).get("label") or {}).get("text")
+
+    timestamp = _activity_ts(entry.get("created_at"))
+    if not timestamp:
+        return None
+    return {
+        "id": str(entry["id"]),
+        "timestamp": timestamp,
+        "item_id": str(data.get("pulse_id") or ""),
+        "item_name": data.get("pulse_name") or "—",
+        "board": {"id": board["id"], "name": board["name"]},
+        "column": data.get("column_title") or "Status",
+        "from_status": label("previous_value"),
+        "to_status": label("value"),
+        "user": users.get(str(entry.get("user_id"))),
+    }
 
 
 def _shape_task(item: dict) -> dict:
