@@ -3,6 +3,7 @@ import Home from './pages/Home';
 import PhoneExplorer from './pages/PhoneExplorer';
 import AssignExplorer from './pages/AssignExplorer';
 import MondayPage from './pages/MondayPage';
+import MondayProject from './pages/MondayProject';
 import DeepQuestionnaire from './pages/DeepQuestionnaire';
 import StickersPage from './pages/StickersPage';
 import MyBets from './pages/MyBets';
@@ -27,6 +28,7 @@ function App() {
         <Route path="/explorer" element={<PhoneExplorer />} />
         <Route path="/assign" element={<div style={fullViewport}><AssignExplorer /></div>} />
         <Route path="/monday" element={<MondayPage />} />
+        <Route path="/monday-project" element={<MondayProject />} />
         <Route path="/deep" element={<DeepQuestionnaire />} />
         <Route path="/stickers" element={<StickersPage />} />
         <Route path="/my-bets" element={<MyBets />} />

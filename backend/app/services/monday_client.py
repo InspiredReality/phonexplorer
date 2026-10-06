@@ -131,6 +131,59 @@ query GetBoardColumns($boardId: [ID!]!) {
 }
 """
 
+_PROJECT_COLUMN_FIELDS = """
+      id
+      type
+      text
+      ... on StatusValue   { label label_style { color } }
+      ... on TimelineValue { from to }
+      ... on DateValue     { date }
+"""
+
+# First page of a board's items, plus its groups (name, colour, order).
+BOARD_PROJECT_QUERY = """
+query GetBoardProject($boardId: [ID!]!, $limit: Int!) {
+  boards(ids: $boardId) {
+    id
+    name
+    groups { id title color }
+    items_page(limit: $limit) {
+      cursor
+      items {
+        id
+        name
+        group { id }
+        column_values {%(cols)s}
+        subitems {
+          id
+          name
+          column_values {%(cols)s}
+        }
+      }
+    }
+  }
+}
+""" % {"cols": _PROJECT_COLUMN_FIELDS}
+
+NEXT_PROJECT_ITEMS_QUERY = """
+query NextProjectItems($limit: Int!, $cursor: String!) {
+  next_items_page(limit: $limit, cursor: $cursor) {
+    cursor
+    items {
+      id
+      name
+      group { id }
+      column_values {%(cols)s}
+      subitems {
+        id
+        name
+        column_values {%(cols)s}
+      }
+    }
+  }
+}
+""" % {"cols": _PROJECT_COLUMN_FIELDS}
+
 CREATE_ITEM_MUTATION = """
 mutation CreateItem($boardId: ID!, $itemName: String!, $columnValues: JSON) {
   create_item(
@@ -315,6 +368,67 @@ class MondayClient:
             await asyncio.sleep(PAGE_DELAY_S)
         return None
 
+    async def find_board_by_customer(self, customer: str, page_size: int = 100, max_pages: int = 20) -> dict | None:
+        """
+        Find a customer's project board. Prefers an exact (case-insensitive)
+        name match, then falls back to the first board whose name contains
+        the customer string.
+        """
+        target = customer.strip().lower()
+        partial: dict | None = None
+        for page in range(1, max_pages + 1):
+            data = await self._gql(BOARDS_QUERY, {"limit": page_size, "page": page})
+            boards = data.get("boards", [])
+            for board in boards:
+                name = board["name"].strip().lower()
+                if name == target:
+                    return board
+                if partial is None and target in name:
+                    partial = board
+            if len(boards) < page_size:
+                break
+            await asyncio.sleep(PAGE_DELAY_S)
+        return partial
+
+    async def get_project_board(self, customer: str, page_size: int = DEFAULT_PAGE_SIZE) -> dict | None:
+        """
+        Return a customer's project board as nested groups -> tasks -> subtasks:
+
+            {"board": {id, name}, "groups": [{id, title, color, tasks: [
+                {id, name, status, status_color, timeline, subtasks: [...]}]}]}
+
+        Returns None if no board matches the customer name.
+        """
+        found = await self.find_board_by_customer(customer)
+        if not found:
+            return None
+
+        data = await self._gql(BOARD_PROJECT_QUERY, {"boardId": [found["id"]], "limit": page_size})
+        board = data["boards"][0]
+        page = board.get("items_page") or {}
+        items = list(page.get("items", []))
+        cursor = page.get("cursor")
+        while cursor:
+            await asyncio.sleep(PAGE_DELAY_S)
+            nxt = (await self._gql(NEXT_PROJECT_ITEMS_QUERY, {"limit": page_size, "cursor": cursor}))["next_items_page"]
+            items.extend(nxt.get("items", []))
+            cursor = nxt.get("cursor")
+
+        groups = [
+            {"id": g["id"], "title": g["title"], "color": g.get("color"), "tasks": []}
+            for g in board.get("groups", [])
+        ]
+        by_id = {g["id"]: g for g in groups}
+        for item in items:
+            group = by_id.get((item.get("group") or {}).get("id"))
+            if group is None:
+                continue
+            task = _shape_task(item)
+            task["subtasks"] = [_shape_task(s) for s in item.get("subitems") or []]
+            group["tasks"].append(task)
+
+        return {"board": {"id": board["id"], "name": board["name"]}, "groups": groups}
+
     async def get_board_columns(self, board_id: str) -> list[dict]:
         """Return [{"id", "title", "type"}, ...] for the given board."""
         data = await self._gql(BOARD_COLUMNS_QUERY, {"boardId": [board_id]})
@@ -387,6 +501,25 @@ def _parse_dt(value: str | None) -> datetime | None:
         return datetime.fromisoformat(value.replace("Z", "+00:00"))
     except ValueError:
         return None
+
+
+def _shape_task(item: dict) -> dict:
+    """Flatten an item's column values into the status/timeline fields the UI shows."""
+    task: dict[str, Any] = {
+        "id": item["id"], "name": item["name"],
+        "status": None, "status_color": None, "timeline": None,
+    }
+    for col in item.get("column_values") or []:
+        kind = col.get("type")
+        if kind in ("status", "color") and task["status"] is None:
+            task["status"] = col.get("label") or col.get("text") or None
+            task["status_color"] = (col.get("label_style") or {}).get("color")
+        elif kind in ("timeline", "date", "timerange") and task["timeline"] is None:
+            start = col.get("from") or col.get("date")
+            end = col.get("to") or start
+            if start:
+                task["timeline"] = {"from": start, "to": end}
+    return task
 
 
 # ── CLI entry-point ────────────────────────────────────────────────────────────

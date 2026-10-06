@@ -54,6 +54,22 @@ async def recent_updates(days: int = Query(default=7, ge=1, le=90)) -> dict[str,
     return {"count": len(updates), "days": days, "updates": updates}
 
 
+@router.get("/project")
+async def project_board(customer: str = Query(min_length=1, max_length=100)) -> dict[str, Any]:
+    """
+    Return a customer's Monday project board as groups -> tasks -> subtasks.
+    `customer` is matched against board names (exact first, then contains).
+    """
+    async with _client() as c:
+        try:
+            project = await c.get_project_board(customer)
+        except RuntimeError as exc:
+            raise HTTPException(status_code=502, detail=f"Monday API error: {exc}") from exc
+    if project is None:
+        raise HTTPException(status_code=404, detail=f'No Monday board found for "{customer}"')
+    return project
+
+
 @router.post("/prioritized-implementation-tasks", status_code=201)
 async def create_prioritized_implementation_task(body: CreateTaskRequest) -> dict[str, Any]:
     """

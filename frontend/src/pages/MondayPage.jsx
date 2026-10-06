@@ -315,7 +315,10 @@ export default function MondayPage() {
           <span className="monday-dot" />
           Monday
         </h1>
-        <button className="btn btn--primary new-task-btn" onClick={() => setShowNewTask(true)}>
+        <button className="back-btn new-task-btn" onClick={() => navigate('/monday-project')}>
+          Project board
+        </button>
+        <button className="btn btn--primary" onClick={() => setShowNewTask(true)}>
           + New Task
         </button>
       </header>
