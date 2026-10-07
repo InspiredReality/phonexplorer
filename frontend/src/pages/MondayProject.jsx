@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './MondayProject.css';
+import ActivityTimeline from '../components/ActivityTimeline';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 const FALLBACK_STATUS_COLOR = '#797e93';
@@ -16,6 +17,55 @@ async function fetchProject(customer) {
     throw new Error(detail);
   }
   return res.json();
+}
+
+async function fetchActivity(customer) {
+  const res = await fetch(`${API_BASE}/api/monday/project/activity?customer=${encodeURIComponent(customer)}&days=30`);
+  if (!res.ok) {
+    let detail = `${res.status} ${res.statusText}`;
+    try { detail = (await res.json()).detail || detail; } catch { /* non-JSON body */ }
+    throw new Error(detail);
+  }
+  return res.json();
+}
+
+function plainText(html) {
+  return (html || '').replace(/<[^>]*>/g, '').trim() || '(empty)';
+}
+
+function fmtStamp(iso) {
+  try {
+    return new Intl.DateTimeFormat(undefined, {
+      month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+    }).format(new Date(iso));
+  } catch {
+    return iso;
+  }
+}
+
+function RecentUpdates({ updates }) {
+  const latest = updates.slice(0, 10);
+  return (
+    <section className="mp-updates">
+      <h2 className="mp-updates__title">Recent Updates</h2>
+      <ul className="mp-updates__list">
+        {latest.map(u => (
+          <li key={u.id} className="mp-update">
+            <div className="mp-update__meta">
+              <strong>{u._item_name ?? '—'}</strong>
+              <span>{u.creator?.name ?? '—'} · {fmtStamp(u.created_at)}</span>
+            </div>
+            <p className="mp-update__body">{plainText(u.body)}</p>
+            {u.replies?.length > 0 && (
+              <span className="mp-update__replies">
+                {u.replies.length} repl{u.replies.length === 1 ? 'y' : 'ies'}
+              </span>
+            )}
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
 }
 
 function fmtDay(iso) {
@@ -102,6 +152,22 @@ export default function MondayProject() {
   const [project, setProject] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
+  const [activity, setActivity] = useState(null);
+  const [loadingA, setLoadingA] = useState(false);
+  const [errorA, setErrorA] = useState(null);
+
+  async function loadActivity(name) {
+    setLoadingA(true);
+    setErrorA(null);
+    try {
+      setActivity(await fetchActivity(name));
+    } catch (err) {
+      setActivity(null);
+      setErrorA(err.message);
+    } finally {
+      setLoadingA(false);
+    }
+  }
 
   async function load(e) {
     e.preventDefault();
@@ -109,8 +175,10 @@ export default function MondayProject() {
     if (!name) return;
     setLoading(true);
     setError(null);
+    setActivity(null);
     try {
       setProject(await fetchProject(name));
+      loadActivity(name);
     } catch (err) {
       setProject(null);
       setError(err.message);
@@ -146,6 +214,21 @@ export default function MondayProject() {
           <p className="mp-hint">Enter a customer name to load their Monday project board.</p>
         )}
         {project?.groups.map(g => <Group key={g.id} group={g} />)}
+
+        {project && (
+          <>
+            {activity?.updates?.length > 0 && <RecentUpdates updates={activity.updates} />}
+            <ActivityTimeline
+              updates={activity?.updates}
+              changes={activity?.status_changes}
+              loading={loadingA}
+              error={errorA}
+              onRetry={() => loadActivity(customer.trim())}
+              title="Activity Timeline (30 days)"
+              emptyText="No updates or status changes on this board in the last 30 days."
+            />
+          </>
+        )}
       </main>
     </div>
   );

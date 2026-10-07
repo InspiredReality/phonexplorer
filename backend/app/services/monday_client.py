@@ -202,6 +202,21 @@ query GetActivityLogs($boardId: [ID!]!, $from: ISO8601DateTime!, $to: ISO8601Dat
 }
 """
 
+BOARD_UPDATES_QUERY = """
+query GetBoardUpdates($boardId: [ID!]!, $limit: Int!) {
+  boards(ids: $boardId) {
+    updates(limit: $limit) {
+      id
+      body
+      created_at
+      item_id
+      creator { id name email }
+      replies { id body created_at creator { id name email } }
+    }
+  }
+}
+"""
+
 USERS_QUERY = """
 query GetUsers { users { id name } }
 """
@@ -396,26 +411,80 @@ class MondayClient:
 
         changes: list[dict] = []
         for board in boards:
-            for page in range(1, max_pages + 1):
-                try:
-                    data = await self._gql(
-                        ACTIVITY_LOGS_QUERY, {**variables, "boardId": [board["id"]], "page": page}
-                    )
-                except RuntimeError as exc:
-                    log.warning("Activity log fetch failed for board %s: %s", board["id"], exc)
-                    break
-                logs = (data.get("boards") or [{}])[0].get("activity_logs") or []
-                for entry in logs:
-                    change = _parse_status_change(entry, board, users)
-                    if change:
-                        changes.append(change)
-                if len(logs) < page_size:
-                    break
-                await asyncio.sleep(PAGE_DELAY_S)
+            changes.extend(await self._board_status_changes(board, users, variables, page_size, max_pages))
             await asyncio.sleep(PAGE_DELAY_S)
 
         changes.sort(key=lambda c: c["timestamp"], reverse=True)
         return changes
+
+    async def _board_status_changes(
+        self, board: dict, users: dict[str, str], variables: dict, page_size: int, max_pages: int
+    ) -> list[dict]:
+        """Status changes from one board's activity log. A failing board yields []."""
+        changes: list[dict] = []
+        for page in range(1, max_pages + 1):
+            try:
+                data = await self._gql(
+                    ACTIVITY_LOGS_QUERY, {**variables, "boardId": [board["id"]], "page": page}
+                )
+            except RuntimeError as exc:
+                log.warning("Activity log fetch failed for board %s: %s", board["id"], exc)
+                break
+            logs = (data.get("boards") or [{}])[0].get("activity_logs") or []
+            for entry in logs:
+                change = _parse_status_change(entry, board, users)
+                if change:
+                    changes.append(change)
+            if len(logs) < page_size:
+                break
+            await asyncio.sleep(PAGE_DELAY_S)
+        return changes
+
+    async def get_board_activity(self, customer: str, days: int = 30) -> dict | None:
+        """
+        Updates and status changes for one customer's board (same shapes as
+        get_recent_updates / get_status_changes), or None if no board matches.
+        """
+        board = await self.find_board_by_customer(customer)
+        if not board:
+            return None
+
+        to_dt = datetime.now(timezone.utc)
+        from_dt = to_dt - timedelta(days=days)
+        variables = {
+            "from": from_dt.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "to": to_dt.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "limit": 100,
+        }
+        try:
+            users = {
+                str(u["id"]): u["name"]
+                for u in (await self._gql(USERS_QUERY)).get("users", [])
+            }
+        except RuntimeError:
+            users = {}
+
+        changes = await self._board_status_changes(board, users, variables, 100, 5)
+        changes.sort(key=lambda c: c["timestamp"], reverse=True)
+
+        # Board updates have no server-side date filter, so cut off client-side.
+        data = await self._gql(BOARD_UPDATES_QUERY, {"boardId": [board["id"]], "limit": 100})
+        raw = (data.get("boards") or [{}])[0].get("updates") or []
+        cutoff = from_dt
+        updates = [u for u in raw if (_parse_dt(u.get("created_at")) or to_dt) >= cutoff]
+        meta = await self._fetch_item_meta(list({u["item_id"] for u in updates if u.get("item_id")}))
+        for u in updates:
+            m = meta.get(str(u.get("item_id")), {})
+            u["_item_name"] = m.get("name", "—")
+            u["_board"] = {"id": board["id"], "name": board["name"]}
+        updates.sort(key=lambda u: u.get("created_at", ""), reverse=True)
+
+        return {
+            "board": {"id": board["id"], "name": board["name"]},
+            "days": days,
+            "updates": updates,
+            "status_changes": changes,
+        }
 
     async def _fetch_item_meta(self, item_ids: list[str], batch_size: int = 50) -> dict[str, dict]:
         meta: dict[str, dict] = {}

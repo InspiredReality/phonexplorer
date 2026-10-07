@@ -65,6 +65,22 @@ async def status_changes(days: int = Query(default=7, ge=1, le=90)) -> dict[str,
     return {"count": len(changes), "days": days, "changes": changes}
 
 
+@router.get("/project/activity")
+async def project_activity(
+    customer: str = Query(min_length=1, max_length=100),
+    days: int = Query(default=30, ge=1, le=90),
+) -> dict[str, Any]:
+    """Updates + status changes (Activity log) for one customer's board."""
+    async with _client() as c:
+        try:
+            activity = await c.get_board_activity(customer, days=days)
+        except RuntimeError as exc:
+            raise HTTPException(status_code=502, detail=f"Monday API error: {exc}") from exc
+    if activity is None:
+        raise HTTPException(status_code=404, detail=f'No Monday board found for "{customer}"')
+    return activity
+
+
 @router.get("/project")
 async def project_board(customer: str = Query(min_length=1, max_length=100)) -> dict[str, Any]:
     """

@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './MondayPage.css';
+import ActivityTimeline from '../components/ActivityTimeline';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -227,86 +228,6 @@ function RecentUpdatesTable({ updates, loading, error, onRetry }) {
   );
 }
 
-// Posted updates + Activity-log status changes, merged into one time-ordered list.
-function buildTimelineEvents(updates, changes) {
-  const events = [];
-  for (const u of updates ?? []) {
-    events.push({
-      key: `u-${u.id}`,
-      kind: 'update',
-      time: u.created_at,
-      item: u._item_name,
-      board: u._board?.name,
-      who: u.creator?.name,
-      text: stripHtml(u.body),
-    });
-  }
-  for (const c of changes ?? []) {
-    events.push({
-      key: `c-${c.id}`,
-      kind: 'status',
-      time: c.timestamp,
-      item: c.item_name,
-      board: c.board?.name,
-      who: c.user,
-      text: `${c.from_status ?? '—'} → ${c.to_status ?? '—'}`,
-    });
-  }
-  return events
-    .filter(e => e.time && !Number.isNaN(new Date(e.time).getTime()))
-    .sort((a, b) => new Date(a.time) - new Date(b.time));
-}
-
-function firstWords(text, n = 8) {
-  const words = (text || '').split(/\s+/).filter(Boolean);
-  return words.length > n ? `${words.slice(0, n).join(' ')}…` : words.join(' ');
-}
-
-function ActivityTimeline({ updates, changes, loading, error, errorChanges, onRetry }) {
-  const events = buildTimelineEvents(updates, changes);
-
-  return (
-    <TableShell
-      title="Activity Timeline"
-      count={events.length}
-      loading={loading}
-      error={error}
-      onRetry={onRetry}
-    >
-      {errorChanges && (
-        <div className="timeline-warn">Status changes unavailable: {errorChanges}</div>
-      )}
-      {events.length === 0 ? (
-        <div className="table-state">No updates or status changes in the last 7 days.</div>
-      ) : (
-        <>
-          <div className="timeline-legend">
-            <span><i className="tl-dot tl-dot--update" /> Update</span>
-            <span><i className="tl-dot tl-dot--status" /> Status change</span>
-          </div>
-          <div className="timeline-scroll">
-            <ol className="timeline">
-              {events.map(e => (
-                <li key={e.key} className={`tl-event tl-event--${e.kind}`}>
-                  <span className="tl-time">{formatDate(e.time)}</span>
-                  <span className={`tl-dot tl-dot--${e.kind}`} />
-                  <div className="tl-card" title={e.text}>
-                    <div className="tl-item">{e.item ?? '—'}</div>
-                    <div className="tl-text">
-                      {e.kind === 'update' ? firstWords(e.text) : e.text}
-                    </div>
-                    {e.who && <div className="tl-who">{e.who}</div>}
-                  </div>
-                </li>
-              ))}
-            </ol>
-          </div>
-        </>
-      )}
-    </TableShell>
-  );
-}
-
 function NewTaskModal({ onClose, onCreated }) {
   const [name, setName]             = useState('');
   const [customer, setCustomer]     = useState('');
@@ -450,6 +371,7 @@ export default function MondayPage() {
           error={errorU}
           errorChanges={errorC}
           onRetry={() => { loadUpdates(); loadChanges(); }}
+          emptyText="No updates or status changes in the last 7 days."
         />
       </main>
 
