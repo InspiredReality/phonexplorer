@@ -158,3 +158,34 @@
   .mp-row .mp-timeline { display: none; }
   .mp-row--sub { padding-left: 32px; }
 }
+
+/* ── Recent updates ── */
+.mp-updates {
+  background: #181820;
+  border-radius: 6px;
+  padding: 14px 16px;
+}
+.mp-updates__title {
+  margin: 0 0 10px;
+  font-size: 0.95rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.mp-updates__list { list-style: none; margin: 0; padding: 0; }
+.mp-update { padding: 10px 0; border-top: 1px solid rgba(255,255,255,0.08); }
+.mp-update__meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 0.8rem;
+}
+.mp-update__meta span { color: rgba(255,255,255,0.45); }
+.mp-update__body {
+  margin: 4px 0 0;
+  font-size: 0.85rem;
+  color: rgba(255,255,255,0.75);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.mp-update__replies { font-size: 0.72rem; color: #f6287e; }
