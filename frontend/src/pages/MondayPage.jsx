@@ -27,11 +27,8 @@ async function postJSON(path, data) {
 
 function useMonday() {
   const [tasks, setTasks]       = useState(null);
-  const [updates, setUpdates]   = useState(null);
   const [loadingT, setLoadingT] = useState(true);
-  const [loadingU, setLoadingU] = useState(true);
   const [errorT, setErrorT]     = useState(null);
-  const [errorU, setErrorU]     = useState(null);
 
   const loadTasks = useCallback(async () => {
     setLoadingT(true);
@@ -46,25 +43,11 @@ function useMonday() {
     }
   }, []);
 
-  const loadUpdates = useCallback(async () => {
-    setLoadingU(true);
-    setErrorU(null);
-    try {
-      const data = await fetchJSON('/api/monday/recent-updates?days=7');
-      setUpdates(data.updates ?? []);
-    } catch (e) {
-      setErrorU(e.message);
-    } finally {
-      setLoadingU(false);
-    }
-  }, []);
-
   useEffect(() => {
     loadTasks();
-    loadUpdates();
-  }, [loadTasks, loadUpdates]);
+  }, [loadTasks]);
 
-  return { tasks, updates, loadingT, loadingU, errorT, errorU, loadTasks, loadUpdates };
+  return { tasks, loadingT, errorT, loadTasks };
 }
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
@@ -149,54 +132,6 @@ function OpenTasksTable({ tasks, loading, error, onRetry }) {
                   </tr>
                 );
               })}
-            </tbody>
-          </table>
-        </div>
-      )}
-    </TableShell>
-  );
-}
-
-function RecentUpdatesTable({ updates, loading, error, onRetry }) {
-  return (
-    <TableShell
-      title="Recent Updates"
-      count={updates?.length}
-      loading={loading}
-      error={error}
-      onRetry={onRetry}
-    >
-      {updates?.length === 0 ? (
-        <div className="table-state">No updates in the last 7 days.</div>
-      ) : (
-        <div className="table-scroll">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Date</th>
-                <th>Item</th>
-                <th>Board</th>
-                <th>Author</th>
-                <th>Update</th>
-              </tr>
-            </thead>
-            <tbody>
-              {updates?.map((u) => (
-                <tr key={u.id}>
-                  <td className="nowrap">{formatDate(u.created_at)}</td>
-                  <td className="task-name">{u._item_name ?? '—'}</td>
-                  <td>{u._board?.name ?? '—'}</td>
-                  <td className="nowrap">{u.creator?.name ?? '—'}</td>
-                  <td className="update-body">
-                    {stripHtml(u.body)}
-                    {u.replies?.length > 0 && (
-                      <span className="reply-count">
-                        {' '}· {u.replies.length} repl{u.replies.length === 1 ? 'y' : 'ies'}
-                      </span>
-                    )}
-                  </td>
-                </tr>
-              ))}
             </tbody>
           </table>
         </div>
@@ -295,16 +230,11 @@ function formatDate(iso) {
   }
 }
 
-function stripHtml(html) {
-  if (!html) return '';
-  return html.replace(/<[^>]*>/g, '').trim().slice(0, 200) || '(empty)';
-}
-
 // ── Page ───────────────────────────────────────────────────────────────────────
 
 export default function MondayPage() {
   const navigate = useNavigate();
-  const { tasks, updates, loadingT, loadingU, errorT, errorU, loadTasks, loadUpdates } = useMonday();
+  const { tasks, loadingT, errorT, loadTasks } = useMonday();
   const [showNewTask, setShowNewTask] = useState(false);
 
   return (
@@ -329,12 +259,6 @@ export default function MondayPage() {
           loading={loadingT}
           error={errorT}
           onRetry={loadTasks}
-        />
-        <RecentUpdatesTable
-          updates={updates}
-          loading={loadingU}
-          error={errorU}
-          onRetry={loadUpdates}
         />
       </main>
 
