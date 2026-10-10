@@ -189,3 +189,35 @@
   overflow-wrap: anywhere;
 }
 .mp-update__replies { font-size: 0.72rem; color: #f6287e; }
+.mp-update--reply { margin-left: 14px; border-left: 2px solid rgba(246,40,126,0.5); padding-left: 10px; }
+.mp-badge {
+  margin-left: 8px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: rgba(0,200,117,0.2);
+  color: #00c875;
+  font-size: 0.68rem;
+  font-weight: 600;
+}
+
+/* Recent Updates filter chips */
+.mp-filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; }
+.mp-chip {
+  --c: #f6287e;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--c);
+  background: color-mix(in srgb, var(--c) 18%, transparent);
+  color: #fff;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.mp-chip__dot { width: 9px; height: 9px; border-radius: 50%; background: var(--c); }
+.mp-chip__n { color: rgba(255,255,255,0.5); font-size: 0.68rem; }
+.mp-chip--off { background: transparent; border-color: rgba(255,255,255,0.2); color: rgba(255,255,255,0.4); }
+.mp-chip--off .mp-chip__dot { background: transparent; border: 1px solid rgba(255,255,255,0.3); box-sizing: border-box; }
+.mp-updates__empty { margin: 10px 0 0; color: rgba(255,255,255,0.4); font-size: 0.85rem; }

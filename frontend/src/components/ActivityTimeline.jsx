@@ -1,15 +1,54 @@
+import { useEffect, useRef } from 'react';
 import './ActivityTimeline.css';
 
 // Posted updates + Activity-log status changes, merged into one time-ordered list.
 // `updates` use Monday's update shape (created_at, creator, body, _item_name, _board);
 // `changes` use the /status-changes shape (timestamp, item_name, from/to_status, user).
 
-function stripHtml(html) {
+// Monday update bodies are HTML: keep paragraph breaks, drop tags, decode entities (&amp; etc).
+export function htmlToText(html) {
   if (!html) return '';
-  return html.replace(/<[^>]*>/g, '').trim() || '(empty)';
+  const stripped = html.replace(/<br\s*\/?>|<\/p>|<\/li>/gi, '\n').replace(/<[^>]*>/g, '');
+  const box = document.createElement('textarea');
+  box.innerHTML = stripped;
+  return box.value.trim() || '(empty)';
 }
 
-function formatDate(iso) {
+// Every comment update AND each reply to one, as flat entries (replies carry
+// their parent's item). `updates` use Monday's update shape.
+export function flattenComments(updates) {
+  const out = [];
+  for (const u of updates ?? []) {
+    out.push({
+      key: `u-${u.id}`, time: u.created_at, item: u._item_name,
+      who: u.creator?.name, text: htmlToText(u.body), isReply: false,
+      subtype: commentSubtype(htmlToText(u.body)),
+    });
+    for (const r of u.replies ?? []) {
+      out.push({
+        key: `r-${r.id}`, time: r.created_at, item: u._item_name,
+        who: r.creator?.name, text: htmlToText(r.body), isReply: true,
+        subtype: commentSubtype(htmlToText(r.body)),
+      });
+    }
+  }
+  return out;
+}
+
+// A Monday update or reply containing the hashtag #decision is a Decision; the rest are Comments.
+export function commentSubtype(text) {
+  return /#decision\b/i.test(text || '') ? 'decision' : 'comment';
+}
+
+// Keep a horizontally scrolling element scrolled to its right edge (today) whenever `dep` changes.
+export function useScrollToEnd(ref, dep) {
+  useEffect(() => {
+    const el = ref.current;
+    if (el) el.scrollLeft = el.scrollWidth;
+  }, [ref, dep]);
+}
+
+export function formatDate(iso) {
   try {
     return new Intl.DateTimeFormat(undefined, {
       month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
@@ -19,21 +58,22 @@ function formatDate(iso) {
   }
 }
 
-function firstWords(text, n = 8) {
+export function firstWords(text, n = 8) {
   const words = (text || '').split(/\s+/).filter(Boolean);
   return words.length > n ? `${words.slice(0, n).join(' ')}…` : words.join(' ');
 }
 
-function buildEvents(updates, changes) {
+export function buildEvents(updates, changes) {
   const events = [];
-  for (const u of updates ?? []) {
+  for (const c of flattenComments(updates)) {
     events.push({
-      key: `u-${u.id}`,
+      key: c.key,
       kind: 'update',
-      time: u.created_at,
-      item: u._item_name,
-      who: u.creator?.name,
-      text: stripHtml(u.body),
+      time: c.time,
+      item: c.item,
+      who: c.who && c.isReply ? `${c.who} · reply` : c.who,
+      text: c.text,
+      subtype: c.subtype,
     });
   }
   for (const c of changes ?? []) {
@@ -43,6 +83,7 @@ function buildEvents(updates, changes) {
       time: c.timestamp,
       item: c.item_name,
       who: c.user,
+      status: c.to_status ?? null,
       text: `${c.from_status ?? '—'} → ${c.to_status ?? '—'}`,
     });
   }
@@ -57,6 +98,8 @@ export default function ActivityTimeline({
   emptyText = 'No updates or status changes in this period.',
 }) {
   const events = buildEvents(updates, changes);
+  const scrollRef = useRef(null);
+  useScrollToEnd(scrollRef, `${loading}-${events.length}`);
 
   return (
     <section className="atl-card">
@@ -85,10 +128,10 @@ export default function ActivityTimeline({
           ) : (
             <>
               <div className="atl-legend">
-                <span><i className="tl-dot tl-dot--update" /> Update</span>
+                <span><i className="tl-dot tl-dot--update" /> Comment Update</span>
                 <span><i className="tl-dot tl-dot--status" /> Status change</span>
               </div>
-              <div className="atl-scroll">
+              <div className="atl-scroll" ref={scrollRef}>
                 <ol className="timeline">
                   {events.map(e => (
                     <li key={e.key} className={`tl-event tl-event--${e.kind}`}>

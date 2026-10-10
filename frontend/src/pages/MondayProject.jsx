@@ -1,7 +1,9 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './MondayProject.css';
-import ActivityTimeline from '../components/ActivityTimeline';
+// import ActivityTimeline from '../components/ActivityTimeline'; // original timeline (no filters), commented out
+import { flattenComments } from '../components/ActivityTimeline';
+import WeeklyActivityTimeline from '../components/WeeklyActivityTimeline';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 const FALLBACK_STATUS_COLOR = '#797e93';
@@ -29,10 +31,6 @@ async function fetchActivity(customer) {
   return res.json();
 }
 
-function plainText(html) {
-  return (html || '').replace(/<[^>]*>/g, '').trim() || '(empty)';
-}
-
 function fmtStamp(iso) {
   try {
     return new Intl.DateTimeFormat(undefined, {
@@ -43,24 +41,60 @@ function fmtStamp(iso) {
   }
 }
 
+const UPDATE_FILTERS = [
+  { key: 'comment', label: 'Comments', color: '#f6287e' },
+  { key: 'decision', label: 'Decisions', color: '#00c875' },
+];
+
 function RecentUpdates({ updates }) {
-  const latest = updates.slice(0, 10);
+  const [hidden, setHidden] = useState(() => new Set());
+  const all = flattenComments(updates).sort((a, b) => new Date(b.time) - new Date(a.time));
+  const counts = { comment: 0, decision: 0 };
+  for (const c of all) counts[c.subtype] += 1;
+
+  function toggle(key) {
+    setHidden(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }
+
+  // Comment updates and their replies, newest first, after filtering.
+  const latest = all.filter(c => !hidden.has(c.subtype)).slice(0, 10);
+
   return (
     <section className="mp-updates">
       <h2 className="mp-updates__title">Recent Updates</h2>
+      <div className="mp-filters">
+        {UPDATE_FILTERS.map(({ key, label, color }) => {
+          const off = hidden.has(key);
+          return (
+            <button
+              key={key}
+              type="button"
+              className={`mp-chip${off ? ' mp-chip--off' : ''}`}
+              style={{ '--c': color }}
+              aria-pressed={!off}
+              onClick={() => toggle(key)}
+            >
+              <i className="mp-chip__dot" /> {label} <span className="mp-chip__n">{counts[key]}</span>
+            </button>
+          );
+        })}
+      </div>
+      {latest.length === 0 && <p className="mp-updates__empty">Everything is filtered out.</p>}
       <ul className="mp-updates__list">
-        {latest.map(u => (
-          <li key={u.id} className="mp-update">
+        {latest.map(c => (
+          <li key={c.key} className={`mp-update${c.isReply ? ' mp-update--reply' : ''}`}>
             <div className="mp-update__meta">
-              <strong>{u._item_name ?? '—'}</strong>
-              <span>{u.creator?.name ?? '—'} · {fmtStamp(u.created_at)}</span>
+              <strong>
+                {c.item ?? '—'}
+                {c.subtype === 'decision' && <span className="mp-badge">Decision</span>}
+              </strong>
+              <span>{c.who ?? '—'}{c.isReply ? ' · reply' : ''} · {fmtStamp(c.time)}</span>
             </div>
-            <p className="mp-update__body">{plainText(u.body)}</p>
-            {u.replies?.length > 0 && (
-              <span className="mp-update__replies">
-                {u.replies.length} repl{u.replies.length === 1 ? 'y' : 'ies'}
-              </span>
-            )}
+            <p className="mp-update__body">{c.text}</p>
           </li>
         ))}
       </ul>
@@ -218,6 +252,7 @@ export default function MondayProject() {
         {project && (
           <>
             {activity?.updates?.length > 0 && <RecentUpdates updates={activity.updates} />}
+{/* Original Activity Timeline (no filters) — disabled; the weekly one below replaces it.
             <ActivityTimeline
               updates={activity?.updates}
               changes={activity?.status_changes}
@@ -225,6 +260,16 @@ export default function MondayProject() {
               error={errorA}
               onRetry={() => loadActivity(customer.trim())}
               title="Activity Timeline (30 days)"
+              emptyText="No updates or status changes on this board in the last 30 days."
+            />
+            */}
+            <WeeklyActivityTimeline
+              updates={activity?.updates}
+              changes={activity?.status_changes}
+              loading={loadingA}
+              error={errorA}
+              onRetry={() => loadActivity(customer.trim())}
+              title="Activity Timeline (30 days) · By Week"
               emptyText="No updates or status changes on this board in the last 30 days."
             />
           </>

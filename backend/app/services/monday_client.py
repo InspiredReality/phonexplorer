@@ -100,7 +100,7 @@ query GetRecentUpdates($limit: Int!, $page: Int!, $from_date: ISO8601DateTime!, 
 
 ITEM_NAMES_QUERY = """
 query GetItemNames($ids: [ID!]!) {
-  items(ids: $ids) {
+  items(ids: $ids, limit: 100) {
     id
     name
     board { id name }
@@ -213,6 +213,15 @@ query GetBoardUpdates($boardId: [ID!]!, $limit: Int!) {
       creator { id name email }
       replies { id body created_at creator { id name email } }
     }
+  }
+}
+"""
+
+CREATE_TAG_MUTATION = """
+mutation CreateTag($tagName: String!, $boardId: ID!) {
+  create_or_get_tag(tag_name: $tagName, board_id: $boardId) {
+    id
+    name
   }
 }
 """
@@ -495,7 +504,14 @@ class MondayClient:
                 for item in data.get("items", []):
                     meta[str(item["id"])] = {"name": item.get("name", "—"), "board": item.get("board")}
             except RuntimeError as exc:
-                log.warning("Item meta fetch failed for batch: %s", exc)
+                log.warning("Item meta fetch failed for batch (%s); retrying one by one", exc)
+                for item_id in batch:
+                    try:
+                        data = await self._gql(ITEM_NAMES_QUERY, {"ids": [item_id]})
+                        for item in data.get("items", []):
+                            meta[str(item["id"])] = {"name": item.get("name", "—"), "board": item.get("board")}
+                    except RuntimeError:
+                        log.warning("Item meta fetch failed for item %s", item_id)
             await asyncio.sleep(PAGE_DELAY_S)
         return meta
 
@@ -595,6 +611,18 @@ class MondayClient:
         data = await self._gql(CREATE_ITEM_MUTATION, variables)
         return data["create_item"]
 
+    async def _column_value(self, board_id: str, column_type: str, value: str) -> Any:
+        """Shape a plain string into the JSON structure Monday expects for a column type."""
+        if column_type in ("color", "status"):
+            return {"label": value}
+        if column_type == "dropdown":
+            return {"labels": [value]}
+        if column_type == "tag":
+            # Tag columns take tag IDs, so find or create the tag first.
+            tag = (await self._gql(CREATE_TAG_MUTATION, {"tagName": value, "boardId": board_id}))["create_or_get_tag"]
+            return {"tag_ids": [int(tag["id"])]}
+        return value  # text, long_text, ...
+
     async def create_item_by_board_name(
         self,
         board_name: str,
@@ -627,12 +655,7 @@ class MondayClient:
                         field_name, board_name,
                     )
                     continue
-                # Status/dropdown columns need {"label": ...}; everything else
-                # (text, long_text, ...) takes the plain string.
-                if column["type"] in ("color", "status", "dropdown"):
-                    column_values[column["id"]] = {"label": value}
-                else:
-                    column_values[column["id"]] = value
+                column_values[column["id"]] = await self._column_value(board["id"], column["type"], value)
 
         item = await self.create_item(board["id"], item_name, column_values)
         item["board"] = board

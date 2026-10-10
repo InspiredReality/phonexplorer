@@ -1,0 +1,161 @@
+/* Weekly timeline: one column per week, events stacked vertically in each. */
+.wk-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  width: max-content;
+  min-width: 100%;
+}
+
+.wk-col {
+  position: relative;
+  width: 190px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 0 6px;
+}
+/* horizontal line through every week's node */
+.wk-col::before {
+  content: '';
+  position: absolute;
+  top: 37px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: rgba(255,255,255,0.15);
+}
+
+.wk-label {
+  height: 18px;
+  margin-top: 6px;
+  text-align: center;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: rgba(255,255,255,0.6);
+  white-space: nowrap;
+}
+
+.wk-node {
+  position: relative;
+  z-index: 1;
+  align-self: center;
+  width: 14px;
+  height: 14px;
+  margin-top: 7px;
+  border-radius: 50%;
+  background: #8b8ba7;
+  border: 2px solid #1a1a2e;
+}
+
+/* Show 5 cards, then scroll vertically inside the week. Cards are a fixed
+   height (text is clamped) so "5 items" is a stable pixel height. */
+.wk-stack {
+  --card-h: 104px;
+  --card-gap: 8px;
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0 2px 0 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--card-gap);
+  max-height: calc(5 * var(--card-h) + 4 * var(--card-gap));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+
+.wk-card {
+  --c: #579bfc;
+  margin-top: 0;
+  flex: 0 0 var(--card-h);
+  height: var(--card-h);
+  box-sizing: border-box;
+  overflow: hidden;
+  border-top: 2px solid var(--c);
+}
+.wk-card__top { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+.wk-card__dot { width: 8px; height: 8px; border-radius: 50%; background: var(--c); flex-shrink: 0; }
+.wk-card__time { font-size: 0.68rem; color: rgba(255,255,255,0.45); }
+.wk-card .tl-text {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.wk-empty {
+  text-align: center;
+  font-size: 0.72rem;
+  color: rgba(255,255,255,0.25);
+  padding: 8px 0;
+}
+
+/* ── Filter chips ── */
+.wk-filters {
+  display: flex;
+  align-items: flex-start;
+  gap: 16px;
+  padding: 12px 20px 0;
+}
+.wk-filters__col { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.wk-filters__col--status { flex: 1; min-width: 0; }
+/* individual statuses sit under "Status Change", several per row, wrapping as width runs out */
+.wk-filters__statuses { display: flex; flex-wrap: wrap; gap: 8px; }
+.wk-chip {
+  --c: #579bfc;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--c);
+  background: color-mix(in srgb, var(--c) 18%, transparent);
+  color: #fff;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.wk-chip__dot { width: 9px; height: 9px; border-radius: 50%; background: var(--c); }
+.wk-chip__n { color: rgba(255,255,255,0.5); font-size: 0.68rem; }
+.wk-chip--off {
+  background: transparent;
+  border-color: rgba(255,255,255,0.2);
+  color: rgba(255,255,255,0.4);
+}
+.wk-chip--off .wk-chip__dot { background: transparent; border: 1px solid rgba(255,255,255,0.3); box-sizing: border-box; }
+.wk-chip:disabled { cursor: default; }
+
+/* Top-level filters: white outline and white circle */
+.wk-chip--main { --c: #fff; border-color: #fff; background: transparent; }
+.wk-chip--main.wk-chip--off { border-color: rgba(255,255,255,0.2); }
+.wk-chip--main .wk-chip__dot { background: #fff; }
+.wk-chip--main.wk-chip--off .wk-chip__dot { background: transparent; border: 1px solid rgba(255,255,255,0.3); }
+
+.wk-card__badge {
+  margin-left: auto;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgba(0,200,117,0.2);
+  color: #00c875;
+  font-size: 0.62rem;
+  font-weight: 600;
+}
+
+/* Click a card to expand it to its full text */
+.wk-card { cursor: pointer; }
+.wk-card:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
+.wk-card--open {
+  flex-basis: auto;
+  height: auto;
+  min-height: var(--card-h);
+}
+.wk-card--open .tl-item { white-space: normal; overflow: visible; }
+.wk-card--open .tl-text {
+  display: block;
+  -webkit-line-clamp: unset;
+  overflow: visible;
+  white-space: pre-wrap;
+}
