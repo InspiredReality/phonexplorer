@@ -17,6 +17,15 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 const isDone = t => (t.status || '').trim().toLowerCase() === 'done';
 const hasTag = t => (t.tags ?? []).some(x => x.toLowerCase() === TAG);
 
+// A milestone is a Timeline set to display as a milestone. As a fallback, an
+// untagged item with a single-day timeline (the diamond in Monday) counts too,
+// in case the milestone flag isn't in the API response.
+function isMilestone(t) {
+  if (t.milestone) return true;
+  const tl = t.timeline;
+  return !!tl && tl.from.slice(0, 10) === (tl.to || tl.from).slice(0, 10) && !hasTag(t);
+}
+
 function fmtDay(iso) {
   const [, m, d] = iso.slice(0, 10).split('-');
   return `${MONTHS[Number(m) - 1]} ${d}`;
@@ -82,8 +91,8 @@ function ChecklistCard({ task }) {
 export default function OnboardingChecklist({ groups }) {
   const columns = groups
     .map(g => {
-      const milestones = g.tasks.filter(t => t.milestone);
-      const cards = g.tasks.filter(t => !t.milestone && hasTag(t));
+      const milestones = g.tasks.filter(isMilestone);
+      const cards = g.tasks.filter(t => !isMilestone(t) && hasTag(t));
       return { group: g, milestones, cards };
     })
     .filter(c => c.milestones.length > 0 || c.cards.length > 0);

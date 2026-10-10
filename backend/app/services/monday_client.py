@@ -743,7 +743,7 @@ def _shape_task(item: dict) -> dict:
                     value = None
                 if isinstance(value, dict) and value.get("visualization_type") == "milestone":
                     task["milestone"] = True
-        elif kind == "tags":
+        elif kind in ("tag", "tags"):  # Monday names the Tags column type "tag"
             task["tags"].extend(
                 t.strip().lstrip("#").strip()
                 for t in (col.get("text") or "").split(",")
