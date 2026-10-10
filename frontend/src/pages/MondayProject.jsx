@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './MondayProject.css';
 import ActivityTimeline from '../components/ActivityTimeline';
+import WeeklyActivityTimeline from '../components/WeeklyActivityTimeline';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 const FALLBACK_STATUS_COLOR = '#797e93';
@@ -225,6 +226,15 @@ export default function MondayProject() {
               error={errorA}
               onRetry={() => loadActivity(customer.trim())}
               title="Activity Timeline (30 days)"
+              emptyText="No updates or status changes on this board in the last 30 days."
+            />
+            <WeeklyActivityTimeline
+              updates={activity?.updates}
+              changes={activity?.status_changes}
+              loading={loadingA}
+              error={errorA}
+              onRetry={() => loadActivity(customer.trim())}
+              title="Activity Timeline (30 days) · By Week"
               emptyText="No updates or status changes on this board in the last 30 days."
             />
           </>

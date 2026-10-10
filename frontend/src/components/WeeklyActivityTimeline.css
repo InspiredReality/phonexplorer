@@ -1,0 +1,73 @@
+/* Weekly timeline: one column per week, events stacked vertically in each. */
+.wk-timeline {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  width: max-content;
+  min-width: 100%;
+}
+
+.wk-col {
+  position: relative;
+  width: 190px;
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding: 0 6px;
+}
+/* horizontal line through every week's node */
+.wk-col::before {
+  content: '';
+  position: absolute;
+  top: 37px;
+  left: 0;
+  right: 0;
+  height: 2px;
+  background: rgba(255,255,255,0.15);
+}
+
+.wk-label {
+  height: 18px;
+  margin-top: 6px;
+  text-align: center;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: rgba(255,255,255,0.6);
+  white-space: nowrap;
+}
+
+.wk-node {
+  position: relative;
+  z-index: 1;
+  align-self: center;
+  width: 14px;
+  height: 14px;
+  margin-top: 7px;
+  border-radius: 50%;
+  background: #8b8ba7;
+  border: 2px solid #1a1a2e;
+}
+
+.wk-stack {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.wk-card { margin-top: 0; }
+.wk-card--status { border-top-color: #579bfc; }
+.wk-card__top { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
+.wk-card__dot { width: 8px; height: 8px; margin-top: 0; border: none; }
+.wk-card__time { font-size: 0.68rem; color: rgba(255,255,255,0.45); }
+
+.wk-empty {
+  text-align: center;
+  font-size: 0.72rem;
+  color: rgba(255,255,255,0.25);
+  padding: 8px 0;
+}

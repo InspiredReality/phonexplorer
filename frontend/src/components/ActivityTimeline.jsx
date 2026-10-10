@@ -9,7 +9,7 @@ function stripHtml(html) {
   return html.replace(/<[^>]*>/g, '').trim() || '(empty)';
 }
 
-function formatDate(iso) {
+export function formatDate(iso) {
   try {
     return new Intl.DateTimeFormat(undefined, {
       month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
@@ -19,12 +19,12 @@ function formatDate(iso) {
   }
 }
 
-function firstWords(text, n = 8) {
+export function firstWords(text, n = 8) {
   const words = (text || '').split(/\s+/).filter(Boolean);
   return words.length > n ? `${words.slice(0, n).join(' ')}…` : words.join(' ');
 }
 
-function buildEvents(updates, changes) {
+export function buildEvents(updates, changes) {
   const events = [];
   for (const u of updates ?? []) {
     events.push({
