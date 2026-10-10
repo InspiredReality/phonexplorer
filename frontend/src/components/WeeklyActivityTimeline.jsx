@@ -44,20 +44,45 @@ function groupByWeek(events) {
   return weeks;
 }
 
-const UPDATE_COLOR = '#f6287e';
+const GREEN = '#00c875';
 const DEFAULT_STATUS_COLOR = '#579bfc';
 
-// Done / Deferred read as resolved (green), Pending Customer as waiting (yellow).
-function statusColor(status) {
-  const s = (status || '').trim().toLowerCase();
-  if (s === 'done' || s === 'deferred') return '#00c875';
-  if (s === 'pending customer') return '#f5c542';
-  return DEFAULT_STATUS_COLOR;
+// Filter groups. Raw Monday statuses are folded into these (Done + Deferred
+// are one tag; TODO shows as "ToDo"); anything else keeps its own name.
+const STATUS_ORDER = [
+  'ToDo',
+  'Pending Customer',
+  'Pending Nucleus Implementation',
+  'Pending Nucleus Product',
+  'Done/Deferred',
+];
+const STATUS_COLORS = {
+  'ToDo': '#797e93',                         // grey
+  'Pending Customer': '#f5c542',             // yellow
+  'Pending Nucleus Implementation': '#ff9f43', // orange
+  'Pending Nucleus Product': '#a25ddc',      // purple
+  'Done/Deferred': GREEN,
+};
+
+function statusGroup(raw) {
+  const s = (raw || '').trim().toLowerCase();
+  if (s === 'done' || s === 'deferred') return 'Done/Deferred';
+  if (s === 'todo' || s === 'to do') return 'ToDo';
+  return (raw || '').trim() || '—';
+}
+
+function statusColor(group) {
+  return STATUS_COLORS[group] ?? DEFAULT_STATUS_COLOR;
 }
 
 function eventColor(e) {
-  return e.kind === 'update' ? UPDATE_COLOR : statusColor(e.status);
+  return e.kind === 'update' ? GREEN : statusColor(statusGroup(e.status));
 }
+
+const SUBTYPES = [
+  { key: 'comment', label: 'Comments' },
+  { key: 'decision', label: 'Decisions' },
+];
 
 export default function WeeklyActivityTimeline({
   updates, changes, loading, error, errorChanges, onRetry,
@@ -66,23 +91,34 @@ export default function WeeklyActivityTimeline({
 }) {
   const allEvents = buildEvents(updates, changes);
 
-  // Filters: click a legend chip to hide / show that kind of event.
+  // Filters: click a chip to hide / show that kind of event. The two top-level
+  // chips switch a whole type off; the chips under them filter within it.
   const [hideUpdates, setHideUpdates] = useState(false);
   const [hideStatusChanges, setHideStatusChanges] = useState(false);
+  const [hiddenSubtypes, setHiddenSubtypes] = useState(() => new Set());
   const [hiddenStatuses, setHiddenStatuses] = useState(() => new Set());
 
-  // Distinct new-status values among status changes, most common first.
-  const statusCounts = new Map();
+  const subtypeCounts = { comment: 0, decision: 0 };
+  const statusCounts = new Map(STATUS_ORDER.map(n => [n, 0]));
   for (const e of allEvents) {
-    if (e.kind === 'status') {
-      const key = e.status ?? '—';
-      statusCounts.set(key, (statusCounts.get(key) ?? 0) + 1);
+    if (e.kind === 'update') {
+      subtypeCounts[e.subtype] += 1;
+    } else {
+      const g = statusGroup(e.status);
+      statusCounts.set(g, (statusCounts.get(g) ?? 0) + 1);
     }
   }
-  const statuses = [...statusCounts.entries()].sort((a, b) => b[1] - a[1]);
+  // Fixed order first, then any other statuses found in the data.
+  const statuses = [...statusCounts.entries()]
+    .filter(([name, count]) => STATUS_ORDER.includes(name) || count > 0)
+    .sort(([a], [b]) => {
+      const ia = STATUS_ORDER.indexOf(a), ib = STATUS_ORDER.indexOf(b);
+      if (ia !== -1 || ib !== -1) return (ia === -1 ? 99 : ia) - (ib === -1 ? 99 : ib);
+      return a.localeCompare(b);
+    });
 
-  function toggleStatus(name) {
-    setHiddenStatuses(prev => {
+  function toggle(setter, name) {
+    setter(prev => {
       const next = new Set(prev);
       if (next.has(name)) next.delete(name); else next.add(name);
       return next;
@@ -90,8 +126,8 @@ export default function WeeklyActivityTimeline({
   }
 
   const events = allEvents.filter(e => {
-    if (e.kind === 'update') return !hideUpdates;
-    return !hideStatusChanges && !hiddenStatuses.has(e.status ?? '—');
+    if (e.kind === 'update') return !hideUpdates && !hiddenSubtypes.has(e.subtype);
+    return !hideStatusChanges && !hiddenStatuses.has(statusGroup(e.status));
   });
   const weeks = groupByWeek(events);
   const scrollRef = useRef(null);
@@ -127,23 +163,37 @@ export default function WeeklyActivityTimeline({
                 <div className="wk-filters__col">
                   <button
                     type="button"
-                    className={`wk-chip${hideUpdates ? ' wk-chip--off' : ''}`}
-                    style={{ '--c': UPDATE_COLOR }}
+                    className={`wk-chip wk-chip--main${hideUpdates ? ' wk-chip--off' : ''}`}
                     aria-pressed={!hideUpdates}
                     onClick={() => setHideUpdates(v => !v)}
                   >
-                    <i className="wk-chip__dot" /> Comment Updates
+                    <i className="wk-chip__dot" /> Updates
                   </button>
+                  {SUBTYPES.map(({ key, label }) => {
+                    const off = hideUpdates || hiddenSubtypes.has(key);
+                    return (
+                      <button
+                        key={key}
+                        type="button"
+                        className={`wk-chip${off ? ' wk-chip--off' : ''}`}
+                        style={{ '--c': GREEN }}
+                        aria-pressed={!off}
+                        disabled={hideUpdates}
+                        onClick={() => toggle(setHiddenSubtypes, key)}
+                      >
+                        <i className="wk-chip__dot" /> {label} <span className="wk-chip__n">{subtypeCounts[key]}</span>
+                      </button>
+                    );
+                  })}
                 </div>
                 <div className="wk-filters__col wk-filters__col--status">
                   <button
                     type="button"
-                    className={`wk-chip${hideStatusChanges ? ' wk-chip--off' : ''}`}
-                    style={{ '--c': DEFAULT_STATUS_COLOR }}
+                    className={`wk-chip wk-chip--main${hideStatusChanges ? ' wk-chip--off' : ''}`}
                     aria-pressed={!hideStatusChanges}
                     onClick={() => setHideStatusChanges(v => !v)}
                   >
-                    <i className="wk-chip__dot" /> Status Change
+                    <i className="wk-chip__dot" /> Status Changes
                   </button>
                   <div className="wk-filters__statuses">
                     {statuses.map(([name, count]) => {
@@ -156,7 +206,7 @@ export default function WeeklyActivityTimeline({
                           style={{ '--c': statusColor(name) }}
                           aria-pressed={!off}
                           disabled={hideStatusChanges}
-                          onClick={() => toggleStatus(name)}
+                          onClick={() => toggle(setHiddenStatuses, name)}
                         >
                           <i className="wk-chip__dot" /> {name} <span className="wk-chip__n">{count}</span>
                         </button>
@@ -186,6 +236,7 @@ export default function WeeklyActivityTimeline({
                             <div className="wk-card__top">
                               <span className="wk-card__dot" />
                               <span className="wk-card__time">{formatDate(e.time)}</span>
+                              {e.subtype === 'decision' && <span className="wk-card__badge">Decision</span>}
                             </div>
                             <div className="tl-item">{e.item ?? '—'}</div>
                             <div className="tl-text">

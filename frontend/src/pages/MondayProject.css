@@ -190,3 +190,12 @@
 }
 .mp-update__replies { font-size: 0.72rem; color: #f6287e; }
 .mp-update--reply { margin-left: 14px; border-left: 2px solid rgba(246,40,126,0.5); padding-left: 10px; }
+.mp-badge {
+  margin-left: 8px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: rgba(0,200,117,0.2);
+  color: #00c875;
+  font-size: 0.68rem;
+  font-weight: 600;
+}

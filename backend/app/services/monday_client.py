@@ -217,6 +217,15 @@ query GetBoardUpdates($boardId: [ID!]!, $limit: Int!) {
 }
 """
 
+CREATE_TAG_MUTATION = """
+mutation CreateTag($tagName: String!, $boardId: ID!) {
+  create_or_get_tag(tag_name: $tagName, board_id: $boardId) {
+    id
+    name
+  }
+}
+"""
+
 USERS_QUERY = """
 query GetUsers { users { id name } }
 """
@@ -595,6 +604,18 @@ class MondayClient:
         data = await self._gql(CREATE_ITEM_MUTATION, variables)
         return data["create_item"]
 
+    async def _column_value(self, board_id: str, column_type: str, value: str) -> Any:
+        """Shape a plain string into the JSON structure Monday expects for a column type."""
+        if column_type in ("color", "status"):
+            return {"label": value}
+        if column_type == "dropdown":
+            return {"labels": [value]}
+        if column_type == "tag":
+            # Tag columns take tag IDs, so find or create the tag first.
+            tag = (await self._gql(CREATE_TAG_MUTATION, {"tagName": value, "boardId": board_id}))["create_or_get_tag"]
+            return {"tag_ids": [int(tag["id"])]}
+        return value  # text, long_text, ...
+
     async def create_item_by_board_name(
         self,
         board_name: str,
@@ -627,12 +648,7 @@ class MondayClient:
                         field_name, board_name,
                     )
                     continue
-                # Status/dropdown columns need {"label": ...}; everything else
-                # (text, long_text, ...) takes the plain string.
-                if column["type"] in ("color", "status", "dropdown"):
-                    column_values[column["id"]] = {"label": value}
-                else:
-                    column_values[column["id"]] = value
+                column_values[column["id"]] = await self._column_value(board["id"], column["type"], value)
 
         item = await self.create_item(board["id"], item_name, column_values)
         item["board"] = board

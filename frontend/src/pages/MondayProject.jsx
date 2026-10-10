@@ -47,12 +47,15 @@ function RecentUpdates({ updates }) {
     .slice(0, 10);
   return (
     <section className="mp-updates">
-      <h2 className="mp-updates__title">Recent Comment Updates</h2>
+      <h2 className="mp-updates__title">Recent Updates</h2>
       <ul className="mp-updates__list">
         {latest.map(c => (
           <li key={c.key} className={`mp-update${c.isReply ? ' mp-update--reply' : ''}`}>
             <div className="mp-update__meta">
-              <strong>{c.item ?? '—'}</strong>
+              <strong>
+                {c.item ?? '—'}
+                {c.subtype === 'decision' && <span className="mp-badge">Decision</span>}
+              </strong>
               <span>{c.who ?? '—'}{c.isReply ? ' · reply' : ''} · {fmtStamp(c.time)}</span>
             </div>
             <p className="mp-update__body">{c.text}</p>

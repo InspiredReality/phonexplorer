@@ -115,6 +115,7 @@
   background: color-mix(in srgb, var(--c) 18%, transparent);
   color: #fff;
   font-size: 0.75rem;
+  white-space: nowrap;
   cursor: pointer;
 }
 .wk-chip__dot { width: 9px; height: 9px; border-radius: 50%; background: var(--c); }
@@ -126,3 +127,19 @@
 }
 .wk-chip--off .wk-chip__dot { background: transparent; border: 1px solid rgba(255,255,255,0.3); box-sizing: border-box; }
 .wk-chip:disabled { cursor: default; }
+
+/* Top-level filters: white outline and white circle */
+.wk-chip--main { --c: #fff; border-color: #fff; background: transparent; }
+.wk-chip--main.wk-chip--off { border-color: rgba(255,255,255,0.2); }
+.wk-chip--main .wk-chip__dot { background: #fff; }
+.wk-chip--main.wk-chip--off .wk-chip__dot { background: transparent; border: 1px solid rgba(255,255,255,0.3); }
+
+.wk-card__badge {
+  margin-left: auto;
+  padding: 0 6px;
+  border-radius: 999px;
+  background: rgba(0,200,117,0.2);
+  color: #00c875;
+  font-size: 0.62rem;
+  font-weight: 600;
+}

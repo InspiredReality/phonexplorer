@@ -22,15 +22,22 @@ export function flattenComments(updates) {
     out.push({
       key: `u-${u.id}`, time: u.created_at, item: u._item_name,
       who: u.creator?.name, text: htmlToText(u.body), isReply: false,
+      subtype: commentSubtype(htmlToText(u.body)),
     });
     for (const r of u.replies ?? []) {
       out.push({
         key: `r-${r.id}`, time: r.created_at, item: u._item_name,
         who: r.creator?.name, text: htmlToText(r.body), isReply: true,
+        subtype: commentSubtype(htmlToText(r.body)),
       });
     }
   }
   return out;
+}
+
+// A Monday update or reply containing the hashtag #decision is a Decision; the rest are Comments.
+export function commentSubtype(text) {
+  return /#decision\b/i.test(text || '') ? 'decision' : 'comment';
 }
 
 // Keep a horizontally scrolling element scrolled to its right edge (today) whenever `dep` changes.
@@ -66,6 +73,7 @@ export function buildEvents(updates, changes) {
       item: c.item,
       who: c.who && c.isReply ? `${c.who} · reply` : c.who,
       text: c.text,
+      subtype: c.subtype,
     });
   }
   for (const c of changes ?? []) {
