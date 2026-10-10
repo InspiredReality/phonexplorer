@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './MondayProject.css';
-import ActivityTimeline from '../components/ActivityTimeline';
+import ActivityTimeline, { flattenComments } from '../components/ActivityTimeline';
 import WeeklyActivityTimeline from '../components/WeeklyActivityTimeline';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
@@ -30,10 +30,6 @@ async function fetchActivity(customer) {
   return res.json();
 }
 
-function plainText(html) {
-  return (html || '').replace(/<[^>]*>/g, '').trim() || '(empty)';
-}
-
 function fmtStamp(iso) {
   try {
     return new Intl.DateTimeFormat(undefined, {
@@ -45,23 +41,21 @@ function fmtStamp(iso) {
 }
 
 function RecentUpdates({ updates }) {
-  const latest = updates.slice(0, 10);
+  // Comment updates and their replies, newest first.
+  const latest = flattenComments(updates)
+    .sort((a, b) => new Date(b.time) - new Date(a.time))
+    .slice(0, 10);
   return (
     <section className="mp-updates">
-      <h2 className="mp-updates__title">Recent Updates</h2>
+      <h2 className="mp-updates__title">Recent Comment Updates</h2>
       <ul className="mp-updates__list">
-        {latest.map(u => (
-          <li key={u.id} className="mp-update">
+        {latest.map(c => (
+          <li key={c.key} className={`mp-update${c.isReply ? ' mp-update--reply' : ''}`}>
             <div className="mp-update__meta">
-              <strong>{u._item_name ?? '—'}</strong>
-              <span>{u.creator?.name ?? '—'} · {fmtStamp(u.created_at)}</span>
+              <strong>{c.item ?? '—'}</strong>
+              <span>{c.who ?? '—'}{c.isReply ? ' · reply' : ''} · {fmtStamp(c.time)}</span>
             </div>
-            <p className="mp-update__body">{plainText(u.body)}</p>
-            {u.replies?.length > 0 && (
-              <span className="mp-update__replies">
-                {u.replies.length} repl{u.replies.length === 1 ? 'y' : 'ies'}
-              </span>
-            )}
+            <p className="mp-update__body">{c.text}</p>
           </li>
         ))}
       </ul>

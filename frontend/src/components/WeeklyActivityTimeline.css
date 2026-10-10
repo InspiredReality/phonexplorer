@@ -96,12 +96,14 @@
 /* ── Filter chips ── */
 .wk-filters {
   display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 8px;
+  align-items: flex-start;
+  gap: 16px;
   padding: 12px 20px 0;
 }
-.wk-filters__sep { color: rgba(255,255,255,0.2); }
+.wk-filters__col { display: flex; flex-direction: column; gap: 8px; align-items: flex-start; }
+.wk-filters__col--status { flex: 1; min-width: 0; }
+/* individual statuses sit under "Status Change", several per row, wrapping as width runs out */
+.wk-filters__statuses { display: flex; flex-wrap: wrap; gap: 8px; }
 .wk-chip {
   --c: #579bfc;
   display: inline-flex;

@@ -1,7 +1,7 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import './ActivityTimeline.css';
 import './WeeklyActivityTimeline.css';
-import { buildEvents, firstWords, formatDate } from './ActivityTimeline';
+import { buildEvents, firstWords, formatDate, useScrollToEnd } from './ActivityTimeline';
 
 // Same data as ActivityTimeline, grouped into Monday-start weeks. Each week is
 // one column on the horizontal line; its updates and status changes stack
@@ -94,6 +94,8 @@ export default function WeeklyActivityTimeline({
     return !hideStatusChanges && !hiddenStatuses.has(e.status ?? '—');
   });
   const weeks = groupByWeek(events);
+  const scrollRef = useRef(null);
+  useScrollToEnd(scrollRef, `${loading}-${weeks.length}`);
 
   return (
     <section className="atl-card">
@@ -122,48 +124,51 @@ export default function WeeklyActivityTimeline({
           ) : (
             <>
               <div className="wk-filters">
-                <button
-                  type="button"
-                  className={`wk-chip${hideUpdates ? ' wk-chip--off' : ''}`}
-                  style={{ '--c': UPDATE_COLOR }}
-                  aria-pressed={!hideUpdates}
-                  onClick={() => setHideUpdates(v => !v)}
-                >
-                  <i className="wk-chip__dot" /> Update
-                </button>
-                <button
-                  type="button"
-                  className={`wk-chip${hideStatusChanges ? ' wk-chip--off' : ''}`}
-                  style={{ '--c': DEFAULT_STATUS_COLOR }}
-                  aria-pressed={!hideStatusChanges}
-                  onClick={() => setHideStatusChanges(v => !v)}
-                >
-                  <i className="wk-chip__dot" /> Status change
-                </button>
-                {statuses.length > 0 && (
-                  <span className="wk-filters__sep" aria-hidden="true">|</span>
-                )}
-                {statuses.map(([name, count]) => {
-                  const off = hideStatusChanges || hiddenStatuses.has(name);
-                  return (
-                    <button
-                      key={name}
-                      type="button"
-                      className={`wk-chip wk-chip--status${off ? ' wk-chip--off' : ''}`}
-                      style={{ '--c': statusColor(name) }}
-                      aria-pressed={!off}
-                      disabled={hideStatusChanges}
-                      onClick={() => toggleStatus(name)}
-                    >
-                      <i className="wk-chip__dot" /> {name} <span className="wk-chip__n">{count}</span>
-                    </button>
-                  );
-                })}
+                <div className="wk-filters__col">
+                  <button
+                    type="button"
+                    className={`wk-chip${hideUpdates ? ' wk-chip--off' : ''}`}
+                    style={{ '--c': UPDATE_COLOR }}
+                    aria-pressed={!hideUpdates}
+                    onClick={() => setHideUpdates(v => !v)}
+                  >
+                    <i className="wk-chip__dot" /> Comment Updates
+                  </button>
+                </div>
+                <div className="wk-filters__col wk-filters__col--status">
+                  <button
+                    type="button"
+                    className={`wk-chip${hideStatusChanges ? ' wk-chip--off' : ''}`}
+                    style={{ '--c': DEFAULT_STATUS_COLOR }}
+                    aria-pressed={!hideStatusChanges}
+                    onClick={() => setHideStatusChanges(v => !v)}
+                  >
+                    <i className="wk-chip__dot" /> Status Change
+                  </button>
+                  <div className="wk-filters__statuses">
+                    {statuses.map(([name, count]) => {
+                      const off = hideStatusChanges || hiddenStatuses.has(name);
+                      return (
+                        <button
+                          key={name}
+                          type="button"
+                          className={`wk-chip wk-chip--status${off ? ' wk-chip--off' : ''}`}
+                          style={{ '--c': statusColor(name) }}
+                          aria-pressed={!off}
+                          disabled={hideStatusChanges}
+                          onClick={() => toggleStatus(name)}
+                        >
+                          <i className="wk-chip__dot" /> {name} <span className="wk-chip__n">{count}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
               </div>
               {events.length === 0 ? (
                 <div className="atl-state">Everything is filtered out. Click a filter above to show it again.</div>
               ) : (
-              <div className="atl-scroll">
+              <div className="atl-scroll" ref={scrollRef}>
                 <ol className="wk-timeline">
                   {weeks.map(w => (
                     <li key={w.key} className="wk-col">

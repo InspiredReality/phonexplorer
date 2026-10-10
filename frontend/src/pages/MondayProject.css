@@ -189,3 +189,4 @@
   overflow-wrap: anywhere;
 }
 .mp-update__replies { font-size: 0.72rem; color: #f6287e; }
+.mp-update--reply { margin-left: 14px; border-left: 2px solid rgba(246,40,126,0.5); padding-left: 10px; }
