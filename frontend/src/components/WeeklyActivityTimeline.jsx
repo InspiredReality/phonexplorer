@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import './ActivityTimeline.css';
 import './WeeklyActivityTimeline.css';
 import { buildEvents, firstWords, formatDate } from './ActivityTimeline';
@@ -43,12 +44,55 @@ function groupByWeek(events) {
   return weeks;
 }
 
+const UPDATE_COLOR = '#f6287e';
+const DEFAULT_STATUS_COLOR = '#579bfc';
+
+// Done / Deferred read as resolved (green), Pending Customer as waiting (yellow).
+function statusColor(status) {
+  const s = (status || '').trim().toLowerCase();
+  if (s === 'done' || s === 'deferred') return '#00c875';
+  if (s === 'pending customer') return '#f5c542';
+  return DEFAULT_STATUS_COLOR;
+}
+
+function eventColor(e) {
+  return e.kind === 'update' ? UPDATE_COLOR : statusColor(e.status);
+}
+
 export default function WeeklyActivityTimeline({
   updates, changes, loading, error, errorChanges, onRetry,
   title = 'Activity Timeline · By Week',
   emptyText = 'No updates or status changes in this period.',
 }) {
-  const events = buildEvents(updates, changes);
+  const allEvents = buildEvents(updates, changes);
+
+  // Filters: click a legend chip to hide / show that kind of event.
+  const [hideUpdates, setHideUpdates] = useState(false);
+  const [hideStatusChanges, setHideStatusChanges] = useState(false);
+  const [hiddenStatuses, setHiddenStatuses] = useState(() => new Set());
+
+  // Distinct new-status values among status changes, most common first.
+  const statusCounts = new Map();
+  for (const e of allEvents) {
+    if (e.kind === 'status') {
+      const key = e.status ?? '—';
+      statusCounts.set(key, (statusCounts.get(key) ?? 0) + 1);
+    }
+  }
+  const statuses = [...statusCounts.entries()].sort((a, b) => b[1] - a[1]);
+
+  function toggleStatus(name) {
+    setHiddenStatuses(prev => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name); else next.add(name);
+      return next;
+    });
+  }
+
+  const events = allEvents.filter(e => {
+    if (e.kind === 'update') return !hideUpdates;
+    return !hideStatusChanges && !hiddenStatuses.has(e.status ?? '—');
+  });
   const weeks = groupByWeek(events);
 
   return (
@@ -73,14 +117,52 @@ export default function WeeklyActivityTimeline({
           {errorChanges && (
             <div className="atl-warn">Status changes unavailable: {errorChanges}</div>
           )}
-          {events.length === 0 ? (
+          {allEvents.length === 0 ? (
             <div className="atl-state">{emptyText}</div>
           ) : (
             <>
-              <div className="atl-legend">
-                <span><i className="tl-dot tl-dot--update" /> Update</span>
-                <span><i className="tl-dot tl-dot--status" /> Status change</span>
+              <div className="wk-filters">
+                <button
+                  type="button"
+                  className={`wk-chip${hideUpdates ? ' wk-chip--off' : ''}`}
+                  style={{ '--c': UPDATE_COLOR }}
+                  aria-pressed={!hideUpdates}
+                  onClick={() => setHideUpdates(v => !v)}
+                >
+                  <i className="wk-chip__dot" /> Update
+                </button>
+                <button
+                  type="button"
+                  className={`wk-chip${hideStatusChanges ? ' wk-chip--off' : ''}`}
+                  style={{ '--c': DEFAULT_STATUS_COLOR }}
+                  aria-pressed={!hideStatusChanges}
+                  onClick={() => setHideStatusChanges(v => !v)}
+                >
+                  <i className="wk-chip__dot" /> Status change
+                </button>
+                {statuses.length > 0 && (
+                  <span className="wk-filters__sep" aria-hidden="true">|</span>
+                )}
+                {statuses.map(([name, count]) => {
+                  const off = hideStatusChanges || hiddenStatuses.has(name);
+                  return (
+                    <button
+                      key={name}
+                      type="button"
+                      className={`wk-chip wk-chip--status${off ? ' wk-chip--off' : ''}`}
+                      style={{ '--c': statusColor(name) }}
+                      aria-pressed={!off}
+                      disabled={hideStatusChanges}
+                      onClick={() => toggleStatus(name)}
+                    >
+                      <i className="wk-chip__dot" /> {name} <span className="wk-chip__n">{count}</span>
+                    </button>
+                  );
+                })}
               </div>
+              {events.length === 0 ? (
+                <div className="atl-state">Everything is filtered out. Click a filter above to show it again.</div>
+              ) : (
               <div className="atl-scroll">
                 <ol className="wk-timeline">
                   {weeks.map(w => (
@@ -90,9 +172,14 @@ export default function WeeklyActivityTimeline({
                       <ul className="wk-stack">
                         {w.events.length === 0 && <li className="wk-empty">No activity</li>}
                         {w.events.map(e => (
-                          <li key={e.key} className={`tl-card wk-card wk-card--${e.kind}`} title={e.text}>
+                          <li
+                            key={e.key}
+                            className="tl-card wk-card"
+                            style={{ '--c': eventColor(e) }}
+                            title={`${e.item ?? ''}: ${e.text}`}
+                          >
                             <div className="wk-card__top">
-                              <span className={`tl-dot tl-dot--${e.kind} wk-card__dot`} />
+                              <span className="wk-card__dot" />
                               <span className="wk-card__time">{formatDate(e.time)}</span>
                             </div>
                             <div className="tl-item">{e.item ?? '—'}</div>
@@ -107,6 +194,7 @@ export default function WeeklyActivityTimeline({
                   ))}
                 </ol>
               </div>
+              )}
             </>
           )}
         </>

@@ -43,6 +43,7 @@ export function buildEvents(updates, changes) {
       time: c.timestamp,
       item: c.item_name,
       who: c.user,
+      status: c.to_status ?? null,
       text: `${c.from_status ?? '—'} → ${c.to_status ?? '—'}`,
     });
   }

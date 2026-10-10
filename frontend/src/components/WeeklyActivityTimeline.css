@@ -50,20 +50,41 @@
   border: 2px solid #1a1a2e;
 }
 
+/* Show 5 cards, then scroll vertically inside the week. Cards are a fixed
+   height (text is clamped) so "5 items" is a stable pixel height. */
 .wk-stack {
+  --card-h: 104px;
+  --card-gap: 8px;
   list-style: none;
   margin: 12px 0 0;
-  padding: 0;
+  padding: 0 2px 0 0;
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: var(--card-gap);
+  max-height: calc(5 * var(--card-h) + 4 * var(--card-gap));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
 }
 
-.wk-card { margin-top: 0; }
-.wk-card--status { border-top-color: #579bfc; }
+.wk-card {
+  --c: #579bfc;
+  margin-top: 0;
+  flex: 0 0 var(--card-h);
+  height: var(--card-h);
+  box-sizing: border-box;
+  overflow: hidden;
+  border-top: 2px solid var(--c);
+}
 .wk-card__top { display: flex; align-items: center; gap: 6px; margin-bottom: 4px; }
-.wk-card__dot { width: 8px; height: 8px; margin-top: 0; border: none; }
+.wk-card__dot { width: 8px; height: 8px; border-radius: 50%; background: var(--c); flex-shrink: 0; }
 .wk-card__time { font-size: 0.68rem; color: rgba(255,255,255,0.45); }
+.wk-card .tl-text {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
 
 .wk-empty {
   text-align: center;
@@ -71,3 +92,35 @@
   color: rgba(255,255,255,0.25);
   padding: 8px 0;
 }
+
+/* ── Filter chips ── */
+.wk-filters {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 20px 0;
+}
+.wk-filters__sep { color: rgba(255,255,255,0.2); }
+.wk-chip {
+  --c: #579bfc;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--c);
+  background: color-mix(in srgb, var(--c) 18%, transparent);
+  color: #fff;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+.wk-chip__dot { width: 9px; height: 9px; border-radius: 50%; background: var(--c); }
+.wk-chip__n { color: rgba(255,255,255,0.5); font-size: 0.68rem; }
+.wk-chip--off {
+  background: transparent;
+  border-color: rgba(255,255,255,0.2);
+  color: rgba(255,255,255,0.4);
+}
+.wk-chip--off .wk-chip__dot { background: transparent; border: 1px solid rgba(255,255,255,0.3); box-sizing: border-box; }
+.wk-chip:disabled { cursor: default; }
