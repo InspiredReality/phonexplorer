@@ -40,14 +40,49 @@ function fmtStamp(iso) {
   }
 }
 
+const UPDATE_FILTERS = [
+  { key: 'comment', label: 'Comments', color: '#f6287e' },
+  { key: 'decision', label: 'Decisions', color: '#00c875' },
+];
+
 function RecentUpdates({ updates }) {
-  // Comment updates and their replies, newest first.
-  const latest = flattenComments(updates)
-    .sort((a, b) => new Date(b.time) - new Date(a.time))
-    .slice(0, 10);
+  const [hidden, setHidden] = useState(() => new Set());
+  const all = flattenComments(updates).sort((a, b) => new Date(b.time) - new Date(a.time));
+  const counts = { comment: 0, decision: 0 };
+  for (const c of all) counts[c.subtype] += 1;
+
+  function toggle(key) {
+    setHidden(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }
+
+  // Comment updates and their replies, newest first, after filtering.
+  const latest = all.filter(c => !hidden.has(c.subtype)).slice(0, 10);
+
   return (
     <section className="mp-updates">
       <h2 className="mp-updates__title">Recent Updates</h2>
+      <div className="mp-filters">
+        {UPDATE_FILTERS.map(({ key, label, color }) => {
+          const off = hidden.has(key);
+          return (
+            <button
+              key={key}
+              type="button"
+              className={`mp-chip${off ? ' mp-chip--off' : ''}`}
+              style={{ '--c': color }}
+              aria-pressed={!off}
+              onClick={() => toggle(key)}
+            >
+              <i className="mp-chip__dot" /> {label} <span className="mp-chip__n">{counts[key]}</span>
+            </button>
+          );
+        })}
+      </div>
+      {latest.length === 0 && <p className="mp-updates__empty">Everything is filtered out.</p>}
       <ul className="mp-updates__list">
         {latest.map(c => (
           <li key={c.key} className={`mp-update${c.isReply ? ' mp-update--reply' : ''}`}>
