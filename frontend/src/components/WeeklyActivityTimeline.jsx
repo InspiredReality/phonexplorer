@@ -45,6 +45,7 @@ function groupByWeek(events) {
 }
 
 const GREEN = '#00c875';
+const PINK = '#f6287e';
 const DEFAULT_STATUS_COLOR = '#579bfc';
 
 // Filter groups. Raw Monday statuses are folded into these (Done + Deferred
@@ -59,8 +60,6 @@ const STATUS_ORDER = [
 const STATUS_COLORS = {
   'ToDo': '#797e93',                         // grey
   'Pending Customer': '#f5c542',             // yellow
-  'Pending Nucleus Implementation': '#ff9f43', // orange
-  'Pending Nucleus Product': '#a25ddc',      // purple
   'Done/Deferred': GREEN,
 };
 
@@ -76,12 +75,13 @@ function statusColor(group) {
 }
 
 function eventColor(e) {
-  return e.kind === 'update' ? GREEN : statusColor(statusGroup(e.status));
+  if (e.kind === 'update') return e.subtype === 'decision' ? GREEN : PINK;
+  return statusColor(statusGroup(e.status));
 }
 
 const SUBTYPES = [
-  { key: 'comment', label: 'Comments' },
-  { key: 'decision', label: 'Decisions' },
+  { key: 'comment', label: 'Comments', color: PINK },
+  { key: 'decision', label: 'Decisions', color: GREEN },
 ];
 
 export default function WeeklyActivityTimeline({
@@ -169,14 +169,14 @@ export default function WeeklyActivityTimeline({
                   >
                     <i className="wk-chip__dot" /> Updates
                   </button>
-                  {SUBTYPES.map(({ key, label }) => {
+                  {SUBTYPES.map(({ key, label, color }) => {
                     const off = hideUpdates || hiddenSubtypes.has(key);
                     return (
                       <button
                         key={key}
                         type="button"
                         className={`wk-chip${off ? ' wk-chip--off' : ''}`}
-                        style={{ '--c': GREEN }}
+                        style={{ '--c': color }}
                         aria-pressed={!off}
                         disabled={hideUpdates}
                         onClick={() => toggle(setHiddenSubtypes, key)}
