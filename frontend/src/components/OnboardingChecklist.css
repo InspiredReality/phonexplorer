@@ -1,0 +1,82 @@
+/* Reuses the weekly timeline's column / node / card styles (wk-*); these are the differences. */
+
+/* Group titles can wrap to two lines, so the label gets a fixed 2-line height
+   and the connecting line moves down to meet the node. */
+.ob-timeline .wk-label {
+  height: 40px;
+  margin-top: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  white-space: normal;
+  line-height: 1.15;
+  font-size: 0.78rem;
+}
+.ob-timeline .wk-col::before { top: 59px; }
+
+/* Milestones: directly under the node, above the cards */
+.ob-milestones {
+  list-style: none;
+  margin: 10px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ob-ms {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 8px;
+  border-radius: 8px;
+  background: rgba(255,255,255,0.04);
+  font-size: 0.74rem;
+}
+.ob-ms__diamond {
+  width: 10px;
+  height: 10px;
+  flex-shrink: 0;
+  transform: rotate(45deg);
+  border-radius: 2px;
+}
+.ob-ms__name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ob-ms__date { color: rgba(255,255,255,0.45); font-size: 0.68rem; white-space: nowrap; }
+
+/* Cards: 5 visible then scroll (same as the weekly timeline) */
+.ob-card { gap: 4px; display: flex; flex-direction: column; }
+.ob-card .tl-item { white-space: normal; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; }
+.ob-card.wk-card--open .tl-item { display: block; overflow: visible; }
+.ob-pill {
+  align-self: flex-start;
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-size: 0.7rem;
+  color: #fff;
+  white-space: nowrap;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.ob-subcount {
+  margin-left: auto;
+  min-width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: #4a4a58;
+  color: #fff;
+  font-size: 0.66rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.ob-subs {
+  list-style: none;
+  margin: 6px 0 0;
+  padding: 6px 0 0;
+  border-top: 1px solid rgba(255,255,255,0.1);
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.ob-sub { display: flex; flex-direction: column; gap: 3px; font-size: 0.72rem; color: rgba(255,255,255,0.8); }

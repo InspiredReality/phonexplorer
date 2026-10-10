@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import './MondayProject.css';
 // import ActivityTimeline from '../components/ActivityTimeline'; // original timeline (no filters), commented out
 import { flattenComments } from '../components/ActivityTimeline';
+import OnboardingChecklist from '../components/OnboardingChecklist';
 import WeeklyActivityTimeline from '../components/WeeklyActivityTimeline';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
@@ -247,6 +248,8 @@ export default function MondayProject() {
         {!project && !error && !loading && (
           <p className="mp-hint">Enter a customer name to load their Monday project board.</p>
         )}
+        {project && <OnboardingChecklist groups={project.groups} />}
+
         {project?.groups.map(g => <Group key={g.id} group={g} />)}
 
         {project && (
