@@ -2,13 +2,13 @@ import { useState } from 'react';
 import './ActivityTimeline.css';
 import './WeeklyActivityTimeline.css';
 import './OnboardingChecklist.css';
+import { GREEN, orderedStatusGroups, statusColor, statusGroup } from './statusGroups';
 
 // Onboarding Checklist: the project board's groups as columns on a horizontal
 // line. Under each group's node sit its milestones, then cards for the items
 // tagged #Onboarding (their subtasks come along, shown when a card is opened).
 
 const TAG = 'onboarding';
-const GREEN = '#00c875';
 const NODE_GREY = '#8b8ba7';
 const FALLBACK_GROUP_COLOR = '#579bfc';
 const FALLBACK_STATUS_COLOR = '#797e93';
@@ -89,15 +89,45 @@ function ChecklistCard({ task }) {
 }
 
 export default function OnboardingChecklist({ groups }) {
-  const columns = groups
-    .map(g => {
-      const milestones = g.tasks.filter(isMilestone);
-      const cards = g.tasks.filter(t => !isMilestone(t) && hasTag(t));
-      return { group: g, milestones, cards };
-    })
+  const [hiddenStatuses, setHiddenStatuses] = useState(() => new Set());
+  const visible = t => !hiddenStatuses.has(statusGroup(t.status));
+
+  const all = groups
+    .map(g => ({
+      group: g,
+      milestones: g.tasks.filter(isMilestone),
+      cards: g.tasks.filter(t => !isMilestone(t) && hasTag(t)),
+    }))
     .filter(c => c.milestones.length > 0 || c.cards.length > 0);
 
-  const total = columns.reduce((n, c) => n + c.cards.length, 0);
+  // Filter chip counts cover every checklist item (cards and milestones).
+  const counts = new Map();
+  for (const { milestones, cards } of all) {
+    for (const t of [...milestones, ...cards]) {
+      const g = statusGroup(t.status);
+      counts.set(g, (counts.get(g) ?? 0) + 1);
+    }
+  }
+  const statuses = orderedStatusGroups(counts);
+
+  function toggleStatus(name) {
+    setHiddenStatuses(prev => {
+      const next = new Set(prev);
+      if (next.has(name)) next.delete(name); else next.add(name);
+      return next;
+    });
+  }
+
+  // Filters hide cards and milestones from view; a node's green state still
+  // looks at all of the group's milestones.
+  const columns = all.map(c => ({
+    ...c,
+    reached: c.milestones.length > 0 && c.milestones.every(isDone),
+    milestones: c.milestones.filter(visible),
+    cards: c.cards.filter(visible),
+  }));
+
+  const total = all.reduce((n, c) => n + c.cards.length, 0);
 
   return (
     <section className="atl-card ob-card-shell">
@@ -108,15 +138,34 @@ export default function OnboardingChecklist({ groups }) {
         </h2>
       </div>
 
-      {columns.length === 0 ? (
+      {all.length === 0 ? (
         <div className="atl-state">No items tagged #Onboarding on this board.</div>
       ) : (
+        <>
+        <div className="wk-filters ob-filters">
+          <div className="wk-filters__statuses">
+            {statuses.map(name => {
+              const off = hiddenStatuses.has(name);
+              return (
+                <button
+                  key={name}
+                  type="button"
+                  className={`wk-chip wk-chip--status${off ? ' wk-chip--off' : ''}`}
+                  style={{ '--c': statusColor(name) }}
+                  aria-pressed={!off}
+                  onClick={() => toggleStatus(name)}
+                >
+                  <i className="wk-chip__dot" /> {name} <span className="wk-chip__n">{counts.get(name) ?? 0}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
         <div className="atl-scroll">
           <ol className="wk-timeline ob-timeline">
-            {columns.map(({ group, milestones, cards }) => {
+            {columns.map(({ group, milestones, cards, reached }) => {
               const color = group.color || FALLBACK_GROUP_COLOR;
-              // The group's node goes green once all of its milestones are Done.
-              const reached = milestones.length > 0 && milestones.every(isDone);
+              // The node goes green once all of the group's milestones are Done.
               return (
                 <li key={group.id} className="wk-col">
                   <span className="wk-label ob-label" style={{ color }} title={group.title}>
@@ -147,6 +196,7 @@ export default function OnboardingChecklist({ groups }) {
             })}
           </ol>
         </div>
+        </>
       )}
     </section>
   );

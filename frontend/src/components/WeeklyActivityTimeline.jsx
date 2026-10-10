@@ -2,6 +2,7 @@ import { useRef, useState } from 'react';
 import './ActivityTimeline.css';
 import './WeeklyActivityTimeline.css';
 import { buildEvents, firstWords, formatDate, useScrollToEnd } from './ActivityTimeline';
+import { GREEN, STATUS_ORDER, statusColor, statusGroup } from './statusGroups';
 
 // Same data as ActivityTimeline, grouped into Monday-start weeks. Each week is
 // one column on the horizontal line; its updates and status changes stack
@@ -44,35 +45,7 @@ function groupByWeek(events) {
   return weeks;
 }
 
-const GREEN = '#00c875';
 const PINK = '#f6287e';
-const DEFAULT_STATUS_COLOR = '#579bfc';
-
-// Filter groups. Raw Monday statuses are folded into these (Done + Deferred
-// are one tag; TODO shows as "ToDo"); anything else keeps its own name.
-const STATUS_ORDER = [
-  'ToDo',
-  'Pending Customer',
-  'Pending Nucleus',
-  'Done/Deferred',
-];
-const STATUS_COLORS = {
-  'ToDo': '#797e93',                         // grey
-  'Pending Customer': '#f5c542',             // yellow
-  'Done/Deferred': GREEN,
-};
-
-function statusGroup(raw) {
-  const s = (raw || '').trim().toLowerCase();
-  if (s === 'done' || s === 'deferred') return 'Done/Deferred';
-  if (s === 'todo' || s === 'to do') return 'ToDo';
-  if (s.startsWith('pending nucleus')) return 'Pending Nucleus'; // Implementation + Product
-  return (raw || '').trim() || '—';
-}
-
-function statusColor(group) {
-  return STATUS_COLORS[group] ?? DEFAULT_STATUS_COLOR;
-}
 
 function eventColor(e) {
   if (e.kind === 'update') return e.subtype === 'decision' ? GREEN : PINK;
