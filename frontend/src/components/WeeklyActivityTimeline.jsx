@@ -53,8 +53,7 @@ const DEFAULT_STATUS_COLOR = '#579bfc';
 const STATUS_ORDER = [
   'ToDo',
   'Pending Customer',
-  'Pending Nucleus Implementation',
-  'Pending Nucleus Product',
+  'Pending Nucleus',
   'Done/Deferred',
 ];
 const STATUS_COLORS = {
@@ -67,6 +66,7 @@ function statusGroup(raw) {
   const s = (raw || '').trim().toLowerCase();
   if (s === 'done' || s === 'deferred') return 'Done/Deferred';
   if (s === 'todo' || s === 'to do') return 'ToDo';
+  if (s.startsWith('pending nucleus')) return 'Pending Nucleus'; // Implementation + Product
   return (raw || '').trim() || '—';
 }
 

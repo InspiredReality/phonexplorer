@@ -100,7 +100,7 @@ query GetRecentUpdates($limit: Int!, $page: Int!, $from_date: ISO8601DateTime!, 
 
 ITEM_NAMES_QUERY = """
 query GetItemNames($ids: [ID!]!) {
-  items(ids: $ids) {
+  items(ids: $ids, limit: 100) {
     id
     name
     board { id name }
@@ -504,7 +504,14 @@ class MondayClient:
                 for item in data.get("items", []):
                     meta[str(item["id"])] = {"name": item.get("name", "—"), "board": item.get("board")}
             except RuntimeError as exc:
-                log.warning("Item meta fetch failed for batch: %s", exc)
+                log.warning("Item meta fetch failed for batch (%s); retrying one by one", exc)
+                for item_id in batch:
+                    try:
+                        data = await self._gql(ITEM_NAMES_QUERY, {"ids": [item_id]})
+                        for item in data.get("items", []):
+                            meta[str(item["id"])] = {"name": item.get("name", "—"), "board": item.get("board")}
+                    except RuntimeError:
+                        log.warning("Item meta fetch failed for item %s", item_id)
             await asyncio.sleep(PAGE_DELAY_S)
         return meta
 
