@@ -143,3 +143,19 @@
   font-size: 0.62rem;
   font-weight: 600;
 }
+
+/* Click a card to expand it to its full text */
+.wk-card { cursor: pointer; }
+.wk-card:focus-visible { outline: 2px solid #fff; outline-offset: 1px; }
+.wk-card--open {
+  flex-basis: auto;
+  height: auto;
+  min-height: var(--card-h);
+}
+.wk-card--open .tl-item { white-space: normal; overflow: visible; }
+.wk-card--open .tl-text {
+  display: block;
+  -webkit-line-clamp: unset;
+  overflow: visible;
+  white-space: pre-wrap;
+}

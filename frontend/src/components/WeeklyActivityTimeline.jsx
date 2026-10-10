@@ -117,6 +117,16 @@ export default function WeeklyActivityTimeline({
       return a.localeCompare(b);
     });
 
+  // Cards the user has clicked open to show their full text.
+  const [expanded, setExpanded] = useState(() => new Set());
+  function toggleCard(key) {
+    setExpanded(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }
+
   function toggle(setter, name) {
     setter(prev => {
       const next = new Set(prev);
@@ -226,25 +236,37 @@ export default function WeeklyActivityTimeline({
                       <span className="wk-node" />
                       <ul className="wk-stack">
                         {w.events.length === 0 && <li className="wk-empty">No activity</li>}
-                        {w.events.map(e => (
-                          <li
-                            key={e.key}
-                            className="tl-card wk-card"
-                            style={{ '--c': eventColor(e) }}
-                            title={`${e.item ?? ''}: ${e.text}`}
-                          >
-                            <div className="wk-card__top">
-                              <span className="wk-card__dot" />
-                              <span className="wk-card__time">{formatDate(e.time)}</span>
-                              {e.subtype === 'decision' && <span className="wk-card__badge">Decision</span>}
-                            </div>
-                            <div className="tl-item">{e.item ?? '—'}</div>
-                            <div className="tl-text">
-                              {e.kind === 'update' ? firstWords(e.text) : e.text}
-                            </div>
-                            {e.who && <div className="tl-who">{e.who}</div>}
-                          </li>
-                        ))}
+                        {w.events.map(e => {
+                          const open = expanded.has(e.key);
+                          return (
+                            <li
+                              key={e.key}
+                              className={`tl-card wk-card${open ? ' wk-card--open' : ''}`}
+                              style={{ '--c': eventColor(e) }}
+                              role="button"
+                              tabIndex={0}
+                              aria-expanded={open}
+                              onClick={() => toggleCard(e.key)}
+                              onKeyDown={ev => {
+                                if (ev.key === 'Enter' || ev.key === ' ') {
+                                  ev.preventDefault();
+                                  toggleCard(e.key);
+                                }
+                              }}
+                            >
+                              <div className="wk-card__top">
+                                <span className="wk-card__dot" />
+                                <span className="wk-card__time">{formatDate(e.time)}</span>
+                                {e.subtype === 'decision' && <span className="wk-card__badge">Decision</span>}
+                              </div>
+                              <div className="tl-item">{e.item ?? '—'}</div>
+                              <div className="tl-text">
+                                {e.kind === 'update' && !open ? firstWords(e.text) : e.text}
+                              </div>
+                              {e.who && <div className="tl-who">{e.who}</div>}
+                            </li>
+                          );
+                        })}
                       </ul>
                     </li>
                   ))}
