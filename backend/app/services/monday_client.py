@@ -593,6 +593,33 @@ class MondayClient:
 
         return {"board": {"id": board["id"], "name": board["name"]}, "groups": groups}
 
+    async def get_raw_items(self, customer: str, name_contains: str, page_size: int = DEFAULT_PAGE_SIZE) -> dict | None:
+        """
+        Raw column values (before shaping) for items and subitems on a customer's
+        board whose name contains `name_contains`. For checking how Monday
+        reports milestones, tags, etc. Returns None if no board matches.
+        """
+        found = await self.find_board_by_customer(customer)
+        if not found:
+            return None
+        data = await self._gql(BOARD_PROJECT_QUERY, {"boardId": [found["id"]], "limit": page_size})
+        page = data["boards"][0].get("items_page") or {}
+        items = list(page.get("items", []))
+        cursor = page.get("cursor")
+        while cursor:
+            await asyncio.sleep(PAGE_DELAY_S)
+            nxt = (await self._gql(NEXT_PROJECT_ITEMS_QUERY, {"limit": page_size, "cursor": cursor}))["next_items_page"]
+            items.extend(nxt.get("items", []))
+            cursor = nxt.get("cursor")
+
+        needle = name_contains.strip().lower()
+        matches = []
+        for item in items:
+            for candidate in [item, *(item.get("subitems") or [])]:
+                if needle in candidate["name"].lower():
+                    matches.append(candidate)
+        return {"board": {"id": found["id"], "name": found["name"]}, "matches": matches}
+
     async def get_board_columns(self, board_id: str) -> list[dict]:
         """Return [{"id", "title", "type"}, ...] for the given board."""
         data = await self._gql(BOARD_COLUMNS_QUERY, {"boardId": [board_id]})
@@ -717,39 +744,49 @@ def _parse_status_change(entry: dict, board: dict, users: dict[str, str]) -> dic
 def _shape_task(item: dict) -> dict:
     """
     Flatten an item's column values into the fields the UI shows: status,
-    timeline, tags (names, without the leading "#") and whether the timeline
-    is set to display as a milestone.
+    timeline, tags (names, without the leading "#") and whether the Timeline
+    column is set to display as a milestone.
     """
     task: dict[str, Any] = {
         "id": item["id"], "name": item["name"],
         "status": None, "status_color": None, "timeline": None,
         "milestone": False, "tags": [],
     }
+    fallback_date: dict | None = None
+    has_timeline_column = any(c.get("type") in ("timeline", "timerange") for c in item.get("column_values") or [])
     for col in item.get("column_values") or []:
         kind = col.get("type")
         if kind in ("status", "color") and task["status"] is None:
             task["status"] = col.get("label") or col.get("text") or None
             task["status_color"] = (col.get("label_style") or {}).get("color")
-        elif kind in ("timeline", "date", "timerange") and task["timeline"] is None:
-            start = col.get("from") or col.get("date")
-            end = col.get("to") or start
-            if start:
-                task["timeline"] = {"from": start, "to": end}
-                # A Timeline column set to "milestone" carries visualization_type in its value.
-                raw = col.get("value")
-                try:
-                    value = json.loads(raw) if isinstance(raw, str) else raw
-                except ValueError:
-                    value = None
-                if isinstance(value, dict) and value.get("visualization_type") == "milestone":
-                    task["milestone"] = True
+        elif kind in ("timeline", "timerange"):
+            # Only a Timeline column can be a milestone, and an empty one ("-") has no dates.
+            start = col.get("from")
+            if start and task["timeline"] is None:
+                task["timeline"] = {"from": start, "to": col.get("to") or start}
+                task["milestone"] = _is_milestone_value(col.get("value"))
+        elif kind == "date" and fallback_date is None and col.get("date"):
+            fallback_date = {"from": col["date"], "to": col["date"]}
         elif kind in ("tag", "tags"):  # Monday names the Tags column type "tag"
             task["tags"].extend(
                 t.strip().lstrip("#").strip()
                 for t in (col.get("text") or "").split(",")
                 if t.strip()
             )
+    # An empty Timeline stays empty ("-" in Monday); a plain Date column is never
+    # shown in its place, unless the item has no Timeline column at all.
+    if task["timeline"] is None and not has_timeline_column:
+        task["timeline"] = fallback_date
     return task
+
+
+def _is_milestone_value(raw: Any) -> bool:
+    """A Timeline column set to "milestone" carries visualization_type in its value JSON."""
+    try:
+        value = json.loads(raw) if isinstance(raw, str) else raw
+    except ValueError:
+        return False
+    return isinstance(value, dict) and value.get("visualization_type") == "milestone"
 
 
 # ── CLI entry-point ────────────────────────────────────────────────────────────
