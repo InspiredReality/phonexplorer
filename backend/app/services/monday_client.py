@@ -135,6 +135,7 @@ _PROJECT_COLUMN_FIELDS = """
       id
       type
       text
+      value
       ... on StatusValue   { label label_style { color } }
       ... on TimelineValue { from to }
       ... on DateValue     { date }
@@ -714,10 +715,15 @@ def _parse_status_change(entry: dict, board: dict, users: dict[str, str]) -> dic
 
 
 def _shape_task(item: dict) -> dict:
-    """Flatten an item's column values into the status/timeline fields the UI shows."""
+    """
+    Flatten an item's column values into the fields the UI shows: status,
+    timeline, tags (names, without the leading "#") and whether the timeline
+    is set to display as a milestone.
+    """
     task: dict[str, Any] = {
         "id": item["id"], "name": item["name"],
         "status": None, "status_color": None, "timeline": None,
+        "milestone": False, "tags": [],
     }
     for col in item.get("column_values") or []:
         kind = col.get("type")
@@ -729,6 +735,20 @@ def _shape_task(item: dict) -> dict:
             end = col.get("to") or start
             if start:
                 task["timeline"] = {"from": start, "to": end}
+                # A Timeline column set to "milestone" carries visualization_type in its value.
+                raw = col.get("value")
+                try:
+                    value = json.loads(raw) if isinstance(raw, str) else raw
+                except ValueError:
+                    value = None
+                if isinstance(value, dict) and value.get("visualization_type") == "milestone":
+                    task["milestone"] = True
+        elif kind == "tags":
+            task["tags"].extend(
+                t.strip().lstrip("#").strip()
+                for t in (col.get("text") or "").split(",")
+                if t.strip()
+            )
     return task
 
 
