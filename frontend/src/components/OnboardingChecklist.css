@@ -80,3 +80,5 @@
   gap: 6px;
 }
 .ob-sub { display: flex; flex-direction: column; gap: 3px; font-size: 0.72rem; color: rgba(255,255,255,0.8); }
+
+.ob-filters { padding-bottom: 4px; }

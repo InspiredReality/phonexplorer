@@ -96,6 +96,23 @@ async def project_activity(
     return activity
 
 
+@router.get("/project/raw-items")
+async def project_raw_items(
+    customer: str = Query(min_length=1, max_length=100),
+    name: str = Query(min_length=1, max_length=100),
+) -> dict[str, Any]:
+    """Debug: raw Monday column values for items whose name contains `name`."""
+    async with _client() as c:
+        try:
+            raw = await c.get_raw_items(customer, name)
+        except (RuntimeError, httpx.HTTPError) as exc:
+            log.exception("Monday request failed")
+            raise HTTPException(status_code=502, detail=f"Monday API error: {exc}") from exc
+    if raw is None:
+        raise HTTPException(status_code=404, detail=f'No Monday board found for "{customer}"')
+    return raw
+
+
 @router.get("/project")
 async def project_board(customer: str = Query(min_length=1, max_length=100)) -> dict[str, Any]:
     """
