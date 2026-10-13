@@ -344,6 +344,7 @@ function settlementToRow(record) {
     text: record.pick || '',
     notes: record.notes || '',
     image: record.image || null,
+    hasImage: !!(record.has_image || record.image),
     bet: record.bet_amount || record.bet_amount === 0 ? String(record.bet_amount) : '',
     toWin: record.to_win || record.to_win === 0 ? String(record.to_win) : '',
     sportsbook: record.sportsbook || '',
@@ -388,6 +389,13 @@ async function fetchImage(id) {
 }
 
 export async function saveBetToApi(dateKey, row) {
+  // An unloaded screenshot is null locally; sending that could make a server
+  // that treats null as "clear" erase it. Load it first, or don't save yet.
+  if (row.hasImage && !row.image) {
+    const image = await fetchImage(row.id);
+    if (!image) throw new Error('screenshot not loaded yet');
+    row = { ...row, image };
+  }
   await api.put(`/api/bett-stuff/settlements/${row.id}`, {
     bet_date: dateKey,
     pick: row.text,
@@ -428,18 +436,15 @@ async function revalidate() {
   const add = (dateKey, row) => {
     (merged[dateKey] ??= []).push(row);
   };
-  const needImage = [];
 
-  for (const { dateKey, row, hasImage } of records) {
+  for (const { dateKey, row } of records) {
     if (pending.deletes.includes(row.id)) continue;
     const local = findRow(current, row.id);
     if (pending.upserts[row.id] && local) {
       add(local.dateKey, local.row);
       continue;
     }
-    const image = local?.row.image || null;
-    add(dateKey, { ...row, image });
-    if (hasImage && !image) needImage.push(row.id);
+    add(dateKey, { ...row, image: local?.row.image || row.image });
   }
 
   for (const [dateKey, rows] of Object.entries(current)) {
@@ -459,7 +464,6 @@ async function revalidate() {
   writeJson(BRIDGED_KEY, true);
   setEntriesState(merged);
   flushPending();
-  fetchMissingImages(needImage);
 }
 
 function setImage(id, image) {
@@ -469,19 +473,29 @@ function setImage(id, image) {
   // Not persisted to localStorage anyway, so skip the write and just notify.
   entriesState = {
     ...entriesState,
-    [found.dateKey]: entriesState[found.dateKey].map((r) => (r.id === id ? { ...r, image } : r)),
+    [found.dateKey]: entriesState[found.dateKey].map((r) => (r.id === id ? { ...r, image, hasImage: true } : r)),
   };
   emit();
 }
 
-async function fetchMissingImages(ids) {
-  for (const id of ids) {
-    try {
-      const image = await fetchImage(id);
-      if (image) setImage(id, image);
-    } catch {
-      return; // offline — try again on the next revalidation
+const imageFetches = new Set();
+
+// Pulls screenshots for the given rows (e.g. the days currently expanded)
+// into the store and IndexedDB. Already-loaded and in-flight rows are skipped,
+// and offline failures are simply retried the next time it's called.
+export function loadImagesFor(dateKeys) {
+  const ids = [];
+  for (const dateKey of dateKeys) {
+    for (const row of entriesState[dateKey] || []) {
+      if (row.hasImage && !row.image && !imageFetches.has(row.id)) ids.push(row.id);
     }
+  }
+  for (const id of ids) {
+    imageFetches.add(id);
+    fetchImage(id)
+      .then((image) => image && setImage(id, image))
+      .catch(() => {})
+      .finally(() => imageFetches.delete(id));
   }
 }
 

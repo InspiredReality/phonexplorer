@@ -11,6 +11,7 @@ import {
   dateKeyInfo,
   getEntries,
   loadExtraDays,
+  loadImagesFor,
   removeBet,
   saveBet,
   saveExtraDays,
@@ -32,6 +33,7 @@ function makeRow() {
     text: '',
     notes: '',
     image: null,
+    hasImage: false,
     bet: '',
     toWin: '',
     sportsbook: '',
@@ -64,6 +66,10 @@ function ImageCell({ row, onChange, onPreview }) {
           <button type="button" className="bett-image-replace-btn" onClick={() => inputRef.current?.click()}>
             Replace
           </button>
+        </div>
+      ) : row.hasImage ? (
+        <div className="bett-image-wrap">
+          <span className="bett-status-text">Loading photo…</span>
         </div>
       ) : (
         <button type="button" className="bett-image-upload-btn" onClick={() => inputRef.current?.click()}>
@@ -239,6 +245,12 @@ function BettStuff() {
     syncEntries();
   }, []);
 
+  // Screenshots are heavy, so only the open days' are pulled (and cached for
+  // offline); the numbers never wait on them.
+  useEffect(() => {
+    loadImagesFor(Object.keys(expanded).filter((k) => expanded[k]));
+  }, [expanded, entries]);
+
   // Newest first, by creation time — each row's id is `${Date.now()}-...`,
   // so a plain descending string sort on it works. Sorting here (rather
   // than relying on insertion order) keeps the order correct even after a
@@ -289,6 +301,7 @@ function BettStuff() {
     const reader = new FileReader();
     reader.onload = () => {
       handleField(dateKey, rowId, 'image', reader.result);
+      handleField(dateKey, rowId, 'hasImage', true);
     };
     reader.readAsDataURL(file);
   };
