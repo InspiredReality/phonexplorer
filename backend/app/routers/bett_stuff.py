@@ -30,7 +30,7 @@ class SettlementUpsert(BaseModel):
     result: str
 
 
-def _dict(row: BettStuffSettlement) -> dict:
+def _dict(row: BettStuffSettlement, include_image: bool = True) -> dict:
     try:
         tags = json.loads(row.tags) if row.tags else []
     except ValueError:
@@ -40,7 +40,8 @@ def _dict(row: BettStuffSettlement) -> dict:
         "bet_date": row.bet_date.isoformat(),
         "pick": row.pick,
         "notes": row.notes,
-        "image": row.image,
+        "image": row.image if include_image else None,
+        "has_image": bool(row.image),
         "bet_amount": row.bet_amount,
         "to_win": row.to_win,
         "profit": row.profit,
@@ -58,7 +59,15 @@ async def list_settlements(db: AsyncSession = Depends(get_db)):
             select(BettStuffSettlement).where(BettStuffSettlement.user_id == DEFAULT_USER_ID)
         )
     ).scalars().all()
-    return [_dict(row) for row in rows]
+    # Screenshots are base64 and dominate the payload; the list leaves them
+    # out (see has_image) and clients fetch each one from /image on demand.
+    return [_dict(row, include_image=False) for row in rows]
+
+
+@router.get("/settlements/{row_id}/image")
+async def get_settlement_image(row_id: str, db: AsyncSession = Depends(get_db)):
+    row = await db.get(BettStuffSettlement, row_id)
+    return {"image": row.image if row else None}
 
 
 @router.put("/settlements/{row_id}")
@@ -76,7 +85,10 @@ async def upsert_settlement(row_id: str, body: SettlementUpsert, db: AsyncSessio
     row.bet_date = body.bet_date
     row.pick = body.pick
     row.notes = body.notes
-    row.image = body.image
+    # A null image means "not sent" (clients that haven't loaded the
+    # screenshot yet), never "clear it" — there is no remove-image action.
+    if body.image is not None:
+        row.image = body.image
     row.bet_amount = body.bet_amount
     row.to_win = body.to_win
     row.profit = body.profit
@@ -86,7 +98,7 @@ async def upsert_settlement(row_id: str, body: SettlementUpsert, db: AsyncSessio
     row.result = body.result
     await db.commit()
     await db.refresh(row)
-    return _dict(row)
+    return _dict(row, include_image=False)
 
 
 @router.delete("/settlements/{row_id}")

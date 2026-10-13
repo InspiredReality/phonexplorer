@@ -3,6 +3,7 @@
 // cache/fallback) and need the same Day/Week profit math for the
 // always-visible summary bar.
 
+import { useSyncExternalStore } from 'react';
 import api from '../services/api';
 
 export const STORAGE_KEY = 'phonexplorer-bett-stuff-v1';
@@ -95,29 +96,237 @@ export function allBettingWeeks(entries) {
   return weeks;
 }
 
-export function loadEntries() {
+
+// ---------------------------------------------------------------------------
+// Shared, offline-first bet store
+//
+// One module-level copy of every bet that both pages read from, so moving
+// between Bett and Stuff never re-fetches or flashes stale numbers. It is
+// hydrated synchronously from localStorage (rows only — screenshots are far
+// too big for its ~5MB quota, so those live in IndexedDB), then revalidated
+// against the API at most once per STALE_MS. Edits apply locally first and
+// are queued as "pending" until the API accepts them, so the app keeps
+// working (and keeps its changes) with no or flaky connectivity.
+// ---------------------------------------------------------------------------
+
+const PENDING_KEY = 'phonexplorer-bett-stuff-pending-v1';
+const BRIDGED_KEY = 'phonexplorer-bett-stuff-bridged-v1';
+const STALE_MS = 5 * 60 * 1000;
+const IDB_NAME = 'phonexplorer-bett-stuff';
+const IDB_STORE = 'images';
+
+function readJson(key, fallback) {
   try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    return raw ? JSON.parse(raw) : {};
+    const raw = localStorage.getItem(key);
+    return raw ? JSON.parse(raw) : fallback;
   } catch {
-    return {};
+    return fallback;
   }
 }
 
-// Local cache only — the database (see fetchEntriesFromApi) is the source
-// of truth on load; this just keeps a working copy for instant first paint
-// and for the app to keep functioning if the database is unreachable.
-export function persistEntries(entries) {
+function writeJson(key, value) {
   try {
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+    localStorage.setItem(key, JSON.stringify(value));
   } catch {
-    // e.g. private browsing / storage quota — used only as a local cache
+    // e.g. private browsing / storage quota — the in-memory store still works
   }
 }
 
-// Tags are edited as a single comma-separated textbox (like Pick or Notes),
-// so the row only ever holds the display string; splitting into a real
-// array happens at the API boundary (see tagsStringToArray/saveBetToApi).
+// --- screenshots (IndexedDB, best effort) ---
+
+function openImageDb() {
+  return new Promise((resolve, reject) => {
+    if (typeof indexedDB === 'undefined') return reject(new Error('no indexedDB'));
+    const req = indexedDB.open(IDB_NAME, 1);
+    req.onupgradeneeded = () => req.result.createObjectStore(IDB_STORE);
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function withImageStore(mode, run) {
+  const db = await openImageDb();
+  try {
+    return await new Promise((resolve, reject) => {
+      const tx = db.transaction(IDB_STORE, mode);
+      const result = run(tx.objectStore(IDB_STORE));
+      tx.oncomplete = () => resolve(result?.result);
+      tx.onerror = () => reject(tx.error);
+    });
+  } finally {
+    db.close();
+  }
+}
+
+const storedImages = new Map(); // id -> data URL last written to IndexedDB
+
+function putImage(id, image) {
+  if (!image || storedImages.get(id) === image) return;
+  storedImages.set(id, image);
+  withImageStore('readwrite', (s) => s.put(image, id)).catch(() => storedImages.delete(id));
+}
+
+function deleteImage(id) {
+  storedImages.delete(id);
+  withImageStore('readwrite', (s) => s.delete(id)).catch(() => {});
+}
+
+async function loadAllImages() {
+  const db = await openImageDb();
+  try {
+    return await new Promise((resolve, reject) => {
+      const out = {};
+      const req = db.transaction(IDB_STORE, 'readonly').objectStore(IDB_STORE).openCursor();
+      req.onsuccess = () => {
+        const cursor = req.result;
+        if (!cursor) return resolve(out);
+        out[cursor.key] = cursor.value;
+        cursor.continue();
+      };
+      req.onerror = () => reject(req.error);
+    });
+  } finally {
+    db.close();
+  }
+}
+
+// --- store ---
+
+function stripImages(entries) {
+  const slim = {};
+  for (const [dateKey, rows] of Object.entries(entries)) {
+    slim[dateKey] = rows.map(({ image, ...rest }) => ({ ...rest, image: null }));
+  }
+  return slim;
+}
+
+// Caches written before screenshots moved out may still carry them inline;
+// rescue those into IndexedDB so nothing is lost when the slim copy replaces it.
+function loadInitialEntries() {
+  const raw = readJson(STORAGE_KEY, {});
+  for (const rows of Object.values(raw)) {
+    for (const row of rows) if (row.image) putImage(row.id, row.image);
+  }
+  return raw;
+}
+
+let entriesState = loadInitialEntries();
+let syncingState = false;
+const listeners = new Set();
+
+function emit() {
+  for (const fn of listeners) fn();
+}
+
+function setEntriesState(next) {
+  entriesState = next;
+  writeJson(STORAGE_KEY, stripImages(next));
+  emit();
+}
+
+export function getEntries() {
+  return entriesState;
+}
+
+function subscribe(fn) {
+  listeners.add(fn);
+  return () => listeners.delete(fn);
+}
+
+function getSyncing() {
+  return syncingState;
+}
+
+// Both pages call this; it re-renders them whenever the shared copy changes.
+export function useBettEntries() {
+  const entries = useSyncExternalStore(subscribe, getEntries);
+  const syncing = useSyncExternalStore(subscribe, getSyncing);
+  return { entries, syncing };
+}
+
+// Local-only change (e.g. adding a blank row); nothing is sent to the API.
+export function updateEntries(dateKey, updateRows) {
+  const rows = updateRows(entriesState[dateKey] || []);
+  setEntriesState({ ...entriesState, [dateKey]: rows });
+}
+
+// --- pending queue: edits the API hasn't acknowledged yet ---
+
+let pendingSeq = 0;
+
+function loadPending() {
+  const p = readJson(PENDING_KEY, null);
+  return { upserts: p?.upserts || {}, deletes: p?.deletes || [] };
+}
+
+function findRow(entries, id) {
+  for (const [dateKey, rows] of Object.entries(entries)) {
+    const row = rows.find((r) => r.id === id);
+    if (row) return { dateKey, row };
+  }
+  return null;
+}
+
+let flushing = null;
+
+export function flushPending() {
+  if (flushing) return flushing;
+  flushing = (async () => {
+    const pending = loadPending();
+    for (const id of [...pending.deletes]) {
+      try {
+        await deleteBetFromApi(id);
+        const p = loadPending();
+        writeJson(PENDING_KEY, { ...p, deletes: p.deletes.filter((d) => d !== id) });
+      } catch {
+        return false; // offline or server down — keep the queue, retry later
+      }
+    }
+    for (const [id, seq] of Object.entries(pending.upserts)) {
+      const found = findRow(entriesState, id);
+      if (found) {
+        try {
+          await saveBetToApi(found.dateKey, found.row);
+        } catch {
+          return false;
+        }
+      }
+      // Drop it from the queue unless it was edited again while in flight.
+      const p = loadPending();
+      if (p.upserts[id] === seq) {
+        delete p.upserts[id];
+        writeJson(PENDING_KEY, p);
+      }
+    }
+    return true;
+  })().finally(() => {
+    flushing = null;
+  });
+  return flushing;
+}
+
+// Persist a row's latest state locally and queue it for the API.
+export function saveBet(dateKey, row) {
+  putImage(row.id, row.image);
+  const p = loadPending();
+  p.upserts[row.id] = ++pendingSeq;
+  p.deletes = p.deletes.filter((d) => d !== row.id);
+  writeJson(PENDING_KEY, p);
+  flushPending();
+}
+
+export function removeBet(dateKey, rowId) {
+  updateEntries(dateKey, (rows) => rows.filter((r) => r.id !== rowId));
+  deleteImage(rowId);
+  const p = loadPending();
+  delete p.upserts[rowId];
+  if (!p.deletes.includes(rowId)) p.deletes.push(rowId);
+  writeJson(PENDING_KEY, p);
+  flushPending();
+}
+
+// --- revalidation ---
+
 function tagsToString(tags) {
   return Array.isArray(tags) ? tags.join(', ') : '';
 }
@@ -135,6 +344,7 @@ function settlementToRow(record) {
     text: record.pick || '',
     notes: record.notes || '',
     image: record.image || null,
+    hasImage: !!(record.has_image || record.image),
     bet: record.bet_amount || record.bet_amount === 0 ? String(record.bet_amount) : '',
     toWin: record.to_win || record.to_win === 0 ? String(record.to_win) : '',
     sportsbook: record.sportsbook || '',
@@ -162,23 +372,30 @@ export function rowHasTag(row, tag) {
   return tagsStringToArray(row.tags).includes(tag);
 }
 
-function settlementsToEntries(records) {
-  const entries = {};
-  for (const record of records) {
-    (entries[record.bet_date] ??= []).push(settlementToRow(record));
-  }
-  return entries;
+// Every bet from the database, without screenshots (those come separately,
+// see fetchImage). Returns [{ dateKey, row, hasImage }].
+async function fetchRecordsFromApi() {
+  const res = await api.get('/api/bett-stuff/settlements');
+  return res.data.map((record) => ({
+    dateKey: record.bet_date,
+    row: settlementToRow(record),
+    hasImage: !!record.has_image,
+  }));
 }
 
-// Every bet, from the database — the source of truth on app open. Falls
-// back to the local cache (see persistEntries/loadEntries) if the request
-// fails, e.g. offline.
-export async function fetchEntriesFromApi() {
-  const res = await api.get('/api/bett-stuff/settlements');
-  return settlementsToEntries(res.data);
+async function fetchImage(id) {
+  const res = await api.get(`/api/bett-stuff/settlements/${id}/image`);
+  return res.data.image || null;
 }
 
 export async function saveBetToApi(dateKey, row) {
+  // An unloaded screenshot is null locally; sending that could make a server
+  // that treats null as "clear" erase it. Load it first, or don't save yet.
+  if (row.hasImage && !row.image) {
+    const image = await fetchImage(row.id);
+    if (!image) throw new Error('screenshot not loaded yet');
+    row = { ...row, image };
+  }
   await api.put(`/api/bett-stuff/settlements/${row.id}`, {
     bet_date: dateKey,
     pick: row.text,
@@ -198,30 +415,133 @@ export async function deleteBetFromApi(rowId) {
   await api.delete(`/api/bett-stuff/settlements/${rowId}`);
 }
 
-// One-time bridge for bets that predate database sync entirely (or were
-// saved while offline): anything sitting only in this browser's local
-// cache — not already in the database, matched by row id — gets pushed up
-// now. Returns the database's copy plus whatever was just backfilled, so a
-// browser that's never talked to the database still keeps what it has
-// instead of it looking deleted.
-export async function reconcileEntriesWithApi(localEntries) {
-  const dbEntries = await fetchEntriesFromApi();
-  const dbIds = new Set(Object.values(dbEntries).flat().map((row) => row.id));
+function isBlankDraft(row) {
+  return !row.text && !row.notes && !row.bet && !row.toWin && !row.image;
+}
 
-  const merged = { ...dbEntries };
-  const pushes = [];
-  for (const [dateKey, rows] of Object.entries(localEntries)) {
+// Brings the shared copy in line with the database without clobbering
+// anything the API hasn't seen yet: pending edits win over the server's
+// version, pending deletes stay deleted, and rows only this browser has
+// (logged before sync existed, or while offline) are kept and pushed up.
+async function revalidate() {
+  await flushPending();
+  const records = await fetchRecordsFromApi();
+
+  const pending = loadPending();
+  const firstBridge = !readJson(BRIDGED_KEY, false);
+  const current = entriesState;
+  const dbIds = new Set(records.map((r) => r.row.id));
+
+  const merged = {};
+  const add = (dateKey, row) => {
+    (merged[dateKey] ??= []).push(row);
+  };
+
+  for (const { dateKey, row } of records) {
+    if (pending.deletes.includes(row.id)) continue;
+    const local = findRow(current, row.id);
+    if (pending.upserts[row.id] && local) {
+      add(local.dateKey, local.row);
+      continue;
+    }
+    add(dateKey, { ...row, image: local?.row.image || row.image });
+  }
+
+  for (const [dateKey, rows] of Object.entries(current)) {
     for (const row of rows) {
       if (dbIds.has(row.id)) continue;
-      merged[dateKey] = [...(merged[dateKey] || []), row];
-      pushes.push(saveBetToApi(dateKey, row));
+      const keep = pending.upserts[row.id] || firstBridge || isBlankDraft(row);
+      if (!keep) continue;
+      add(dateKey, row);
+      if (!isBlankDraft(row)) {
+        const p = loadPending();
+        p.upserts[row.id] = ++pendingSeq;
+        writeJson(PENDING_KEY, p);
+      }
     }
   }
-  if (pushes.length > 0) {
-    await Promise.allSettled(pushes);
-  }
-  return merged;
+
+  writeJson(BRIDGED_KEY, true);
+  setEntriesState(merged);
+  flushPending();
 }
+
+function setImage(id, image) {
+  const found = findRow(entriesState, id);
+  if (!found || found.row.image === image) return;
+  putImage(id, image);
+  // Not persisted to localStorage anyway, so skip the write and just notify.
+  entriesState = {
+    ...entriesState,
+    [found.dateKey]: entriesState[found.dateKey].map((r) => (r.id === id ? { ...r, image, hasImage: true } : r)),
+  };
+  emit();
+}
+
+const imageFetches = new Set();
+
+// Pulls screenshots for the given rows (e.g. the days currently expanded)
+// into the store and IndexedDB. Already-loaded and in-flight rows are skipped,
+// and offline failures are simply retried the next time it's called.
+export function loadImagesFor(dateKeys) {
+  const ids = [];
+  for (const dateKey of dateKeys) {
+    for (const row of entriesState[dateKey] || []) {
+      if (row.hasImage && !row.image && !imageFetches.has(row.id)) ids.push(row.id);
+    }
+  }
+  for (const id of ids) {
+    imageFetches.add(id);
+    fetchImage(id)
+      .then((image) => image && setImage(id, image))
+      .catch(() => {})
+      .finally(() => imageFetches.delete(id));
+  }
+}
+
+let lastSyncAt = 0;
+let syncPromise = null;
+
+// Revalidates against the API unless it already did recently. Safe to call
+// from every page mount: concurrent and repeat calls collapse into one
+// request, and failures (offline) leave the cached data untouched.
+export function syncEntries({ force = false } = {}) {
+  if (syncPromise) return syncPromise;
+  if (!force && Date.now() - lastSyncAt < STALE_MS) return Promise.resolve();
+  syncingState = true;
+  emit();
+  syncPromise = revalidate()
+    .then(() => {
+      lastSyncAt = Date.now();
+    })
+    .catch((err) => console.error('Failed to sync bets, using local cache:', err))
+    .finally(() => {
+      syncingState = false;
+      syncPromise = null;
+      emit();
+    });
+  return syncPromise;
+}
+
+// Screenshots saved to IndexedDB on a previous visit come back after first paint.
+loadAllImages()
+  .then((images) => {
+    for (const [id, image] of Object.entries(images)) {
+      storedImages.set(id, image);
+      setImage(id, image);
+    }
+  })
+  .catch(() => {});
+
+if (typeof window !== 'undefined') {
+  // Coming back online (or back to the tab) is the moment to push queued
+  // edits and pick up changes made on other devices.
+  window.addEventListener('online', () => syncEntries({ force: true }));
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') syncEntries();
+  });
+}
+
 
 export function computeProfit(row) {
   const bet = parseFloat(row.bet);
