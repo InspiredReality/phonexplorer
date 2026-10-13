@@ -276,7 +276,15 @@ export default function BetsPage() {
 
   return (
     <div className="bets-page">
-      <h1 className="bets-heading">Chuggler Bets</h1>
+      <h1
+        className="bets-heading"
+        onClick={(event) => {
+          // Hidden shortcut to the admin page: triple-click the title.
+          if (event.detail === 3) window.location.assign('/cheify');
+        }}
+      >
+        Chuggler Bets
+      </h1>
       {loadError && <p className="bets-load-error">{loadError}</p>}
 
       <h2 className="bets-section-heading">Parlay Picks</h2>
@@ -339,7 +347,7 @@ export default function BetsPage() {
                             title={
                               locked
                                 ? undefined
-                                : 'Triple-click to set as this week’s parlay funder'
+                                : '3x to set Low Score'
                             }
                           />
                           <span>{team.name}</span>
