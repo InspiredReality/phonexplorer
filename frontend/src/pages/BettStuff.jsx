@@ -9,14 +9,15 @@ import {
   computeProfit,
   currentBettingWeekDays,
   dateKeyInfo,
-  deleteBetFromApi,
-  loadEntries,
+  getEntries,
   loadExtraDays,
-  persistEntries,
-  reconcileEntriesWithApi,
-  saveBetToApi,
+  removeBet,
+  saveBet,
   saveExtraDays,
+  syncEntries,
   todayDateKey,
+  updateEntries,
+  useBettEntries,
 } from './bettStuffData';
 import './BettStuff.css';
 
@@ -24,16 +25,6 @@ const SPORTSBOOKS = ['Draft Kings', 'BetMGM', 'Fanatics', 'Kalshi', 'theScore'];
 // Cycles Live -> Win -> Loss -> Live each time the result toggle is clicked.
 const NEXT_RESULT = { live: 'win', win: 'loss', loss: 'live' };
 const RESULT_LABEL = { live: 'Live', win: 'Win', loss: 'Loss' };
-
-// Saves a row's full state to the database on every edit, regardless of
-// status or result — the database is the source of truth on load, so
-// anything not yet written there wouldn't survive opening the app
-// elsewhere. Fire-and-forget: local state (and its localStorage cache)
-// already has the change, so a dropped request here just means a slightly
-// stale copy on the server until the next edit retries it.
-function syncSettlement(dateKey, row) {
-  saveBetToApi(dateKey, row).catch((err) => console.error('Failed to save bet:', err));
-}
 
 function makeRow() {
   return {
@@ -235,30 +226,17 @@ function BettStuff() {
   // Tuesday-through-Monday week, independent of which day accordions are
   // showing above it.
   const [summaryDays] = useState(currentBettingWeekDays);
-  // Local storage hydrates the very first paint; the database fetch below
-  // then overwrites it as the source of truth (and refreshes the cache),
-  // so a different browser sees the same bets instead of starting empty.
-  const [entries, setEntries] = useState(loadEntries);
+  // Shared offline-first store: already populated when arriving from the
+  // stats page, so nothing reloads or flashes on navigation. The sync call
+  // only hits the API if the data is stale.
+  const { entries } = useBettEntries();
   const [extraDays, setExtraDaysState] = useState(loadExtraDays);
   const [drafts, setDrafts] = useState([]);
   const [expanded, setExpanded] = useState(() => ({ [todayDateKey()]: true }));
   const [previewImage, setPreviewImage] = useState(null);
 
   useEffect(() => {
-    let cancelled = false;
-    // Anything only in this browser's local cache (e.g. bets logged before
-    // database sync existed here) gets pushed up as part of this call, so
-    // it isn't lost once the database becomes the source of truth.
-    reconcileEntriesWithApi(loadEntries())
-      .then((merged) => {
-        if (cancelled) return;
-        setEntries(merged);
-        persistEntries(merged);
-      })
-      .catch((err) => console.error('Failed to load bets from database, using local cache:', err));
-    return () => {
-      cancelled = true;
-    };
+    syncEntries();
   }, []);
 
   // Newest first, by creation time — each row's id is `${Date.now()}-...`,
@@ -291,30 +269,20 @@ function BettStuff() {
     .sort()
     .reverse();
 
-  // Always derives the next rows from the latest state (not a closed-over
-  // snapshot), so rapid clicks/edits in the same tick don't clobber each other.
-  const updateEntries = (dateKey, updateRows) => {
-    setEntries((prev) => {
-      const rows = updateRows(prev[dateKey] || []);
-      const next = { ...prev, [dateKey]: rows };
-      persistEntries(next);
-      return next;
-    });
-  };
-
   const handleAddRow = (dateKey) => {
     updateEntries(dateKey, (rows) => [makeRow(), ...rows]);
   };
 
   const handleRemoveRow = (dateKey, rowId) => {
-    updateEntries(dateKey, (rows) => rows.filter((r) => r.id !== rowId));
-    deleteBetFromApi(rowId).catch((err) => console.error('Failed to clear bet:', err));
+    removeBet(dateKey, rowId);
   };
 
   const handleField = (dateKey, rowId, field, value) => {
-    updateEntries(dateKey, (rows) => rows.map((r) => (r.id === rowId ? { ...r, [field]: value } : r)));
-    const current = rowsFor(dateKey).find((r) => r.id === rowId);
-    if (current) syncSettlement(dateKey, { ...current, [field]: value });
+    const current = (getEntries()[dateKey] || []).find((r) => r.id === rowId);
+    if (!current) return;
+    const updated = { ...current, [field]: value };
+    updateEntries(dateKey, (rows) => rows.map((r) => (r.id === rowId ? updated : r)));
+    saveBet(dateKey, updated);
   };
 
   const handleImageChange = (dateKey, rowId, file) => {
