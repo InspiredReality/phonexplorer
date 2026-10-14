@@ -3,6 +3,8 @@ import api from './services/api';
 import { TEAMS, orderTeams } from './teams';
 import './BetsPage.css';
 
+const TRIPLE_TAP_MS = 600;
+
 const WEEK_COUNT = 15;
 const STORAGE_KEY = 'phonexplorer-bets-tracker-v2';
 const SAVE_DEBOUNCE_MS = 500;
@@ -108,6 +110,19 @@ export default function BetsPage() {
   const [sort, setSort] = useState({ key: null, dir: null });
   const pickSaveTimers = useRef({});
   const recentRows = useRef(new Set());
+  const tapState = useRef({});
+
+  // True on the third tap of the same target within TRIPLE_TAP_MS of each
+  // other. Counted by hand because mobile Safari doesn't report a running
+  // click-count in event.detail for taps (it works in the installed app and
+  // desktop browsers, which is why it only broke in a regular mobile tab).
+  const isTripleTap = (key) => {
+    const now = Date.now();
+    const prev = tapState.current[key];
+    const count = prev && now - prev.last <= TRIPLE_TAP_MS ? prev.count + 1 : 1;
+    tapState.current[key] = count >= 3 ? undefined : { count, last: now };
+    return count >= 3;
+  };
 
   // Every row's icon strip scrolls independently by default; mirror the
   // touched row's offset onto the rest so the column moves as one. Setting
@@ -208,10 +223,9 @@ export default function BetsPage() {
 
   // Triple-clicking a team's icon in a week's picks table marks them as the
   // funder for that week's parlay; triple-clicking the current funder again
-  // clears it. event.detail is the browser's own click-count, so this rides
-  // on native multi-click detection instead of hand-rolled timers.
-  const handleFunderClick = (weekId, teamId) => (event) => {
-    if (event.detail !== 3 || locks[weekId]) return;
+  // clears it.
+  const handleFunderClick = (weekId, teamId) => () => {
+    if (!isTripleTap(`funder:${weekId}:${teamId}`) || locks[weekId]) return;
     const nextTeamId = funders[weekId] === teamId ? null : teamId;
     setFunders((prev) => ({ ...prev, [weekId]: nextTeamId }));
     saveFunderToBackend(weekId, nextTeamId).catch((err) =>
@@ -293,9 +307,9 @@ export default function BetsPage() {
     <div className="bets-page">
       <h1
         className="bets-heading"
-        onClick={(event) => {
+        onClick={() => {
           // Hidden shortcut to the admin page: triple-click the title.
-          if (event.detail === 3) window.location.assign('/cheify');
+          if (isTripleTap('title')) window.location.assign('/cheify');
         }}
       >
         Chuggler Bets
@@ -460,15 +474,17 @@ export default function BetsPage() {
             {sortedStandings.map((team) => (
               <tr key={team.id}>
                 <td className="bets-standings-team">
-                  <img
-                    className="bets-team-logo"
-                    src={team.logo}
-                    alt=""
-                    width={48}
-                    height={48}
-                    loading="lazy"
-                  />
-                  <span>{team.name}</span>
+                  <div className="bets-standings-team-inner">
+                    <img
+                      className="bets-team-logo"
+                      src={team.logo}
+                      alt=""
+                      width={48}
+                      height={48}
+                      loading="lazy"
+                    />
+                    <span>{team.name}</span>
+                  </div>
                 </td>
                 <td className="bets-standings-recent-col">
                   <div
