@@ -107,6 +107,21 @@ export default function BetsPage() {
   // ranking, so it has no ascending direction.
   const [sort, setSort] = useState({ key: null, dir: null });
   const pickSaveTimers = useRef({});
+  const recentRows = useRef(new Set());
+
+  // Every row's icon strip scrolls independently by default; mirror the
+  // touched row's offset onto the rest so the column moves as one. Setting
+  // an equal scrollLeft is a no-op, so the echoed scroll events settle.
+  const handleRecentScroll = (event) => {
+    const { scrollLeft } = event.currentTarget;
+    recentRows.current.forEach((el) => {
+      if (!el.isConnected) recentRows.current.delete(el);
+      else if (el.scrollLeft !== scrollLeft) el.scrollLeft = scrollLeft;
+    });
+  };
+  const registerRecentRow = (el) => {
+    if (el) recentRows.current.add(el);
+  };
 
   // Backend is the source of truth once it answers. Anything that only
   // exists in this browser's localStorage (from before the backend existed)
@@ -456,7 +471,11 @@ export default function BetsPage() {
                   <span>{team.name}</span>
                 </td>
                 <td className="bets-standings-recent-col">
-                  <div className="bets-standings-recent">
+                  <div
+                    className="bets-standings-recent"
+                    ref={registerRecentRow}
+                    onScroll={handleRecentScroll}
+                  >
                     {team.weeklyResults.map((week) => (
                       <span
                         key={week.weekId}
