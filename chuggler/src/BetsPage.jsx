@@ -336,16 +336,13 @@ export default function BetsPage() {
               meta={
                 <>
                   {funder && (
-                    <>
-                      <span className="bets-funder-caption">
-                        <span className="bets-funder-caption-word">funded</span>
-                        <span className="bets-funder-caption-word">by:</span>
-                      </span>
+                    <span className="bets-funder">
+                      <span className="bets-funder-caption">funded by:</span>
                       <span className="bets-funder-chip">
                         <img className="bets-funder-icon" src={funder.logo} alt="" />
-                        {funder.name}
+                        <span className="bets-funder-name">{funder.name}</span>
                       </span>
-                    </>
+                    </span>
                   )}
                   {locked && (
                     <span className="bets-lock-icon" role="img" aria-label="Locked">
