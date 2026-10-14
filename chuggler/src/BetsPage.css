@@ -463,28 +463,22 @@
   }
 
   .bets-standings-table td {
-    height: 64px;
-    padding: 4px 3px;
+    height: 56px;
+    padding: 4px 2px;
   }
 
-  /* 20% of a phone is too narrow for logo + name side by side, so the
-     name sits under the logo and gets the full cell width. */
   .bets-standings-team-inner {
-    flex-direction: column;
-    justify-content: center;
     gap: 2px;
-    text-align: center;
   }
 
   .bets-standings-team-inner .bets-team-logo {
-    width: 24px;
-    height: 24px;
+    width: 20px;
+    height: 20px;
   }
 
   .bets-standings-team-inner span {
-    font-size: 0.58rem;
-    line-height: 1.1;
-    -webkit-line-clamp: 2;
+    font-size: 0.5rem;
+    line-height: 1.15;
   }
 
   .bets-standings-recent {
