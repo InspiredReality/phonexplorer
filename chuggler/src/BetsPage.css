@@ -347,7 +347,7 @@
 }
 
 .bets-standings-table th.bets-standings-team-header {
-  width: 20%;
+  width: 28%;
 }
 
 .bets-standings-table td {
@@ -363,28 +363,24 @@
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
+/* Same look as the Parlay Picks accordion's .bets-table-label: 48px logo,
+   0.8rem name, 8px gap (mobile overrides below match its mobile sizes). */
 .bets-standings-team-inner {
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-.bets-standings-team-inner span {
-  min-width: 0;
-  overflow-wrap: anywhere;
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
-  overflow: hidden;
+  font-size: 0.8rem;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.85);
 }
 
 /* Fixed width so it can't force the table wider as more weeks fill in —
    the icon row inside scrolls horizontally once it runs out of room.
-   Column split: team 20% / weekly results 60% / wins 10% / legs 10%. */
+   Column split: team 28% / weekly results 52% / wins 10% / legs 10%. */
 .bets-standings-table th.bets-standings-recent-col,
 .bets-standings-table td.bets-standings-recent-col {
   text-align: left;
-  width: 60%;
+  width: 52%;
 }
 
 .bets-standings-recent {
@@ -463,22 +459,23 @@
   }
 
   .bets-standings-table td {
-    height: 56px;
-    padding: 4px 2px;
+    height: 64px;
+    padding: 8px 6px;
   }
 
+  .bets-standings-table td.bets-standings-team {
+    padding: 8px 2px 8px 4px;
+  }
+
+  /* Matches the accordion's mobile label: 32px logo, 0.66rem name, 4px gap. */
   .bets-standings-team-inner {
-    gap: 2px;
+    gap: 4px;
+    font-size: 0.66rem;
   }
 
   .bets-standings-team-inner .bets-team-logo {
-    width: 20px;
-    height: 20px;
-  }
-
-  .bets-standings-team-inner span {
-    font-size: 0.5rem;
-    line-height: 1.15;
+    width: 32px;
+    height: 32px;
   }
 
   .bets-standings-recent {
