@@ -103,7 +103,7 @@
 .bets-funder {
   display: flex;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: flex-end;
   gap: 2px;
 }
 
@@ -141,6 +141,10 @@
 
 .bets-lock-icon {
   line-height: 1;
+  /* Fixed slot, filled or not, keeps funder logos in one vertical line. */
+  display: inline-block;
+  width: 1.3em;
+  text-align: center;
 }
 
 .bets-expand-icon {

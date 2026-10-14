@@ -339,16 +339,20 @@ export default function BetsPage() {
                     <span className="bets-funder">
                       <span className="bets-funder-caption">funded by:</span>
                       <span className="bets-funder-chip">
-                        <img className="bets-funder-icon" src={funder.logo} alt="" />
                         <span className="bets-funder-name">{funder.name}</span>
+                        <img className="bets-funder-icon" src={funder.logo} alt="" />
                       </span>
                     </span>
                   )}
-                  {locked && (
-                    <span className="bets-lock-icon" role="img" aria-label="Locked">
-                      🔒
-                    </span>
-                  )}
+                  {/* Always rendered so the funder logo lines up across weeks. */}
+                  <span
+                    className="bets-lock-icon"
+                    role={locked ? 'img' : undefined}
+                    aria-label={locked ? 'Locked' : undefined}
+                    aria-hidden={locked ? undefined : true}
+                  >
+                    {locked ? '🔒' : ''}
+                  </span>
                 </>
               }
               expanded={!!expanded[weekId]}
