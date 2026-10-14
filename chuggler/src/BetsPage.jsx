@@ -3,6 +3,8 @@ import api from './services/api';
 import { TEAMS, orderTeams } from './teams';
 import './BetsPage.css';
 
+const TRIPLE_TAP_MS = 600;
+
 const WEEK_COUNT = 15;
 const STORAGE_KEY = 'phonexplorer-bets-tracker-v2';
 const SAVE_DEBOUNCE_MS = 500;
@@ -107,6 +109,34 @@ export default function BetsPage() {
   // ranking, so it has no ascending direction.
   const [sort, setSort] = useState({ key: null, dir: null });
   const pickSaveTimers = useRef({});
+  const recentRows = useRef(new Set());
+  const tapState = useRef({});
+
+  // True on the third tap of the same target within TRIPLE_TAP_MS of each
+  // other. Counted by hand because mobile Safari doesn't report a running
+  // click-count in event.detail for taps (it works in the installed app and
+  // desktop browsers, which is why it only broke in a regular mobile tab).
+  const isTripleTap = (key) => {
+    const now = Date.now();
+    const prev = tapState.current[key];
+    const count = prev && now - prev.last <= TRIPLE_TAP_MS ? prev.count + 1 : 1;
+    tapState.current[key] = count >= 3 ? undefined : { count, last: now };
+    return count >= 3;
+  };
+
+  // Every row's icon strip scrolls independently by default; mirror the
+  // touched row's offset onto the rest so the column moves as one. Setting
+  // an equal scrollLeft is a no-op, so the echoed scroll events settle.
+  const handleRecentScroll = (event) => {
+    const { scrollLeft } = event.currentTarget;
+    recentRows.current.forEach((el) => {
+      if (!el.isConnected) recentRows.current.delete(el);
+      else if (el.scrollLeft !== scrollLeft) el.scrollLeft = scrollLeft;
+    });
+  };
+  const registerRecentRow = (el) => {
+    if (el) recentRows.current.add(el);
+  };
 
   // Backend is the source of truth once it answers. Anything that only
   // exists in this browser's localStorage (from before the backend existed)
@@ -193,10 +223,9 @@ export default function BetsPage() {
 
   // Triple-clicking a team's icon in a week's picks table marks them as the
   // funder for that week's parlay; triple-clicking the current funder again
-  // clears it. event.detail is the browser's own click-count, so this rides
-  // on native multi-click detection instead of hand-rolled timers.
-  const handleFunderClick = (weekId, teamId) => (event) => {
-    if (event.detail !== 3 || locks[weekId]) return;
+  // clears it.
+  const handleFunderClick = (weekId, teamId) => () => {
+    if (!isTripleTap(`funder:${weekId}:${teamId}`) || locks[weekId]) return;
     const nextTeamId = funders[weekId] === teamId ? null : teamId;
     setFunders((prev) => ({ ...prev, [weekId]: nextTeamId }));
     saveFunderToBackend(weekId, nextTeamId).catch((err) =>
@@ -276,7 +305,15 @@ export default function BetsPage() {
 
   return (
     <div className="bets-page">
-      <h1 className="bets-heading">Chuggler Bets</h1>
+      <h1
+        className="bets-heading"
+        onClick={() => {
+          // Hidden shortcut to the admin page: triple-click the title.
+          if (isTripleTap('title')) window.location.assign('/cheify');
+        }}
+      >
+        Chuggler Bets
+      </h1>
       {loadError && <p className="bets-load-error">{loadError}</p>}
 
       <h2 className="bets-section-heading">Parlay Picks</h2>
@@ -299,22 +336,23 @@ export default function BetsPage() {
               meta={
                 <>
                   {funder && (
-                    <>
-                      <span className="bets-funder-caption">
-                        <span className="bets-funder-caption-word">funded</span>
-                        <span className="bets-funder-caption-word">by:</span>
-                      </span>
+                    <span className="bets-funder">
+                      <span className="bets-funder-caption">funded by:</span>
                       <span className="bets-funder-chip">
+                        <span className="bets-funder-name">{funder.name}</span>
                         <img className="bets-funder-icon" src={funder.logo} alt="" />
-                        {funder.name}
                       </span>
-                    </>
-                  )}
-                  {locked && (
-                    <span className="bets-lock-icon" role="img" aria-label="Locked">
-                      🔒
                     </span>
                   )}
+                  {/* Always rendered so the funder logo lines up across weeks. */}
+                  <span
+                    className="bets-lock-icon"
+                    role={locked ? 'img' : undefined}
+                    aria-label={locked ? 'Locked' : undefined}
+                    aria-hidden={locked ? undefined : true}
+                  >
+                    {locked ? '🔒' : ''}
+                  </span>
                 </>
               }
               expanded={!!expanded[weekId]}
@@ -339,7 +377,7 @@ export default function BetsPage() {
                             title={
                               locked
                                 ? undefined
-                                : 'Triple-click to set as this week’s parlay funder'
+                                : '3x to set Low Score'
                             }
                           />
                           <span>{team.name}</span>
@@ -437,18 +475,24 @@ export default function BetsPage() {
             {sortedStandings.map((team) => (
               <tr key={team.id}>
                 <td className="bets-standings-team">
-                  <img
-                    className="bets-team-logo"
-                    src={team.logo}
-                    alt=""
-                    width={48}
-                    height={48}
-                    loading="lazy"
-                  />
-                  <span>{team.name}</span>
+                  <div className="bets-standings-team-inner">
+                    <img
+                      className="bets-team-logo"
+                      src={team.logo}
+                      alt=""
+                      width={48}
+                      height={48}
+                      loading="lazy"
+                    />
+                    <span>{team.name}</span>
+                  </div>
                 </td>
                 <td className="bets-standings-recent-col">
-                  <div className="bets-standings-recent">
+                  <div
+                    className="bets-standings-recent"
+                    ref={registerRecentRow}
+                    onScroll={handleRecentScroll}
+                  >
                     {team.weeklyResults.map((week) => (
                       <span
                         key={week.weekId}

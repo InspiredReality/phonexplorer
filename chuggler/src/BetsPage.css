@@ -48,7 +48,10 @@
   width: 100%;
   display: flex;
   align-items: center;
-  padding: 12px 16px;
+  /* Fixed height so every week's header matches, with or without a funder. */
+  height: 92px;
+  box-sizing: border-box;
+  padding: 8px 16px;
   background: transparent;
   border: none;
   cursor: pointer;
@@ -79,6 +82,12 @@
   text-align: left;
 }
 
+.bets-week-label-dates {
+  font-size: 0.7rem;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+}
+
 /* Pushed to the right edge of the header (ahead of the expand arrow) via
    the auto margin below, regardless of whether it holds anything — that
    keeps the arrow pinned to the far right even on weeks with no funder
@@ -91,13 +100,17 @@
   padding-left: 12px;
 }
 
-.bets-funder-caption {
+.bets-funder {
   display: flex;
-  align-items: baseline;
-  gap: 4px;
-  text-align: left;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 2px;
+}
+
+.bets-funder-caption {
+  white-space: nowrap;
   color: rgba(255, 255, 255, 0.55);
-  font-size: 0.72rem;
+  font-size: 0.62rem;
   font-weight: 600;
   letter-spacing: 0.03em;
 }
@@ -106,27 +119,32 @@
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  padding: 2px 10px 2px 4px;
-  border-radius: 999px;
-  background: rgba(250, 204, 21, 0.12);
-  border: 1px solid rgba(250, 204, 21, 0.35);
   color: #facc15;
-  font-size: 0.72rem;
   font-weight: 600;
   letter-spacing: 0.03em;
 }
 
+.bets-funder-name {
+  font-size: 0.62rem;
+}
+
 .bets-funder-icon {
-  width: 20px;
-  height: 20px;
+  width: 44px;
+  height: 44px;
   flex-shrink: 0;
   border-radius: 50%;
   object-fit: cover;
   background: rgba(255, 255, 255, 0.08);
+  border: 2px solid rgba(250, 204, 21, 0.5);
+  box-sizing: border-box;
 }
 
 .bets-lock-icon {
   line-height: 1;
+  /* Fixed slot, filled or not, keeps funder logos in one vertical line. */
+  display: inline-block;
+  width: 1.3em;
+  text-align: center;
 }
 
 .bets-expand-icon {
@@ -163,6 +181,17 @@
 .bets-table-label .bets-team-logo {
   cursor: pointer;
   user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  /* No double-tap-to-zoom delay, so rapid taps arrive as separate clicks. */
+  touch-action: manipulation;
+}
+
+.bets-heading {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: manipulation;
 }
 
 .bets-team-logo {
@@ -332,36 +361,44 @@
 .bets-standings-table th.bets-standings-num-col,
 .bets-standings-table td.bets-standings-num-col {
   text-align: center;
-  width: 96px;
+  width: 10%;
+}
+
+.bets-standings-table th.bets-standings-team-header {
+  width: 28%;
 }
 
 .bets-standings-table td {
   padding: 8px 12px;
   font-size: 0.85rem;
+  /* Uniform row height (a table-cell height acts as a minimum); sized so a
+     long team name can wrap to two lines without growing its row. */
+  height: 72px;
+  vertical-align: middle;
 }
 
 .bets-standings-table tr:not(:last-child) td {
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.bets-standings-team {
+/* Same look as the Parlay Picks accordion's .bets-table-label: 48px logo,
+   0.8rem name, 8px gap (mobile overrides below match its mobile sizes). */
+.bets-standings-team-inner {
   display: flex;
   align-items: center;
   gap: 8px;
-}
-
-.bets-standings-team span {
-  overflow-wrap: break-word;
+  font-size: 0.8rem;
+  letter-spacing: 0.02em;
+  color: rgba(255, 255, 255, 0.85);
 }
 
 /* Fixed width so it can't force the table wider as more weeks fill in —
    the icon row inside scrolls horizontally once it runs out of room.
-   The team column is the one left unspecified, so it absorbs whatever
-   space this and the two number columns don't use. */
+   Column split: team 28% / weekly results 52% / wins 10% / legs 10%. */
 .bets-standings-table th.bets-standings-recent-col,
 .bets-standings-table td.bets-standings-recent-col {
   text-align: left;
-  width: 260px;
+  width: 52%;
 }
 
 .bets-standings-recent {
@@ -369,7 +406,12 @@
   align-items: center;
   gap: 4px;
   overflow-x: auto;
-  padding-bottom: 2px;
+  overflow-y: hidden;
+  max-width: 100%;
+  padding-bottom: 4px;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-x pan-y;
+  overscroll-behavior-x: contain;
 }
 
 .bets-recent-icon {
@@ -403,29 +445,13 @@
     padding-left: 6px;
   }
 
-  /* Break "funded by:" onto two lines ("funded" / "by:") so the caption's
-     width stays consistent regardless of the funder team name's length. */
-  .bets-funder-caption {
-    flex-direction: column;
-    align-items: flex-start;
-    gap: 0;
-    font-size: 0.6rem;
-  }
-
-  /* "by:" right-aligns under "funded" instead of stacking flush left. */
-  .bets-funder-caption-word:last-child {
-    align-self: flex-end;
-  }
-
-  .bets-funder-chip {
-    padding: 1px 8px 1px 3px;
-    gap: 4px;
-    font-size: 0.62rem;
-  }
-
   .bets-funder-icon {
-    width: 16px;
-    height: 16px;
+    width: 40px;
+    height: 40px;
+  }
+
+  .bets-funder-name {
+    font-size: 0.58rem;
   }
 
   .bets-standings-table th,
@@ -434,14 +460,24 @@
     font-size: 0.72rem;
   }
 
-  .bets-standings-table th.bets-standings-num-col,
-  .bets-standings-table td.bets-standings-num-col {
-    width: 56px;
+  .bets-standings-table td {
+    height: 64px;
+    padding: 8px 6px;
   }
 
-  .bets-standings-table th.bets-standings-recent-col,
-  .bets-standings-table td.bets-standings-recent-col {
-    width: 96px;
+  .bets-standings-table td.bets-standings-team {
+    padding: 8px 2px 8px 4px;
+  }
+
+  /* Matches the accordion's mobile label: 32px logo, 0.66rem name, 4px gap. */
+  .bets-standings-team-inner {
+    gap: 4px;
+    font-size: 0.66rem;
+  }
+
+  .bets-standings-team-inner .bets-team-logo {
+    width: 32px;
+    height: 32px;
   }
 
   .bets-standings-recent {
