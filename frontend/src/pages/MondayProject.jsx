@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import './MondayProject.css';
 // import ActivityTimeline from '../components/ActivityTimeline'; // original timeline (no filters), commented out
 import { flattenComments } from '../components/ActivityTimeline';
-import { DECISION_GREEN, statusGroup } from '../components/statusGroups';
+import { DECISION_GREEN } from '../components/statusGroups';
 import OnboardingChecklist from '../components/OnboardingChecklist';
 import WeeklyActivityTimeline from '../components/WeeklyActivityTimeline';
 
@@ -159,8 +159,9 @@ function Task({ task }) {
   );
 }
 
-// "Done" here is the Done/Deferred group used everywhere else; every other status is Open.
-const isDoneTask = t => statusGroup(t.status) === 'Done/Deferred';
+// Success Roadmap only: "Done" means status Done. Deferred (and every other status) is Open,
+// unlike the Done/Deferred grouping used by the timelines and the Onboarding Checklist.
+const isDoneTask = t => (t.status || '').trim().toLowerCase() === 'done';
 
 function Group({ group, show }) {
   const [open, setOpen] = useState(false);
