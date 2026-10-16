@@ -194,8 +194,9 @@
   margin-left: 8px;
   padding: 1px 7px;
   border-radius: 999px;
-  background: rgba(0,200,117,0.2);
-  color: #00c875;
+  background: #000;
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.45);
   font-size: 0.68rem;
   font-weight: 600;
 }
@@ -221,3 +222,20 @@
 .mp-chip--off { background: transparent; border-color: rgba(255,255,255,0.2); color: rgba(255,255,255,0.4); }
 .mp-chip--off .mp-chip__dot { background: transparent; border: 1px solid rgba(255,255,255,0.3); box-sizing: border-box; }
 .mp-updates__empty { margin: 10px 0 0; color: rgba(255,255,255,0.4); font-size: 0.85rem; }
+
+/* Success Roadmap: the group accordion list, with a title and Done / Open filter */
+.mp-roadmap { display: flex; flex-direction: column; gap: 14px; }
+.mp-roadmap__title {
+  margin: 0;
+  font-size: 0.95rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.mp-roadmap .mp-filters { margin-bottom: 0; }
+.mp-chip--plain { --c: #fff; border-color: #fff; background: transparent; }
+.mp-chip--plain .mp-chip__dot { background: #fff; }
+.mp-chip--plain.mp-chip--off { border-color: rgba(255,255,255,0.2); }
+.mp-chip--plain.mp-chip--off .mp-chip__dot { background: transparent; border: 1px solid rgba(255,255,255,0.3); box-sizing: border-box; }
+
+.mp-chip[style*="#000"] .mp-chip__dot { box-shadow: 0 0 0 1px rgba(255,255,255,0.7); }
+.mp-chip[style*="#000"]:not(.mp-chip--off) { border-color: rgba(255,255,255,0.7); }

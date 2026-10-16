@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import './MondayProject.css';
 // import ActivityTimeline from '../components/ActivityTimeline'; // original timeline (no filters), commented out
 import { flattenComments } from '../components/ActivityTimeline';
+import { DECISION_COLOR } from '../components/statusGroups';
 import OnboardingChecklist from '../components/OnboardingChecklist';
 import WeeklyActivityTimeline from '../components/WeeklyActivityTimeline';
 
@@ -44,7 +45,7 @@ function fmtStamp(iso) {
 
 const UPDATE_FILTERS = [
   { key: 'comment', label: 'Comments', color: '#f6287e' },
-  { key: 'decision', label: 'Decisions', color: '#00c875' },
+  { key: 'decision', label: 'Decisions', color: DECISION_COLOR },
 ];
 
 function RecentUpdates({ updates }) {
@@ -158,7 +159,11 @@ function Task({ task }) {
   );
 }
 
-function Group({ group }) {
+// Success Roadmap only: "Done" means status Done. Deferred (and every other status) is Open,
+// unlike the Done/Deferred grouping used by the timelines and the Onboarding Checklist.
+const isDoneTask = t => (t.status || '').trim().toLowerCase() === 'done';
+
+function Group({ group, show }) {
   const [open, setOpen] = useState(false);
   const color = group.color || FALLBACK_GROUP_COLOR;
   const done = group.tasks.filter(t => (t.status || '').toLowerCase() === 'done').length;
@@ -172,11 +177,52 @@ function Group({ group }) {
       </button>
       {open && (
         <ul className="mp-tasks">
-          {group.tasks.length === 0
-            ? <li className="mp-empty">No tasks in this group.</li>
-            : group.tasks.map(t => <Task key={t.id} task={t} />)}
+          {group.tasks.filter(show).length === 0
+            ? <li className="mp-empty">{group.tasks.length === 0 ? 'No tasks in this group.' : 'No tasks match the filter.'}</li>
+            : group.tasks.filter(show).map(t => <Task key={t.id} task={t} />)}
         </ul>
       )}
+    </section>
+  );
+}
+
+function SuccessRoadmap({ groups }) {
+  const [hidden, setHidden] = useState(() => new Set()); // 'done' and/or 'open'
+  const all = groups.flatMap(g => g.tasks);
+  const counts = {
+    done: all.filter(isDoneTask).length,
+    open: all.filter(t => !isDoneTask(t)).length,
+  };
+  const show = t => !hidden.has(isDoneTask(t) ? 'done' : 'open');
+
+  function toggle(key) {
+    setHidden(prev => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key); else next.add(key);
+      return next;
+    });
+  }
+
+  return (
+    <section className="mp-roadmap">
+      <h2 className="mp-roadmap__title">Success Roadmap</h2>
+      <div className="mp-filters">
+        {[['done', 'Done'], ['open', 'Open']].map(([key, label]) => {
+          const off = hidden.has(key);
+          return (
+            <button
+              key={key}
+              type="button"
+              className={`mp-chip mp-chip--plain${off ? ' mp-chip--off' : ''}`}
+              aria-pressed={!off}
+              onClick={() => toggle(key)}
+            >
+              <i className="mp-chip__dot" /> {label} <span className="mp-chip__n">{counts[key]}</span>
+            </button>
+          );
+        })}
+      </div>
+      {groups.map(g => <Group key={g.id} group={g} show={show} />)}
     </section>
   );
 }
@@ -250,7 +296,7 @@ export default function MondayProject() {
         )}
         {project && <OnboardingChecklist groups={project.groups} />}
 
-        {project?.groups.map(g => <Group key={g.id} group={g} />)}
+        {project && <SuccessRoadmap groups={project.groups} />}
 
         {project && (
           <>
