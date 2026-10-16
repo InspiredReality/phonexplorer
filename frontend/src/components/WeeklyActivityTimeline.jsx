@@ -2,7 +2,7 @@ import { useRef, useState } from 'react';
 import './ActivityTimeline.css';
 import './WeeklyActivityTimeline.css';
 import { buildEvents, firstWords, formatDate, useScrollToEnd } from './ActivityTimeline';
-import { GREEN, STATUS_ORDER, statusColor, statusGroup } from './statusGroups';
+import { DECISION_GREEN, STATUS_ORDER, statusColor, statusGroup } from './statusGroups';
 
 // Same data as ActivityTimeline, grouped into Monday-start weeks. Each week is
 // one column on the horizontal line; its updates and status changes stack
@@ -48,13 +48,13 @@ function groupByWeek(events) {
 const PINK = '#f6287e';
 
 function eventColor(e) {
-  if (e.kind === 'update') return e.subtype === 'decision' ? GREEN : PINK;
+  if (e.kind === 'update') return e.subtype === 'decision' ? DECISION_GREEN : PINK;
   return statusColor(statusGroup(e.status));
 }
 
 const SUBTYPES = [
   { key: 'comment', label: 'Comments', color: PINK },
-  { key: 'decision', label: 'Decisions', color: GREEN },
+  { key: 'decision', label: 'Decisions', color: DECISION_GREEN },
 ];
 
 export default function WeeklyActivityTimeline({
