@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import './MondayProject.css';
 // import ActivityTimeline from '../components/ActivityTimeline'; // original timeline (no filters), commented out
 import { flattenComments } from '../components/ActivityTimeline';
-import { DECISION_GREEN } from '../components/statusGroups';
+import { DECISION_COLOR } from '../components/statusGroups';
 import OnboardingChecklist from '../components/OnboardingChecklist';
 import WeeklyActivityTimeline from '../components/WeeklyActivityTimeline';
 
@@ -45,7 +45,7 @@ function fmtStamp(iso) {
 
 const UPDATE_FILTERS = [
   { key: 'comment', label: 'Comments', color: '#f6287e' },
-  { key: 'decision', label: 'Decisions', color: DECISION_GREEN },
+  { key: 'decision', label: 'Decisions', color: DECISION_COLOR },
 ];
 
 function RecentUpdates({ updates }) {

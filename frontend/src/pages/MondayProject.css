@@ -194,8 +194,9 @@
   margin-left: 8px;
   padding: 1px 7px;
   border-radius: 999px;
-  background: #0b7d4a;
+  background: #000;
   color: #fff;
+  border: 1px solid rgba(255,255,255,0.45);
   font-size: 0.68rem;
   font-weight: 600;
 }
@@ -235,3 +236,6 @@
 .mp-chip--plain .mp-chip__dot { background: #fff; }
 .mp-chip--plain.mp-chip--off { border-color: rgba(255,255,255,0.2); }
 .mp-chip--plain.mp-chip--off .mp-chip__dot { background: transparent; border: 1px solid rgba(255,255,255,0.3); box-sizing: border-box; }
+
+.mp-chip[style*="#000"] .mp-chip__dot { box-shadow: 0 0 0 1px rgba(255,255,255,0.7); }
+.mp-chip[style*="#000"]:not(.mp-chip--off) { border-color: rgba(255,255,255,0.7); }

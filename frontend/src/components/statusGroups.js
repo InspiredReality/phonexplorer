@@ -3,8 +3,8 @@
 // Nucleus ..." status is one group, TODO shows as "ToDo". Anything else keeps its own name.
 
 export const GREEN = '#00c875';
-// Decisions use a darker green so they can't be confused with Done / Deferred items.
-export const DECISION_GREEN = '#0b7d4a';
+// Decisions are black so they can't be confused with Done / Deferred (green) items.
+export const DECISION_COLOR = '#000000';
 export const DEFAULT_STATUS_COLOR = '#579bfc';
 
 export const STATUS_ORDER = [
