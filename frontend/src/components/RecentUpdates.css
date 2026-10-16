@@ -1,0 +1,69 @@
+/* Recent Updates component styles (self-contained, `ru-` prefix) */
+/* ── Recent updates ── */
+.ru-updates {
+  background: #181820;
+  border-radius: 6px;
+  padding: 14px 16px;
+}
+.ru-updates__title {
+  margin: 0 0 10px;
+  font-size: 0.95rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.ru-updates__list { list-style: none; margin: 0; padding: 0; }
+.ru-update { padding: 10px 0; border-top: 1px solid rgba(255,255,255,0.08); }
+.ru-update__meta {
+  display: flex;
+  justify-content: space-between;
+  gap: 10px;
+  flex-wrap: wrap;
+  font-size: 0.8rem;
+}
+.ru-update__meta span { color: rgba(255,255,255,0.45); }
+.ru-update__body {
+  margin: 4px 0 0;
+  font-size: 0.85rem;
+  color: rgba(255,255,255,0.75);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.ru-update__replies { font-size: 0.72rem; color: #f6287e; }
+.ru-update--reply { margin-left: 14px; border-left: 2px solid rgba(246,40,126,0.5); padding-left: 10px; }
+.ru-badge {
+  margin-left: 8px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  background: #000;
+  color: #fff;
+  border: 1px solid rgba(255,255,255,0.45);
+  font-size: 0.68rem;
+  font-weight: 600;
+}
+
+
+/* Recent Updates filter chips */
+.ru-filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; }
+.ru-chip {
+  --c: #f6287e;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--c);
+  background: color-mix(in srgb, var(--c) 18%, transparent);
+  color: #fff;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.ru-chip__dot { width: 9px; height: 9px; border-radius: 50%; background: var(--c); }
+.ru-chip__n { color: rgba(255,255,255,0.5); font-size: 0.68rem; }
+.ru-chip--off { background: transparent; border-color: rgba(255,255,255,0.2); color: rgba(255,255,255,0.4); }
+.ru-chip--off .ru-chip__dot { background: transparent; border: 1px solid rgba(255,255,255,0.3); box-sizing: border-box; }
+.ru-updates__empty { margin: 10px 0 0; color: rgba(255,255,255,0.4); font-size: 0.85rem; }
+
+
+.ru-chip[style*="#000"] .ru-chip__dot { box-shadow: 0 0 0 1px rgba(255,255,255,0.7); }
+.ru-chip[style*="#000"]:not(.ru-chip--off) { border-color: rgba(255,255,255,0.7); }

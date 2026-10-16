@@ -1,0 +1,134 @@
+/* Success Roadmap component styles (self-contained, `sr-` prefix) */
+/* ── Group accordion ── */
+.sr-group {
+  --group-color: #579bfc;
+  border-left: 5px solid var(--group-color);
+  background: #181820;
+  border-radius: 6px;
+  overflow: hidden;
+}
+.sr-group__head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  background: none;
+  border: none;
+  padding: 14px 14px;
+  cursor: pointer;
+  text-align: left;
+  color: var(--group-color);
+  font-size: 1.05rem;
+  font-weight: 600;
+}
+.sr-group__title { flex: 1; }
+.sr-group__count {
+  font-size: 0.75rem;
+  color: rgba(255,255,255,0.5);
+  background: rgba(255,255,255,0.08);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+.sr-caret {
+  display: inline-block;
+  width: 1em;
+  transition: transform 0.15s;
+  color: rgba(255,255,255,0.5);
+}
+.sr-caret--open { transform: rotate(90deg); }
+.sr-caret--none { visibility: hidden; }
+
+/* ── Tasks ── */
+.sr-tasks, .sr-subtasks { list-style: none; margin: 0; padding: 0; }
+.sr-task { border-top: 1px solid rgba(255,255,255,0.08); }
+.sr-row {
+  display: grid;
+  grid-template-columns: 1fr auto 130px 110px;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 14px;
+}
+.sr-row--expandable { cursor: pointer; }
+.sr-row--expandable:hover { background: rgba(255,255,255,0.04); }
+.sr-row__name { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.sr-subcount {
+  font-size: 0.7rem;
+  background: #4a4a58;
+  color: #fff;
+  border-radius: 50%;
+  width: 20px;
+  height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.sr-row:not(:has(.sr-subcount)) { grid-template-columns: 1fr 130px 110px; }
+
+.sr-pill {
+  text-align: center;
+  padding: 5px 8px;
+  border-radius: 4px;
+  font-size: 0.82rem;
+  color: #fff;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sr-pill--empty { background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.4); }
+.sr-timeline {
+  text-align: center;
+  background: #4a4a58;
+  border-radius: 12px;
+  padding: 4px 8px;
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+
+/* Sub-tasks sit indented beneath their parent */
+.sr-subtasks { background: rgba(0,0,0,0.25); }
+.sr-row--sub { padding-left: 44px; font-size: 0.9rem; }
+.sr-row--sub + .sr-row--sub { border-top: 1px solid rgba(255,255,255,0.05); }
+.sr-empty { padding: 14px; color: rgba(255,255,255,0.4); }
+
+@media (max-width: 600px) {
+  .sr-row, .sr-row:not(:has(.sr-subcount)) { grid-template-columns: 1fr auto; }
+  .sr-row .sr-timeline { display: none; }
+  .sr-row--sub { padding-left: 32px; }
+}
+
+
+.sr-filters { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 6px; }
+.sr-chip {
+  --c: #f6287e;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--c);
+  background: color-mix(in srgb, var(--c) 18%, transparent);
+  color: #fff;
+  font-size: 0.75rem;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.sr-chip__dot { width: 9px; height: 9px; border-radius: 50%; background: var(--c); }
+.sr-chip__n { color: rgba(255,255,255,0.5); font-size: 0.68rem; }
+.sr-chip--off { background: transparent; border-color: rgba(255,255,255,0.2); color: rgba(255,255,255,0.4); }
+.sr-chip--off .sr-chip__dot { background: transparent; border: 1px solid rgba(255,255,255,0.3); box-sizing: border-box; }
+
+/* Success Roadmap: the group accordion list, with a title and Done / Open filter */
+.sr-roadmap { display: flex; flex-direction: column; gap: 14px; }
+.sr-roadmap__title {
+  margin: 0;
+  font-size: 0.95rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.sr-roadmap .sr-filters { margin-bottom: 0; }
+.sr-chip--plain { --c: #fff; border-color: #fff; background: transparent; }
+.sr-chip--plain .sr-chip__dot { background: #fff; }
+.sr-chip--plain.sr-chip--off { border-color: rgba(255,255,255,0.2); }
+.sr-chip--plain.sr-chip--off .sr-chip__dot { background: transparent; border: 1px solid rgba(255,255,255,0.3); box-sizing: border-box; }
+
