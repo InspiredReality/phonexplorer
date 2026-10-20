@@ -7,13 +7,12 @@ import {
   collectKnownTags,
   currentBettingWeekDays,
   formatMoneyShort,
-  loadEntries,
   loadWeeklyGoal,
-  persistEntries,
-  reconcileEntriesWithApi,
   rowHasTag,
   saveWeeklyGoal,
   sumProfit,
+  syncEntries,
+  useBettEntries,
 } from './bettStuffData';
 import './BettStuff.css';
 
@@ -54,28 +53,14 @@ function BettStuffStats() {
   // The bottom summary bar always tracks just the current week; the grid
   // below shows every week back through the earliest logged day.
   const [summaryDays] = useState(currentBettingWeekDays);
-  // Local storage hydrates the first paint; the database fetch then
-  // overwrites it as the source of truth (and refreshes the cache), so
-  // this matches whatever the picks page has saved from any browser.
-  const [entries, setEntries] = useState(loadEntries);
+  // Shared offline-first store: same data the picks page just used, so
+  // navigating here shows it instantly; the sync only hits the API if stale.
+  const { entries } = useBettEntries();
   const [weeklyGoal, setWeeklyGoal] = useState(loadWeeklyGoal);
   const [tagFilter, setTagFilter] = useState('');
 
   useEffect(() => {
-    let cancelled = false;
-    // Anything only in this browser's local cache (e.g. bets logged before
-    // database sync existed here) gets pushed up as part of this call, so
-    // it isn't lost once the database becomes the source of truth.
-    reconcileEntriesWithApi(loadEntries())
-      .then((merged) => {
-        if (cancelled) return;
-        setEntries(merged);
-        persistEntries(merged);
-      })
-      .catch((err) => console.error('Failed to load bets from database, using local cache:', err));
-    return () => {
-      cancelled = true;
-    };
+    syncEntries();
   }, []);
 
   const knownTags = collectKnownTags(entries);
