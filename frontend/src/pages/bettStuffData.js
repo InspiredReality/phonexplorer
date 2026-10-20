@@ -499,7 +499,9 @@ export function loadImagesFor(dateKeys) {
   }
 }
 
-let lastSyncAt = 0;
+const LAST_SYNC_KEY = 'phonexplorer-bett-stuff-last-sync-v1';
+// Persisted so reopening the app soon after a sync doesn't refetch at all.
+let lastSyncAt = readJson(LAST_SYNC_KEY, 0);
 let syncPromise = null;
 
 // Revalidates against the API unless it already did recently. Safe to call
@@ -513,6 +515,7 @@ export function syncEntries({ force = false } = {}) {
   syncPromise = revalidate()
     .then(() => {
       lastSyncAt = Date.now();
+      writeJson(LAST_SYNC_KEY, lastSyncAt);
     })
     .catch((err) => console.error('Failed to sync bets, using local cache:', err))
     .finally(() => {

@@ -3,7 +3,7 @@ from datetime import date
 
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel
-from sqlalchemy import select
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.deps import get_db
@@ -52,16 +52,44 @@ def _dict(row: BettStuffSettlement, include_image: bool = True) -> dict:
     }
 
 
+def _list_dict(row) -> dict:
+    try:
+        tags = json.loads(row["tags"]) if row["tags"] else []
+    except ValueError:
+        tags = []
+    return {
+        "id": row["id"],
+        "bet_date": row["bet_date"].isoformat(),
+        "pick": row["pick"],
+        "notes": row["notes"],
+        "image": None,
+        "has_image": bool(row["has_image"]),
+        "bet_amount": row["bet_amount"],
+        "to_win": row["to_win"],
+        "profit": row["profit"],
+        "sportsbook": row["sportsbook"],
+        "tags": tags,
+        "status": row["status"],
+        "result": row["result"],
+    }
+
+
 @router.get("/settlements")
 async def list_settlements(db: AsyncSession = Depends(get_db)):
+    # Screenshots are base64 and dominate the payload — and selecting the
+    # image column would make Postgres read every one of them off disk even
+    # if we never serialized them. So it's left out of the query entirely
+    # (has_image is computed in SQL) and clients fetch each from /image.
+    cols = [c for c in BettStuffSettlement.__table__.columns if c.name != "image"]
+    has_image = and_(BettStuffSettlement.image.is_not(None), BettStuffSettlement.image != "")
     rows = (
         await db.execute(
-            select(BettStuffSettlement).where(BettStuffSettlement.user_id == DEFAULT_USER_ID)
+            select(*cols, has_image.label("has_image")).where(
+                BettStuffSettlement.user_id == DEFAULT_USER_ID
+            )
         )
-    ).scalars().all()
-    # Screenshots are base64 and dominate the payload; the list leaves them
-    # out (see has_image) and clients fetch each one from /image on demand.
-    return [_dict(row, include_image=False) for row in rows]
+    ).mappings().all()
+    return [_list_dict(row) for row in rows]
 
 
 @router.get("/settlements/{row_id}/image")
