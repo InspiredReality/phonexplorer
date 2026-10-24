@@ -169,35 +169,44 @@ def _money(value) -> float | None:
 async def read_slip(body: SlipImage):
     """Reads Bet and To Win off a bet-slip screenshot with a vision model."""
     if not settings.anthropic_api_key:
-        raise HTTPException(status_code=503, detail="Slip reading is not configured")
+        raise HTTPException(status_code=503, detail="ANTHROPIC_API_KEY is not set on the backend")
     match = re.match(r"data:(image/[\w.+-]+);base64,(.+)", body.image, re.DOTALL)
     if not match:
         raise HTTPException(status_code=400, detail="Expected a base64 image data URL")
     media_type, data = match.groups()
 
-    async with httpx.AsyncClient(timeout=60) as client:
-        res = await client.post(
-            "https://api.anthropic.com/v1/messages",
-            headers={
-                "x-api-key": settings.anthropic_api_key,
-                "anthropic-version": "2023-06-01",
-            },
-            json={
-                "model": settings.slip_model,
-                "max_tokens": 100,
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": [
-                            {"type": "image", "source": {"type": "base64", "media_type": media_type, "data": data}},
-                            {"type": "text", "text": SLIP_PROMPT},
-                        ],
-                    }
-                ],
-            },
-        )
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:
+            res = await client.post(
+                "https://api.anthropic.com/v1/messages",
+                headers={
+                    "x-api-key": settings.anthropic_api_key,
+                    "anthropic-version": "2023-06-01",
+                },
+                json={
+                    "model": settings.slip_model,
+                    "max_tokens": 100,
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": [
+                                {"type": "image", "source": {"type": "base64", "media_type": media_type, "data": data}},
+                                {"type": "text", "text": SLIP_PROMPT},
+                            ],
+                        }
+                    ],
+                },
+            )
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail=f"Could not reach Anthropic: {type(exc).__name__}")
     if res.status_code != 200:
-        raise HTTPException(status_code=502, detail="Slip reader unavailable")
+        # Pass Anthropic's own reason through (bad key, no credits, unknown
+        # model...) so it can be shown in the app instead of guessed at.
+        try:
+            reason = res.json()["error"]["message"]
+        except (ValueError, KeyError, TypeError):
+            reason = res.text[:200]
+        raise HTTPException(status_code=502, detail=f"Anthropic {res.status_code}: {reason}")
     text = "".join(b.get("text", "") for b in res.json().get("content", []))
     found = re.search(r"\{.*\}", text, re.DOTALL)
     try:
