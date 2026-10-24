@@ -147,11 +147,13 @@ class SlipImage(BaseModel):
 
 SLIP_PROMPT = (
     "This is a screenshot of a sports bet slip. Reply with ONLY a JSON object "
-    '{"bet": <number|null>, "to_win": <number|null>}. "bet" is the amount staked '
-    '(Wager/Risk/Stake). "to_win" is the TOTAL payout if the bet wins — stake '
-    'plus profit (labelled To Pay/Payout/Total Payout/Returns). If the slip only '
-    'shows profit ("To Win"), add the stake to it. Use plain numbers without '
-    "currency symbols; use null for anything you cannot read."
+    '{"bet": <number|null>, "to_win": <number|null>}. "bet" is the wager only '
+    "(Wager/Wager Amount/Risk/Stake) — never add taxes or fees, and never use a "
+    '"Transaction Total". "to_win" is the TOTAL payout if the bet wins — stake '
+    "plus profit (labelled To Pay/Payout/Total Payout/Returns). If the slip only "
+    'shows profit ("To Win"), add the wager to it. Ignore Cash Out amounts, odds '
+    "and live scores. Use plain numbers without currency symbols; use null for "
+    "anything you cannot read."
 )
 
 
