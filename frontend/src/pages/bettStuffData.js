@@ -411,6 +411,32 @@ export async function saveBetToApi(dateKey, row) {
   });
 }
 
+// Shrinks a screenshot before upload — slip text stays legible at this size
+// and the request stays small on a phone connection.
+function downscaleForReading(dataUrl, maxSide = 1280) {
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.onload = () => {
+      const scale = Math.min(1, maxSide / Math.max(img.width, img.height));
+      const canvas = document.createElement('canvas');
+      canvas.width = Math.round(img.width * scale);
+      canvas.height = Math.round(img.height * scale);
+      canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
+      resolve(canvas.toDataURL('image/jpeg', 0.85));
+    };
+    img.onerror = () => resolve(dataUrl);
+    img.src = dataUrl;
+  });
+}
+
+// Asks the backend to read Bet / To Win off a bet-slip screenshot. Needs a
+// connection; callers treat any failure as "just leave the fields alone".
+export async function readSlip(dataUrl) {
+  const image = await downscaleForReading(dataUrl);
+  const res = await api.post('/api/bett-stuff/read-slip', { image });
+  return res.data; // { bet, to_win } — each a number or null
+}
+
 export async function deleteBetFromApi(rowId) {
   await api.delete(`/api/bett-stuff/settlements/${rowId}`);
 }

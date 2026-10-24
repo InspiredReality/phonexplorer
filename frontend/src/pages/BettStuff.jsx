@@ -12,6 +12,7 @@ import {
   getEntries,
   loadExtraDays,
   loadImagesFor,
+  readSlip,
   removeBet,
   saveBet,
   saveExtraDays,
@@ -113,7 +114,7 @@ function DraftDayRow({ defaultDate, onConfirm, onCancel }) {
   );
 }
 
-function BetRow({ row, onField, onImageChange, onPreview, onRemove }) {
+function BetRow({ row, slipStatus, onField, onImageChange, onPreview, onRemove }) {
   const computedProfit = computeProfit(row);
   const profit = computedProfit ?? '';
 
@@ -133,6 +134,13 @@ function BetRow({ row, onField, onImageChange, onPreview, onRemove }) {
         />
       </div>
       <ImageCell row={row} onChange={onImageChange} onPreview={onPreview} />
+      {slipStatus && (
+        <span className="bett-status-text" title={slipStatus.detail || ''}>
+          {slipStatus.state === 'reading' && 'reading Bet…'}
+          {slipStatus.state === 'success' && 'read Bet success'}
+          {slipStatus.state === 'fail' && 'cannot read Bet'}
+        </span>
+      )}
       <div className="bett-fields-row">
         <div className="bett-cell bett-cell-bet">
           <span className="bett-cell-label">Bet</span>
@@ -240,6 +248,8 @@ function BettStuff() {
   const [drafts, setDrafts] = useState([]);
   const [expanded, setExpanded] = useState(() => ({ [todayDateKey()]: true }));
   const [previewImage, setPreviewImage] = useState(null);
+  // Per-row result of reading Bet / To Win off an uploaded slip screenshot.
+  const [slipStatus, setSlipStatus] = useState({});
 
   useEffect(() => {
     syncEntries();
@@ -300,10 +310,43 @@ function BettStuff() {
   const handleImageChange = (dateKey, rowId, file) => {
     const reader = new FileReader();
     reader.onload = () => {
-      handleField(dateKey, rowId, 'image', reader.result);
+      const image = reader.result;
+      handleField(dateKey, rowId, 'image', image);
       handleField(dateKey, rowId, 'hasImage', true);
+      autofillFromSlip(dateKey, rowId, image);
     };
     reader.readAsDataURL(file);
+  };
+
+  // Fills Bet and To Win from the screenshot — only the ones still blank, so
+  // anything already typed is never overwritten. On failure (offline, not
+  // configured, unreadable slip) the row says so and the fields stay manual.
+  const autofillFromSlip = async (dateKey, rowId, image) => {
+    const setStatus = (state, detail) => setSlipStatus((prev) => ({ ...prev, [rowId]: { state, detail } }));
+    const current = (getEntries()[dateKey] || []).find((r) => r.id === rowId);
+    if (!current || (current.bet && current.toWin)) return;
+    setStatus('reading');
+    try {
+      const { bet, to_win: toWin } = await readSlip(image);
+      if (bet == null && toWin == null) {
+        setStatus('fail', 'The slip reader found no Bet or To Win in this image');
+        return;
+      }
+      const latest = (getEntries()[dateKey] || []).find((r) => r.id === rowId);
+      if (latest) {
+        const updated = {
+          ...latest,
+          bet: latest.bet || (bet != null ? String(bet) : ''),
+          toWin: latest.toWin || (toWin != null ? String(toWin) : ''),
+        };
+        updateEntries(dateKey, (rows) => rows.map((r) => (r.id === rowId ? updated : r)));
+        saveBet(dateKey, updated);
+      }
+      setStatus('success');
+    } catch (err) {
+      console.error('Slip reading failed:', err);
+      setStatus('fail', err?.message || 'Request failed');
+    }
   };
 
   const handleAccordionChange = (dateKey) => (_event, isExpanded) => {
@@ -418,6 +461,7 @@ function BettStuff() {
                       key={row.id}
                       row={row}
                       onField={(field, value) => handleField(dateKey, row.id, field, value)}
+                      slipStatus={slipStatus[row.id]}
                       onImageChange={(file) => handleImageChange(dateKey, row.id, file)}
                       onPreview={setPreviewImage}
                       onRemove={() => handleRemoveRow(dateKey, row.id)}
