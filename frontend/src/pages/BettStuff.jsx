@@ -12,6 +12,7 @@ import {
   getEntries,
   loadExtraDays,
   loadImagesFor,
+  readSlip,
   removeBet,
   saveBet,
   saveExtraDays,
@@ -300,10 +301,35 @@ function BettStuff() {
   const handleImageChange = (dateKey, rowId, file) => {
     const reader = new FileReader();
     reader.onload = () => {
-      handleField(dateKey, rowId, 'image', reader.result);
+      const image = reader.result;
+      handleField(dateKey, rowId, 'image', image);
       handleField(dateKey, rowId, 'hasImage', true);
+      autofillFromSlip(dateKey, rowId, image);
     };
     reader.readAsDataURL(file);
+  };
+
+  // Fills Bet and To Win from the screenshot — only the ones still blank, so
+  // anything already typed is never overwritten. Silent on failure (offline,
+  // unreadable slip): the fields just stay for manual entry.
+  const autofillFromSlip = async (dateKey, rowId, image) => {
+    const current = (getEntries()[dateKey] || []).find((r) => r.id === rowId);
+    if (!current || (current.bet && current.toWin)) return;
+    try {
+      const { bet, to_win: toWin } = await readSlip(image);
+      const latest = (getEntries()[dateKey] || []).find((r) => r.id === rowId);
+      if (!latest) return;
+      const updated = {
+        ...latest,
+        bet: latest.bet || (bet != null ? String(bet) : ''),
+        toWin: latest.toWin || (toWin != null ? String(toWin) : ''),
+      };
+      if (updated.bet === latest.bet && updated.toWin === latest.toWin) return;
+      updateEntries(dateKey, (rows) => rows.map((r) => (r.id === rowId ? updated : r)));
+      saveBet(dateKey, updated);
+    } catch {
+      // leave the fields for manual entry
+    }
   };
 
   const handleAccordionChange = (dateKey) => (_event, isExpanded) => {

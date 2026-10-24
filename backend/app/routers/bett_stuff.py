@@ -1,11 +1,14 @@
 import json
+import re
 from datetime import date
 
-from fastapi import APIRouter, Depends
+import httpx
+from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.config import settings
 from app.core.deps import get_db
 from app.models.bett_stuff_settlement import BettStuffSettlement
 
@@ -136,3 +139,67 @@ async def delete_settlement(row_id: str, db: AsyncSession = Depends(get_db)):
         await db.delete(row)
         await db.commit()
     return {"deleted": True}
+
+
+class SlipImage(BaseModel):
+    image: str  # data URL
+
+
+SLIP_PROMPT = (
+    "This is a screenshot of a sports bet slip. Reply with ONLY a JSON object "
+    '{"bet": <number|null>, "to_win": <number|null>}. "bet" is the amount staked '
+    '(Wager/Risk/Stake). "to_win" is the TOTAL payout if the bet wins — stake '
+    'plus profit (labelled To Pay/Payout/Total Payout/Returns). If the slip only '
+    'shows profit ("To Win"), add the stake to it. Use plain numbers without '
+    "currency symbols; use null for anything you cannot read."
+)
+
+
+def _money(value) -> float | None:
+    try:
+        number = float(str(value).replace("$", "").replace(",", ""))
+    except (TypeError, ValueError):
+        return None
+    return round(number, 2) if number >= 0 else None
+
+
+@router.post("/read-slip")
+async def read_slip(body: SlipImage):
+    """Reads Bet and To Win off a bet-slip screenshot with a vision model."""
+    if not settings.anthropic_api_key:
+        raise HTTPException(status_code=503, detail="Slip reading is not configured")
+    match = re.match(r"data:(image/[\w.+-]+);base64,(.+)", body.image, re.DOTALL)
+    if not match:
+        raise HTTPException(status_code=400, detail="Expected a base64 image data URL")
+    media_type, data = match.groups()
+
+    async with httpx.AsyncClient(timeout=60) as client:
+        res = await client.post(
+            "https://api.anthropic.com/v1/messages",
+            headers={
+                "x-api-key": settings.anthropic_api_key,
+                "anthropic-version": "2023-06-01",
+            },
+            json={
+                "model": settings.slip_model,
+                "max_tokens": 100,
+                "messages": [
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "image", "source": {"type": "base64", "media_type": media_type, "data": data}},
+                            {"type": "text", "text": SLIP_PROMPT},
+                        ],
+                    }
+                ],
+            },
+        )
+    if res.status_code != 200:
+        raise HTTPException(status_code=502, detail="Slip reader unavailable")
+    text = "".join(b.get("text", "") for b in res.json().get("content", []))
+    found = re.search(r"\{.*\}", text, re.DOTALL)
+    try:
+        parsed = json.loads(found.group(0)) if found else {}
+    except ValueError:
+        parsed = {}
+    return {"bet": _money(parsed.get("bet")), "to_win": _money(parsed.get("to_win"))}

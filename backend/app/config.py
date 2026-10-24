@@ -17,6 +17,10 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("DATABASE_URL_RAW", "DATABASE_URL"),
     )
 
+    # Bet slip reading (Bett Stuff): leave the key empty to disable the feature.
+    anthropic_api_key: str = ""
+    slip_model: str = "claude-haiku-5-5"
+
     # Sticker API
     admin_token: str = ""
     github_repo: str = "InspiredReality/inspiredrealityservice"
