@@ -12,6 +12,13 @@ reality_tags = Table(
     Column("tag_id",     Integer, ForeignKey("reality_labels.id", ondelete="CASCADE"), primary_key=True),
 )
 
+org_ob_tags = Table(
+    "org_ob_tags",
+    Base.metadata,
+    Column("org_ob_id", Integer, ForeignKey("org_obs.id",         ondelete="CASCADE"), primary_key=True),
+    Column("tag_id",    Integer, ForeignKey("reality_labels.id",  ondelete="CASCADE"), primary_key=True),
+)
+
 
 class Tag(Base):
     # Named "reality_labels" (not "tags") to avoid colliding with the
@@ -24,3 +31,4 @@ class Tag(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
 
     realities = relationship("Reality", secondary=reality_tags, back_populates="tags")
+    org_obs   = relationship("app.models.org_ob.OrgOb", secondary=org_ob_tags, back_populates="tags")

@@ -1,8 +1,11 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useRealitiesStore } from '../store/realities'
 import OrgObPanel from '../components/OrgObPanel'
 import OrgBreadcrumb from '../components/OrgBreadcrumb'
+import TagPicker from '../components/TagPicker'
+import { useTagsStore } from '../store/tags'
+import { getUploadUrl } from '../services/api'
 import { INPUT } from '../styles/constants'
 
 export default function OrgLevels() {
@@ -13,7 +16,15 @@ export default function OrgLevels() {
   const [selectedPath, setSelectedPath] = useState([])
   const [loadingChildren, setLoadingChildren] = useState(false)
   const [editingOrgOb, setEditingOrgOb] = useState(null)
-  const [editForm, setEditForm] = useState({ name: '', description: '' })
+  const [editForm, setEditForm] = useState({ name: '', description: '', selectedTags: [] })
+  const [editPhotoFile, setEditPhotoFile] = useState(null)
+  const [editPhotoPreview, setEditPhotoPreview] = useState(null)
+  const [editSaving, setEditSaving] = useState(false)
+  const [editError, setEditError] = useState('')
+  const photoInputRef = useRef(null)
+  const fetchTags = useTagsStore(s => s.fetchTags)
+
+  useEffect(() => { fetchTags().catch(() => {}) }, [])
 
   useEffect(() => {
     store.clearCache()
@@ -38,8 +49,26 @@ export default function OrgLevels() {
     return result
   })()
 
+  // Remembers the last-opened child of each parent (key: parent id, or 'root')
+  // so re-selecting a higher level restores the deeper levels opened earlier.
+  const openedChildRef = useRef({})
+
+  function applyPath(prefix) {
+    const memory = openedChildRef.current
+    const path = [...prefix]
+    for (let i = 0; i < path.length; i++) {
+      memory[i === 0 ? 'root' : path[i - 1].id] = path[i]
+    }
+    let next = memory[path.length ? path[path.length - 1].id : 'root']
+    while (next && !path.some(n => n.id === next.id)) {
+      path.push(next)
+      next = memory[next.id]
+    }
+    setSelectedPath(path)
+  }
+
   async function selectOrgOb(level, orgOb) {
-    setSelectedPath([...selectedPath.slice(0, level), orgOb])
+    applyPath([...selectedPath.slice(0, level), orgOb])
     if (!store.orgObCache[orgOb.id]) {
       setLoadingChildren(true)
       try { await store.fetchOrgOb(orgOb.id) }
@@ -48,7 +77,7 @@ export default function OrgLevels() {
   }
 
   function navigateTo(pathIndex) {
-    setSelectedPath(pathIndex < 0 ? [] : selectedPath.slice(0, pathIndex + 1))
+    applyPath(pathIndex < 0 ? [] : selectedPath.slice(0, pathIndex + 1))
   }
 
   async function addOrgOb(panel, { name, description, parentOrgOb }) {
@@ -62,17 +91,28 @@ export default function OrgLevels() {
 
   function openEditModal(orgOb) {
     setEditingOrgOb(orgOb)
-    setEditForm({ name: orgOb.name, description: orgOb.description || '' })
+    setEditForm({ name: orgOb.name, description: orgOb.description || '', selectedTags: [...(orgOb.tags || [])] })
+    setEditPhotoFile(null); setEditPhotoPreview(null); setEditError('')
   }
 
   async function saveEdit() {
     if (!editForm.name.trim()) return
-    const updated = await store.updateOrgOb(editingOrgOb.id, {
-      name: editForm.name.trim(),
-      description: editForm.description.trim() || null,
-    })
-    setSelectedPath(selectedPath.map(n => n.id === updated.id ? updated : n))
-    setEditingOrgOb(null)
+    setEditSaving(true); setEditError('')
+    try {
+      let updated = await store.updateOrgOb(editingOrgOb.id, {
+        name: editForm.name.trim(),
+        description: editForm.description.trim() || null,
+        tag_ids: editForm.selectedTags.map(t => t.id),
+      })
+      if (editPhotoFile) updated = await store.uploadOrgObImage(editingOrgOb.id, editPhotoFile)
+      setSelectedPath(selectedPath.map(n => n.id === updated.id ? updated : n))
+      for (const k of Object.keys(openedChildRef.current)) {
+        if (openedChildRef.current[k].id === updated.id) openedChildRef.current[k] = updated
+      }
+      setEditingOrgOb(null)
+    } catch (err) {
+      setEditError(err.response?.data?.detail || err.message || 'Failed to save')
+    } finally { setEditSaving(false) }
   }
 
   async function reorderPanel(panel, orderedIds) {
@@ -84,6 +124,9 @@ export default function OrgLevels() {
     // eslint-disable-next-line no-restricted-globals
     if (!confirm(`Delete "${orgOb.name}" and all its children?`)) return
     await store.deleteOrgOb(orgOb.id, orgOb.parent_id, realityId)
+    for (const k of Object.keys(openedChildRef.current)) {
+      if (k === String(orgOb.id) || openedChildRef.current[k].id === orgOb.id) delete openedChildRef.current[k]
+    }
     const pathIdx = selectedPath.findIndex(n => n.id === orgOb.id)
     if (pathIdx !== -1) setSelectedPath(selectedPath.slice(0, pathIdx))
   }
@@ -138,20 +181,42 @@ export default function OrgLevels() {
 
       {/* Edit modal */}
       {editingOrgOb && (
-        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-4"
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 px-4 overflow-y-auto py-8"
           onClick={e => { if (e.target === e.currentTarget) setEditingOrgOb(null) }}>
-          <div className="bg-neutral-800 rounded-2xl p-6 w-full max-w-md shadow-2xl">
+          <div className="bg-neutral-800 rounded-2xl p-6 w-full max-w-md shadow-2xl my-auto">
             <h2 className="text-lg font-semibold mb-4">Edit</h2>
+
+            {/* Photo */}
+            <div className="aspect-video bg-neutral-700 rounded-lg flex items-center justify-center mb-4 overflow-hidden relative cursor-pointer group"
+              onClick={() => photoInputRef.current?.click()}>
+              {editPhotoPreview || editingOrgOb.image_path
+                ? <img src={editPhotoPreview || getUploadUrl(editingOrgOb.image_path)} alt="" className="w-full h-full object-cover" />
+                : <span className="text-neutral-500 text-sm">Add photo</span>
+              }
+              <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
+                <span className="text-white text-sm font-medium">Change photo</span>
+              </div>
+            </div>
+            <input ref={photoInputRef} type="file" accept="image/*" className="hidden"
+              onChange={e => {
+                const f = e.target.files?.[0]; if (!f) return
+                setEditPhotoFile(f); setEditPhotoPreview(URL.createObjectURL(f)); e.target.value = ''
+              }} />
+
             <div className="flex flex-col gap-3">
               <input value={editForm.name} onChange={e => setEditForm(f => ({...f, name: e.target.value}))}
                 placeholder="Name" maxLength={200} className={INPUT} />
               <textarea value={editForm.description} onChange={e => setEditForm(f => ({...f, description: e.target.value}))}
                 placeholder="Description (optional)" rows={3} className={INPUT + " resize-none"} />
+              <TagPicker value={editForm.selectedTags}
+                onChange={selectedTags => setEditForm(f => ({...f, selectedTags}))} />
             </div>
+
+            {editError && <p className="text-red-400 text-sm mt-3">{editError}</p>}
             <div className="flex gap-3 mt-5">
-              <button onClick={saveEdit} disabled={!editForm.name.trim()}
+              <button onClick={saveEdit} disabled={!editForm.name.trim() || editSaving}
                 className="flex-1 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg disabled:opacity-40">
-                Save
+                {editSaving ? 'Saving…' : 'Save'}
               </button>
               <button onClick={() => setEditingOrgOb(null)}
                 className="px-4 py-2 bg-neutral-700 hover:bg-neutral-600 text-white rounded-lg">Cancel</button>

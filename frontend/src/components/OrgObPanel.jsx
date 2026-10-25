@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import Sortable from 'sortablejs'
 import AddOrgObForm from './AddOrgObForm'
+import { getUploadUrl } from '../services/api'
 
 export default function OrgObPanel({ panel, isActive, onSelect, onAdd, onEdit, onDelete, onReorder }) {
   const [showForm, setShowForm] = useState(false)
@@ -71,17 +72,33 @@ export default function OrgObPanel({ panel, isActive, onSelect, onAdd, onEdit, o
               onClick={() => onSelect(node)}>
               <span className="drag-handle text-neutral-600 hover:text-neutral-400 mr-2 cursor-grab active:cursor-grabbing select-none shrink-0 touch-none"
                 title="Hold to reorder">⠿</span>
-              <div className="flex items-center gap-2 min-w-0 flex-1">
-                <span className="font-medium text-sm text-white truncate">{node.name}</span>
-                {node.children_count > 0 && (
-                  <span className="text-xs text-neutral-500 shrink-0">{node.children_count}</span>
+              {node.image_path && (
+                <img src={getUploadUrl(node.image_path)} alt=""
+                  className="w-8 h-8 rounded object-cover mr-2 shrink-0" />
+              )}
+              <div className="min-w-0 flex-1">
+                <div className="flex items-center gap-2 min-w-0">
+                  <span className="font-medium text-sm text-white truncate">{node.name}</span>
+                  {node.children_count > 0 && (
+                    <span className="text-xs text-neutral-500 shrink-0">{node.children_count}</span>
+                  )}
+                </div>
+                {node.tags?.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mt-1">
+                    {node.tags.map(tag => (
+                      <span key={tag.id} className="text-[10px] px-1.5 py-0.5 rounded-full font-medium"
+                        style={{ backgroundColor: tag.color + '33', color: tag.color }}>
+                        {tag.name}
+                      </span>
+                    ))}
+                  </div>
                 )}
               </div>
               <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
                 <button onClick={e => { e.stopPropagation(); onEdit(node) }}
-                  className="text-neutral-400 hover:text-white text-xs px-1" title="Edit">✎</button>
+                  className="text-neutral-400 hover:text-white text-sm px-4 py-2 min-w-[3rem]" title="Edit">✎</button>
                 <button onClick={e => { e.stopPropagation(); onDelete(node) }}
-                  className="text-red-500 hover:text-red-400 text-xs px-1" title="Delete">✕</button>
+                  className="text-red-500 hover:text-red-400 text-sm px-2 py-2" title="Delete">✕</button>
               </div>
               {panel.selectedNode?.id === node.id && (
                 <span className="text-indigo-400 text-xs ml-1 shrink-0">▶</span>
