@@ -1,0 +1,169 @@
+"""
+PhoneExplorer  –  FastAPI application
+Entry point: run.py (backend root)
+"""
+from contextlib import asynccontextmanager
+
+from pathlib import Path
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from sqlalchemy import func, select, text
+
+from app.config import settings
+from app.db import Base, SessionLocal, engine
+from app.models.scene_object import SceneObject
+from app.models import sticker as _sticker_models  # noqa: F401 — registers Image/Tag with Base
+from app.routers import bets, bett_stuff, data, monday, nfl, objects, org_obs, realities, stickers, tags, admin_stickers
+from app.services import github_sync
+from app.services.http_client import client
+
+
+# ── Seed data (mirrors the original hard-coded buildScene() positions) ─────────
+
+def _seeded_rnd(seed: int) -> list[float]:
+    results, s = [], seed
+    for _ in range(100):
+        s = (s * 9301 + 49297) % 233280
+        results.append((s / 233280) * 20 - 10)
+    return results
+
+
+_rnd = _seeded_rnd(42)
+
+_SHAPES = [
+    (
+        "sphere", "#4488ff", "Sphere",
+        "A perfectly round geometric solid. Every point on its surface is equidistant from the center.",
+        4,
+    ),
+    (
+        "cube", "#ff6644", "Cube",
+        "A regular hexahedron with 6 square faces, 12 edges, and 8 vertices. One of the five Platonic solids.",
+        5,
+    ),
+    (
+        "tetrahedron", "#44cc88", "Tetrahedron",
+        "The simplest polyhedron — 4 triangular faces, 6 edges, 4 vertices. The 3D analog of the triangle.",
+        3,
+    ),
+]
+
+_SEED_OBJECTS: list[dict] = []
+_ri = 0
+for _shape, _color, _title_base, _desc, _count in _SHAPES:
+    for _i in range(_count):
+        _SEED_OBJECTS.append(dict(
+            shape=_shape,
+            title=f"{_title_base} {_i + 1}",
+            description=_desc,
+            x=_rnd[_ri], y=_rnd[_ri + 1], z=_rnd[_ri + 2],
+            color=_color,
+            relationships=[],
+        ))
+        _ri += 3
+
+
+# ── App lifecycle ──────────────────────────────────────────────────────────────
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    import logging
+    try:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+            # create_all only creates missing tables — it won't add columns to
+            # tables that already existed before this column was introduced.
+            await conn.execute(text("ALTER TABLE images ADD COLUMN IF NOT EXISTS name TEXT"))
+            await conn.execute(
+                text("ALTER TABLE bet_week_locks ADD COLUMN IF NOT EXISTS funder_team_id VARCHAR(64)")
+            )
+            await conn.execute(
+                text("ALTER TABLE nfl_game_cache ADD COLUMN IF NOT EXISTS total DOUBLE PRECISION")
+            )
+            # nfl_picks originally allowed one pick per (week, game_id); it now
+            # carries a separate moneyline and ATS pick per game, so the unique
+            # constraint needs game_id's sibling column and a matching index.
+            await conn.execute(
+                text("ALTER TABLE nfl_picks ADD COLUMN IF NOT EXISTS market VARCHAR(16) NOT NULL DEFAULT 'moneyline'")
+            )
+            await conn.execute(text("ALTER TABLE nfl_picks DROP CONSTRAINT IF EXISTS uq_nfl_picks_week_game"))
+            await conn.execute(
+                text("ALTER TABLE bett_stuff_settlements ADD COLUMN IF NOT EXISTS notes TEXT")
+            )
+            await conn.execute(
+                text("ALTER TABLE bett_stuff_settlements ADD COLUMN IF NOT EXISTS tags TEXT NOT NULL DEFAULT '[]'")
+            )
+            await conn.execute(
+                text(
+                    """
+                    DO $$
+                    BEGIN
+                        IF NOT EXISTS (
+                            SELECT 1 FROM pg_constraint WHERE conname = 'uq_nfl_picks_week_game_market'
+                        ) THEN
+                            ALTER TABLE nfl_picks
+                                ADD CONSTRAINT uq_nfl_picks_week_game_market UNIQUE (week, game_id, market);
+                        END IF;
+                    END $$;
+                    """
+                )
+            )
+
+        async with SessionLocal() as db:
+            count = await db.scalar(select(func.count()).select_from(SceneObject))
+            if count == 0:
+                db.add_all(SceneObject(**row) for row in _SEED_OBJECTS)
+                await db.commit()
+    except Exception as exc:
+        logging.error("DB startup error — app running without database: %s", exc)
+
+    try:
+        async with SessionLocal() as db:
+            result = await github_sync.sync_images_from_github(db)
+            logging.info("Sticker sync on startup: %s", result)
+    except Exception as exc:
+        logging.error("Sticker sync on startup failed: %s", exc)
+
+    yield
+
+    await client.aclose()
+
+
+app = FastAPI(
+    title="PhoneExplorer API",
+    version="0.2.0",
+    lifespan=lifespan,
+)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.allowed_origins,
+    # Allow any Vercel preview deployment URL for this project
+    allow_origin_regex=r"https://.*\.vercel\.app",
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(data.router)
+app.include_router(monday.router)
+app.include_router(objects.router)
+app.include_router(stickers.router)
+app.include_router(admin_stickers.router)
+app.include_router(realities.router)
+app.include_router(tags.router)
+app.include_router(org_obs.router)
+app.include_router(bets.router)
+app.include_router(bett_stuff.router)
+app.include_router(nfl.router)
+app.mount("/static", StaticFiles(directory=str(Path(__file__).parent / "static")), name="static")
+
+_UPLOADS_DIR = Path("uploads")
+_UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+app.mount("/uploads", StaticFiles(directory=str(_UPLOADS_DIR)), name="uploads")
+
+
+@app.get("/health")
+async def root_health() -> dict:
+    return {"status": "ok", "service": "phonexplorer-api"}

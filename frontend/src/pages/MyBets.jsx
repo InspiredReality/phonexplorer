@@ -1,0 +1,598 @@
+import { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
+import Accordion from '@mui/material/Accordion';
+import AccordionSummary from '@mui/material/AccordionSummary';
+import AccordionDetails from '@mui/material/AccordionDetails';
+import api from '../services/api';
+import './MyBets.css';
+
+const WEEK_COUNT = 15;
+const STORAGE_KEY = 'phonexplorer-my-bets-picks-v1';
+
+const WEEKS = Array.from({ length: WEEK_COUNT }, (_, i) => `week${i + 1}`);
+
+// Week 1 runs Sep 8-14; every later week just shifts by 7 days from there.
+const WEEK1_START_UTC = Date.UTC(2025, 8, 8);
+
+function formatWeekRange(weekNum) {
+  const start = new Date(WEEK1_START_UTC + (weekNum - 1) * 7 * 86400000);
+  const end = new Date(start.getTime() + 6 * 86400000);
+  const startMonth = start.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' });
+  const endMonth = end.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' });
+  const startDay = start.getUTCDate();
+  const endDay = end.getUTCDate();
+  return startMonth === endMonth
+    ? `${startMonth} ${startDay} - ${endDay}`
+    : `${startMonth} ${startDay} - ${endMonth} ${endDay}`;
+}
+
+function weekNumber(weekId) {
+  return Number(weekId.slice(4));
+}
+
+// One line per kickoff time, e.g. "Thu, 9/24 · 8:15 PM EDT" — shown once as
+// a sub-header above every game that kicks off at that moment, instead of
+// repeated per row.
+function formatKickoffLabel(isoDate) {
+  if (!isoDate) return 'Time TBD';
+  const d = new Date(isoDate);
+  if (Number.isNaN(d.getTime())) return 'Time TBD';
+  const day = d.toLocaleString('en-US', {
+    timeZone: 'America/New_York',
+    weekday: 'short',
+    month: 'numeric',
+    day: 'numeric',
+  });
+  const time = d.toLocaleString('en-US', {
+    timeZone: 'America/New_York',
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZoneName: 'short',
+  });
+  return `${day} · ${time}`;
+}
+
+// Games are already sorted by kickoff time; group consecutive games that
+// share the same one so "Sun, 9/27 · 1:00 PM EDT" (the usual 1pm slate)
+// only prints once, above all of that slot's games.
+function groupGamesByKickoff(games) {
+  const groups = [];
+  for (const game of games) {
+    const last = groups[groups.length - 1];
+    if (last && last.date === game.date) last.games.push(game);
+    else groups.push({ date: game.date, games: [game] });
+  }
+  return groups;
+}
+
+// Odds are signed numbers where the sign matters (e.g. +150 vs -180), but
+// JS's default number-to-string drops the "+" on positive values.
+function formatSigned(value) {
+  if (value === null || value === undefined) return '—';
+  return value > 0 ? `+${value}` : `${value}`;
+}
+
+function loadLocalPicks() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    return raw ? JSON.parse(raw) : {};
+  } catch {
+    return {};
+  }
+}
+
+function persistLocalPicks(data) {
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+  } catch {
+    // e.g. private browsing / storage quota — used only as a local cache anyway
+  }
+}
+
+// How many prior weeks' worth of history to show per team, and how far back
+// (as a count of already-loaded weeks, not calendar weeks) to fetch.
+const HISTORY_WEEKS = 4;
+
+function findTeamGame(games, teamId) {
+  return games.find((g) => g.home?.id === teamId || g.away?.id === teamId);
+}
+
+function teamScoreMargin(teamId, game) {
+  if (!game || !game.completed) return null;
+  const isHome = game.home?.id === teamId;
+  const teamScore = isHome ? game.home?.score : game.away?.score;
+  const oppScore = isHome ? game.away?.score : game.home?.score;
+  const spread = isHome ? game.home?.spread : game.away?.spread;
+  const opponentId = isHome ? game.away?.id : game.home?.id;
+  if (teamScore == null || oppScore == null) return null;
+  return { teamScore, oppScore, spread, opponentId };
+}
+
+// The letter always reflects what actually happened (W/L), independent of
+// any pick. state reflects whether YOUR prediction on this team was right:
+// picking this team means "predicted win", picking the opponent means
+// "predicted loss" — so a correctly-called loss shows a green L.
+function gradeMoneylineHistory(teamId, game, gamePicks) {
+  const margin = teamScoreMargin(teamId, game);
+  if (!game) return { letter: null, state: 'bye' };
+  if (!margin) return { letter: null, state: 'pending' };
+  const { teamScore, oppScore, opponentId } = margin;
+  if (teamScore === oppScore) return { letter: 'T', state: 'push' };
+  const letter = teamScore > oppScore ? 'W' : 'L';
+
+  const picked = gamePicks?.moneyline;
+  let predictedWin;
+  if (picked === teamId) predictedWin = true;
+  else if (picked === opponentId) predictedWin = false;
+  else return { letter, state: 'no-pick' };
+
+  const correct = predictedWin ? letter === 'W' : letter === 'L';
+  return { letter, state: correct ? 'correct' : 'incorrect' };
+}
+
+// label is always this team's spread for that game, shown whether or not a
+// pick was made (spread == null only when we genuinely never got the
+// number — e.g. an old game whose line ESPN no longer has anywhere).
+// `covered` is the plain objective fact — did THIS team cover — completely
+// independent of state, because state alone is ambiguous: a favorite's
+// "-6" can grade green either because you picked the favorite and they
+// covered, or because you picked the underdog and the favorite failed to
+// cover (also "correct", from this team's row). `covered` disambiguates
+// that: the "covered" tag renders whenever this team actually covered,
+// whatever the color, and never when they didn't. Red/green (correct/
+// incorrect) are reserved for a pick you actually made; with no personal
+// pick, state is the plain objective outcome ('covered'/'not-covered'),
+// shown uncolored.
+function gradeAtsHistory(teamId, game, gamePicks) {
+  const margin = teamScoreMargin(teamId, game);
+  if (!game) return { label: null, state: 'bye', covered: null };
+  if (!margin) return { label: null, state: 'pending', covered: null };
+  const { teamScore, oppScore, spread, opponentId } = margin;
+  const label = formatSigned(spread);
+  if (spread == null) return { label, state: 'no-data', covered: null };
+
+  const adjusted = teamScore - oppScore + spread;
+  if (adjusted === 0) return { label, state: 'push', covered: null };
+  const covered = adjusted > 0;
+
+  const picked = gamePicks?.ats;
+  let predictedCover;
+  if (picked === teamId) predictedCover = true;
+  else if (picked === opponentId) predictedCover = false;
+  else return { label, state: covered ? 'covered' : 'not-covered', covered };
+
+  const correct = predictedCover === covered;
+  return { label, state: correct ? 'correct' : 'incorrect', covered };
+}
+
+// display is always "O <total>" or "U <total>" — whichever side the actual
+// combined score landed on — shown whether or not a pick was made. Red/green
+// only apply when you picked a side; with no pick, state is 'no-pick' and
+// the UI shows it uncolored, same treatment as the ATS 'not-covered' case.
+function gradeTotalHistory(game, gamePicks) {
+  if (!game) return { display: null, state: 'bye' };
+  if (!game.completed) return { display: null, state: 'pending' };
+  const homeScore = game.home?.score;
+  const awayScore = game.away?.score;
+  if (homeScore == null || awayScore == null) return { display: null, state: 'pending' };
+  if (game.total == null) return { display: null, state: 'no-data' };
+
+  const actual = homeScore + awayScore;
+  if (actual === game.total) return { display: `P ${game.total}`, state: 'push' };
+  const hitSide = actual > game.total ? 'O' : 'U';
+  const display = `${hitSide} ${game.total}`;
+
+  const picked = gamePicks?.total;
+  if (!picked) return { display, state: 'no-pick' };
+  const predictedSide = picked === 'over' ? 'O' : 'U';
+  const correct = predictedSide === hitSide;
+  return { display, state: correct ? 'correct' : 'incorrect' };
+}
+
+// priorWeekIds is nearest-week-first (last week, then the week before, …).
+function buildTeamHistory(teamId, priorWeekIds, schedules, picks) {
+  if (!teamId) return [];
+  return priorWeekIds.map((weekId) => {
+    const sched = schedules[weekId];
+    if (!sched || sched.status === 'loading') {
+      return {
+        weekId,
+        ml: { letter: null, state: 'loading' },
+        ats: { label: null, state: 'loading' },
+        total: { display: null, state: 'loading' },
+      };
+    }
+    if (sched.status === 'error') {
+      return {
+        weekId,
+        ml: { letter: null, state: 'unknown' },
+        ats: { label: null, state: 'unknown' },
+        total: { display: null, state: 'unknown' },
+      };
+    }
+    const game = findTeamGame(sched.games, teamId);
+    const gamePicks = game ? picks[weekId]?.[game.id] : undefined;
+    return {
+      weekId,
+      ml: gradeMoneylineHistory(teamId, game, gamePicks),
+      ats: gradeAtsHistory(teamId, game, gamePicks),
+      total: gradeTotalHistory(game, gamePicks),
+    };
+  });
+}
+
+const HISTORY_STATE_LABELS = {
+  correct: 'predicted correctly',
+  incorrect: 'predicted wrong',
+  push: 'push',
+  covered: 'covered the spread',
+  'not-covered': "didn't cover",
+  'no-data': 'spread unavailable',
+  'no-pick': 'no pick made',
+  bye: 'bye week',
+  pending: 'not final yet',
+  loading: 'loading…',
+  unknown: 'unavailable',
+};
+
+// This week's own pick control reuses the same grading the history strip
+// uses — 'pending' (game not final yet, shown blue), 'correct' (green),
+// 'incorrect' (red), or 'push' — but only when this exact team is the one
+// picked; otherwise null, meaning "no guess" (default/grey).
+function currentMoneylineState(team, game, gamePicks) {
+  if (!team || gamePicks?.moneyline !== team.id) return null;
+  return gradeMoneylineHistory(team.id, game, gamePicks).state;
+}
+
+function currentAtsState(team, game, gamePicks) {
+  if (!team || gamePicks?.ats !== team.id) return null;
+  return gradeAtsHistory(team.id, game, gamePicks).state;
+}
+
+// side is 'over' | 'under'. Game-level, not tied to a team.
+function currentTotalState(side, game, gamePicks) {
+  if (gamePicks?.total !== side) return null;
+  return gradeTotalHistory(game, gamePicks).state;
+}
+
+// Nearest week first, each week's W/L, total (O/U), and spread sitting
+// side by side (not stacked) so the whole strip reads as one horizontal
+// line that scrolls if it runs out of room, rather than wrapping to a new
+// row.
+function TeamHistoryRow({ team, history }) {
+  if (!history.length) return null;
+  return (
+    <div className="mybets-team-history">
+      {history.map((h) => (
+        <div key={h.weekId} className="mybets-history-week">
+          <span
+            className={`mybets-history-ml mybets-history-ml--${h.ml.state}`}
+            title={`Week ${weekNumber(h.weekId)}: ${team.name} ${h.ml.letter || 'bye'} — ${HISTORY_STATE_LABELS[h.ml.state] || h.ml.state}`}
+          >
+            {h.ml.letter || '–'}
+          </span>
+          <span
+            className={`mybets-history-total mybets-history-total--${h.total.state}`}
+            title={`Week ${weekNumber(h.weekId)}: ${h.total.display || 'total'} — ${HISTORY_STATE_LABELS[h.total.state] || h.total.state}`}
+          >
+            {h.total.display || '–'}
+          </span>
+          <span className="mybets-history-ats-col">
+            <span
+              className={`mybets-history-ats mybets-history-ats--${h.ats.state}`}
+              title={`Week ${weekNumber(h.weekId)}: ${team.name} ATS ${h.ats.label || ''} — ${HISTORY_STATE_LABELS[h.ats.state] || h.ats.state}`}
+            >
+              {h.ats.label || '–'}
+            </span>
+            <span className={`mybets-history-covered-tag ${h.ats.covered ? '' : 'is-hidden'}`}>
+              covered
+            </span>
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+const PICK_STATE_LABELS = { pending: 'pending', correct: 'right', incorrect: 'wrong', push: 'push' };
+
+// Game-level (not per-team) — sits between the away and home rows in place
+// of a plain divider. Visible from the start, same as moneyline; only ATS
+// is gated behind every game's moneyline pick being made.
+function TotalPickRow({ game, gamePicks, onOverClick, onUnderClick }) {
+  const overState = currentTotalState('over', game, gamePicks);
+  const underState = currentTotalState('under', game, gamePicks);
+  return (
+    <div className="mybets-total-row">
+      <span className="mybets-at-divider">@</span>
+      {game.total != null ? (
+        <div className="mybets-total-buttons">
+          <button
+            type="button"
+            className={`mybets-total-btn ${overState ? `pick-${overState}` : ''}`}
+            onClick={onOverClick}
+            title={
+              overState
+                ? `Over ${game.total} — your total pick (${PICK_STATE_LABELS[overState] || overState})`
+                : `Pick Over ${game.total}`
+            }
+          >
+            O {game.total}
+          </button>
+          <button
+            type="button"
+            className={`mybets-total-btn ${underState ? `pick-${underState}` : ''}`}
+            onClick={onUnderClick}
+            title={
+              underState
+                ? `Under ${game.total} — your total pick (${PICK_STATE_LABELS[underState] || underState})`
+                : `Pick Under ${game.total}`
+            }
+          >
+            U {game.total}
+          </button>
+        </div>
+      ) : (
+        <span className="mybets-total-unavailable">O/U —</span>
+      )}
+    </div>
+  );
+}
+
+// One team = one horizontal row: logo+name, then this week's pick control,
+// then — stretching to fill (and scrolling if needed) the rest of the row —
+// the team's history. Away/home stack as two rows so a matchup reads
+// top-to-bottom instead of side by side. The logo always picks the
+// moneyline (straight-up) winner; once ATS is unlocked for the week, the
+// number after the name switches from a plain moneyline readout to a
+// clickable spread pick. mlPickState/atsPickState are null (no guess on
+// this team — grey), 'pending' (guessed, game not final — blue), 'correct'
+// (green) or 'incorrect' (red). history is this team's last few weeks,
+// nearest first: a W/L letter and the spread number, graded the same way.
+function TeamPickRow({ team, moneyline, spread, mlPickState, atsPickState, atsUnlocked, onMlClick, onAtsClick, history }) {
+  if (!team) return <div className="mybets-team-row" />;
+  return (
+    <div className="mybets-team-row">
+      <button
+        type="button"
+        className={`mybets-team-logo-btn ${mlPickState ? `pick-${mlPickState}` : ''}`}
+        onClick={onMlClick}
+        title={
+          mlPickState
+            ? `${team.name} — your moneyline pick (${PICK_STATE_LABELS[mlPickState] || mlPickState})`
+            : `Pick ${team.name} to win`
+        }
+      >
+        <span className="mybets-team-icon-ring">
+          <img className="mybets-team-icon" src={team.logo} alt="" width={30} height={30} loading="lazy" />
+        </span>
+        <span className="mybets-team-name">{team.name}</span>
+      </button>
+      {atsUnlocked ? (
+        <button
+          type="button"
+          className={`mybets-spread-btn ${atsPickState ? `pick-${atsPickState}` : ''}`}
+          onClick={onAtsClick}
+          title={
+            atsPickState
+              ? `${team.name} — your ATS pick (${PICK_STATE_LABELS[atsPickState] || atsPickState})`
+              : `Pick ${team.name} against the spread`
+          }
+        >
+          {formatSigned(spread)}
+        </button>
+      ) : (
+        <span className="mybets-team-odds">{formatSigned(moneyline)}</span>
+      )}
+      <TeamHistoryRow team={team} history={history || []} />
+    </div>
+  );
+}
+
+function MyBets() {
+  const navigate = useNavigate();
+  const [expanded, setExpanded] = useState({});
+  const [activeWeek, setActiveWeek] = useState(1);
+  const [seasonYear, setSeasonYear] = useState(new Date().getUTCFullYear());
+  const [schedules, setSchedules] = useState({});
+  const [picks, setPicks] = useState(loadLocalPicks);
+  const [loadError, setLoadError] = useState(null);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    (async () => {
+      try {
+        const [{ data: bets }, { data: nflPicks }] = await Promise.all([
+          api.get('/api/bets'),
+          api.get('/api/nfl/picks'),
+        ]);
+        if (cancelled) return;
+        setActiveWeek(bets.season?.active_week ?? 1);
+        if (bets.season?.season_start) {
+          setSeasonYear(new Date(bets.season.season_start).getUTCFullYear());
+        }
+        setPicks(nflPicks.picks || {});
+        persistLocalPicks(nflPicks.picks || {});
+      } catch (err) {
+        console.error('Failed to load My Bets data', err);
+        if (!cancelled) {
+          setLoadError('Could not reach the server — showing picks saved on this device only.');
+        }
+      }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const loadSchedule = async (weekId) => {
+    if (schedules[weekId]) return; // already loaded or loading
+    setSchedules((prev) => ({ ...prev, [weekId]: { status: 'loading', games: [] } }));
+    try {
+      const { data } = await api.get(`/api/nfl/schedule/${weekNumber(weekId)}?season=${seasonYear}`);
+      setSchedules((prev) => ({ ...prev, [weekId]: { status: 'loaded', games: data.games || [] } }));
+    } catch (err) {
+      console.error('Failed to load NFL schedule', weekId, err);
+      setSchedules((prev) => ({ ...prev, [weekId]: { status: 'error', games: [] } }));
+    }
+  };
+
+  // Nearest-first prior week ids for a given 0-based week index, capped at
+  // HISTORY_WEEKS and never going before Week 1.
+  const priorWeekIds = (weekIdx) => {
+    const ids = [];
+    for (let i = 1; i <= HISTORY_WEEKS && weekIdx - i >= 0; i++) ids.push(WEEKS[weekIdx - i]);
+    return ids;
+  };
+
+  const handleChange = (weekId, weekIdx) => (_event, isExpanded) => {
+    setExpanded((prev) => ({ ...prev, [weekId]: isExpanded }));
+    if (isExpanded) {
+      loadSchedule(weekId);
+      priorWeekIds(weekIdx).forEach(loadSchedule);
+    }
+  };
+
+  const handlePick = (weekId, gameId, market, teamId) => () => {
+    const current = picks[weekId]?.[gameId]?.[market];
+    const nextTeamId = current === teamId ? null : teamId;
+
+    setPicks((prev) => {
+      const gamePicks = { ...prev[weekId]?.[gameId] };
+      if (nextTeamId) gamePicks[market] = nextTeamId;
+      else delete gamePicks[market];
+      const weekPicks = { ...prev[weekId], [gameId]: gamePicks };
+      const next = { ...prev, [weekId]: weekPicks };
+      persistLocalPicks(next);
+      return next;
+    });
+
+    api
+      .put(`/api/nfl/picks/${weekNumber(weekId)}/${gameId}/${market}`, { team_id: nextTeamId })
+      .catch((err) => console.error('Failed to save pick', weekId, gameId, market, err));
+  };
+
+  return (
+    <div className="mybets-page">
+      <button className="mybets-back-btn" onClick={() => navigate('/')}>← Back</button>
+      <h1 className="mybets-heading">My Bets</h1>
+      {loadError && <p className="mybets-load-error">{loadError}</p>}
+
+      <div className="mybets-accordions">
+        {[...WEEKS.slice(0, activeWeek)].reverse().map((weekId) => {
+          const weekIdx = weekNumber(weekId) - 1; // 0-based, independent of display order
+          const schedule = schedules[weekId];
+          const games = schedule?.games || [];
+          const weekPicks = picks[weekId] || {};
+          const moneylineCount = games.filter((g) => weekPicks[g.id]?.moneyline).length;
+          const totalCount = games.filter((g) => weekPicks[g.id]?.total).length;
+          const atsCount = games.filter((g) => weekPicks[g.id]?.ats).length;
+          const atsUnlocked = games.length > 0 && moneylineCount === games.length;
+          const historyWeekIds = priorWeekIds(weekIdx);
+
+          return (
+            <Accordion
+              key={weekId}
+              expanded={!!expanded[weekId]}
+              onChange={handleChange(weekId, weekIdx)}
+              disableGutters
+              sx={{
+                bgcolor: '#111122',
+                color: '#ffffff',
+                border: '1px solid rgba(255, 255, 255, 0.12)',
+                '&:before': { display: 'none' },
+              }}
+            >
+              <AccordionSummary
+                expandIcon={<span className="mybets-expand-icon">▾</span>}
+                sx={{
+                  '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.06)' },
+                  '.MuiAccordionSummary-content': {
+                    margin: '12px 0',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                  },
+                }}
+              >
+                <span className="mybets-summary-label">
+                  <span className="mybets-week-label-main">Week {weekIdx + 1}</span>
+                  <span className="mybets-week-label-dates">({formatWeekRange(weekIdx + 1)})</span>
+                </span>
+                {schedule?.status === 'loaded' && games.length > 0 && (
+                  <span className="mybets-game-count">
+                    ML {moneylineCount}/{games.length} · O/U {totalCount}/{games.length}
+                    {atsUnlocked && <> · ATS {atsCount}/{games.length}</>}
+                  </span>
+                )}
+              </AccordionSummary>
+              <AccordionDetails sx={{ p: 0, borderTop: '1px solid rgba(255, 255, 255, 0.12)' }}>
+                {(!schedule || schedule.status === 'loading') && (
+                  <p className="mybets-status-text">Loading matchups…</p>
+                )}
+                {schedule?.status === 'error' && (
+                  <p className="mybets-status-text mybets-status-error">
+                    Couldn't load this week's matchups. Try reopening the week.
+                  </p>
+                )}
+                {schedule?.status === 'loaded' && games.length === 0 && (
+                  <p className="mybets-status-text">No matchups posted for this week yet.</p>
+                )}
+                {schedule?.status === 'loaded' && games.length > 0 && (
+                  <div className="mybets-matchups">
+                    {groupGamesByKickoff(games).map((group) => (
+                      <div key={group.date || group.games[0].id} className="mybets-timeslot">
+                        <div className="mybets-timeslot-header">{formatKickoffLabel(group.date)}</div>
+                        {group.games.map((game) => {
+                          const gamePicks = weekPicks[game.id] || {};
+                          return (
+                            <div key={game.id} className="mybets-matchup-row">
+                              <div className="mybets-matchup-teams">
+                                <TeamPickRow
+                                  team={game.away}
+                                  moneyline={game.away?.moneyline}
+                                  spread={game.away?.spread}
+                                  mlPickState={currentMoneylineState(game.away, game, gamePicks)}
+                                  atsPickState={currentAtsState(game.away, game, gamePicks)}
+                                  atsUnlocked={atsUnlocked}
+                                  onMlClick={handlePick(weekId, game.id, 'moneyline', game.away?.id)}
+                                  onAtsClick={handlePick(weekId, game.id, 'ats', game.away?.id)}
+                                  history={buildTeamHistory(game.away?.id, historyWeekIds, schedules, picks)}
+                                />
+                                <TotalPickRow
+                                  game={game}
+                                  gamePicks={gamePicks}
+                                  onOverClick={handlePick(weekId, game.id, 'total', 'over')}
+                                  onUnderClick={handlePick(weekId, game.id, 'total', 'under')}
+                                />
+                                <TeamPickRow
+                                  team={game.home}
+                                  moneyline={game.home?.moneyline}
+                                  spread={game.home?.spread}
+                                  mlPickState={currentMoneylineState(game.home, game, gamePicks)}
+                                  atsPickState={currentAtsState(game.home, game, gamePicks)}
+                                  atsUnlocked={atsUnlocked}
+                                  onMlClick={handlePick(weekId, game.id, 'moneyline', game.home?.id)}
+                                  onAtsClick={handlePick(weekId, game.id, 'ats', game.home?.id)}
+                                  history={buildTeamHistory(game.home?.id, historyWeekIds, schedules, picks)}
+                                />
+                              </div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </AccordionDetails>
+            </Accordion>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+export default MyBets;

@@ -1,0 +1,152 @@
+"""
+Monday.com router  –  /api/monday/...
+
+Exposes the monday_client as REST endpoints for the React frontend.
+Requires MONDAY_API_TOKEN in environment / .env.
+"""
+import logging
+import os
+from typing import Any
+
+import httpx
+
+from fastapi import APIRouter, HTTPException, Query
+from pydantic import BaseModel, Field
+
+from app.services.monday_client import MondayClient
+
+log = logging.getLogger(__name__)
+
+router = APIRouter(prefix="/api/monday", tags=["monday"])
+
+PRIORITIZED_IMPLEMENTATION_BOARD = "Prioritized Implementation Tasks"
+
+
+class CreateTaskRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
+    customer: str = ""
+    technology: str = ""
+
+
+def _client() -> MondayClient:
+    token = os.environ.get("MONDAY_API_TOKEN")
+    if not token:
+        raise HTTPException(
+            status_code=503,
+            detail="MONDAY_API_TOKEN not configured on the server.",
+        )
+    return MondayClient(token)
+
+
+@router.get("/health")
+async def monday_health() -> dict:
+    return {"status": "ok"}
+
+
+@router.get("/active-items")
+async def active_items() -> dict[str, Any]:
+    """Return all active tasks across all Monday boards."""
+    async with _client() as c:
+        try:
+            items = await c.get_active_items()
+        except (RuntimeError, httpx.HTTPError) as exc:
+            log.exception("active-items failed")
+            raise HTTPException(status_code=502, detail=f"Monday API error: {exc}") from exc
+    return {"count": len(items), "items": items}
+
+
+@router.get("/recent-updates")
+async def recent_updates(days: int = Query(default=7, ge=1, le=90)) -> dict[str, Any]:
+    """Return all item updates from the last N days (default 7)."""
+    async with _client() as c:
+        try:
+            updates = await c.get_recent_updates(days=days)
+        except (RuntimeError, httpx.HTTPError) as exc:
+            log.exception("recent-updates failed")
+            raise HTTPException(status_code=502, detail=f"Monday API error: {exc}") from exc
+    return {"count": len(updates), "days": days, "updates": updates}
+
+
+@router.get("/status-changes")
+async def status_changes(days: int = Query(default=7, ge=1, le=90)) -> dict[str, Any]:
+    """Return status-column changes from the boards' Activity logs (last N days)."""
+    async with _client() as c:
+        try:
+            changes = await c.get_status_changes(days=days)
+        except (RuntimeError, httpx.HTTPError) as exc:
+            log.exception("Monday request failed")
+            raise HTTPException(status_code=502, detail=f"Monday API error: {exc}") from exc
+    return {"count": len(changes), "days": days, "changes": changes}
+
+
+@router.get("/project/activity")
+async def project_activity(
+    customer: str = Query(min_length=1, max_length=100),
+    days: int = Query(default=30, ge=1, le=90),
+) -> dict[str, Any]:
+    """Updates + status changes (Activity log) for one customer's board."""
+    async with _client() as c:
+        try:
+            activity = await c.get_board_activity(customer, days=days)
+        except (RuntimeError, httpx.HTTPError) as exc:
+            log.exception("Monday request failed")
+            raise HTTPException(status_code=502, detail=f"Monday API error: {exc}") from exc
+    if activity is None:
+        raise HTTPException(status_code=404, detail=f'No Monday board found for "{customer}"')
+    return activity
+
+
+@router.get("/project/raw-items")
+async def project_raw_items(
+    customer: str = Query(min_length=1, max_length=100),
+    name: str = Query(min_length=1, max_length=100),
+) -> dict[str, Any]:
+    """Debug: raw Monday column values for items whose name contains `name`."""
+    async with _client() as c:
+        try:
+            raw = await c.get_raw_items(customer, name)
+        except (RuntimeError, httpx.HTTPError) as exc:
+            log.exception("Monday request failed")
+            raise HTTPException(status_code=502, detail=f"Monday API error: {exc}") from exc
+    if raw is None:
+        raise HTTPException(status_code=404, detail=f'No Monday board found for "{customer}"')
+    return raw
+
+
+@router.get("/project")
+async def project_board(customer: str = Query(min_length=1, max_length=100)) -> dict[str, Any]:
+    """
+    Return a customer's Monday project board as groups -> tasks -> subtasks.
+    `customer` is matched against board names (exact first, then contains).
+    """
+    async with _client() as c:
+        try:
+            project = await c.get_project_board(customer)
+        except (RuntimeError, httpx.HTTPError) as exc:
+            log.exception("Monday request failed")
+            raise HTTPException(status_code=502, detail=f"Monday API error: {exc}") from exc
+    if project is None:
+        raise HTTPException(status_code=404, detail=f'No Monday board found for "{customer}"')
+    return project
+
+
+@router.post("/prioritized-implementation-tasks", status_code=201)
+async def create_prioritized_implementation_task(body: CreateTaskRequest) -> dict[str, Any]:
+    """
+    Create an item on the "Prioritized Implementation Tasks" board — the same
+    board the Slack `/monday-item` command posts to — with Customer/Technology
+    set on whichever columns are titled that on the board.
+    """
+    async with _client() as c:
+        try:
+            item = await c.create_item_by_board_name(
+                PRIORITIZED_IMPLEMENTATION_BOARD,
+                item_name=body.name,
+                field_values={"Customer": body.customer, "Technology": body.technology},
+            )
+        except LookupError as exc:
+            raise HTTPException(status_code=404, detail=str(exc)) from exc
+        except (RuntimeError, httpx.HTTPError) as exc:
+            log.exception("Monday request failed")
+            raise HTTPException(status_code=502, detail=f"Monday API error: {exc}") from exc
+    return {"item": item}

@@ -1,0 +1,196 @@
+.assign-wrapper {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  background: #0a0a0a;
+  overflow: hidden;
+}
+
+/* ── Bottom bar: three phase buttons in a row ── */
+.assign-bottombar {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: row;
+  align-items: stretch;
+  gap: 14px;
+  padding: 16px 24px;
+  background: #111122;
+  border-top: 2px solid rgba(255, 255, 255, 0.12);
+  z-index: 10;
+}
+
+.assign-side-btn {
+  flex: 1;
+  padding: 14px;
+  font-size: 0.8rem;
+  line-height: 1.3;
+  letter-spacing: 0.01em;
+  text-align: center;
+  background: transparent;
+  color: #ffffff;
+  border: 2px solid #ffffff;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s, opacity 0.2s;
+  font-family: sans-serif;
+}
+
+.assign-side-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
+}
+
+.assign-side-btn--phase1 {
+  border-color: #10b981;
+  color: #10b981;
+}
+.assign-side-btn--phase1:hover,
+.assign-side-btn--phase1.is-active {
+  background: #10b981;
+  color: #ffffff;
+}
+
+.assign-side-btn--phase2 {
+  border-color: #6366f1;
+  color: #6366f1;
+}
+.assign-side-btn--phase2:hover,
+.assign-side-btn--phase2.is-active {
+  background: #6366f1;
+  color: #ffffff;
+}
+
+.assign-side-btn--phase3 {
+  border-color: #f6287e;
+  color: #f6287e;
+}
+.assign-side-btn--phase3:hover,
+.assign-side-btn--phase3.is-active {
+  background: #f6287e;
+  color: #ffffff;
+}
+
+/* ── Right side: window into the Phone Explorer three.js scene ── */
+.assign-viewport {
+  position: relative;
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  background: #111122;
+}
+
+.assign-canvas-mount {
+  position: absolute;
+  inset: 0;
+}
+
+.assign-title {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  color: #ffffff;
+  font-size: 1.1rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin: 0;
+  z-index: 10;
+  font-family: sans-serif;
+  white-space: nowrap;
+  cursor: pointer;
+  padding: 4px 12px;
+  border-radius: 6px;
+  transition: background 0.15s;
+}
+
+.assign-title:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.assign-hint {
+  position: absolute;
+  bottom: 14px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 8px;
+  z-index: 10;
+  pointer-events: none;
+}
+
+.assign-hint span {
+  color: rgba(255, 255, 255, 0.45);
+  font-size: 0.68rem;
+  font-family: sans-serif;
+  letter-spacing: 0.04em;
+  background: rgba(0, 0, 0, 0.45);
+  padding: 4px 10px;
+  border-radius: 4px;
+  white-space: nowrap;
+}
+
+/* Info panel — positioned above the clicked object via JS */
+.assign-info-panel {
+  position: absolute;
+  width: min(220px, 55vw);
+  background: rgba(10, 10, 30, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 12px;
+  padding: 20px 18px 18px;
+  z-index: 20;
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  font-family: sans-serif;
+}
+
+.assign-info-close {
+  position: absolute;
+  top: 10px;
+  right: 12px;
+  background: none;
+  border: none;
+  color: rgba(255, 255, 255, 0.5);
+  font-size: 1rem;
+  cursor: pointer;
+  line-height: 1;
+  padding: 2px 4px;
+}
+
+.assign-info-close:hover { color: #ffffff; }
+
+.assign-info-title {
+  color: #ffffff;
+  font-size: 1.1rem;
+  font-weight: 600;
+  margin: 0 0 10px;
+  letter-spacing: 0.05em;
+}
+
+.assign-info-textbox {
+  display: block;
+  width: 100%;
+  min-height: 64px;
+  resize: vertical;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 7px;
+  color: rgba(220, 226, 255, 0.92);
+  font-size: 0.82rem;
+  line-height: 1.5;
+  font-family: sans-serif;
+  padding: 8px 10px;
+  box-sizing: border-box;
+}
+
+.assign-info-textbox:focus {
+  outline: none;
+  border-color: rgba(100, 140, 255, 0.55);
+}
+
+@media (max-width: 640px) {
+  .assign-bottombar {
+    padding: 10px 12px;
+    gap: 8px;
+  }
+}

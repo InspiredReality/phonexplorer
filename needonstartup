@@ -1,0 +1,13 @@
+# In your startup / lifespan, inside a `with engine.connect() as conn:` block:
+from sqlalchemy import text
+migrations = [
+    "CREATE TABLE IF NOT EXISTS tags (id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id), name VARCHAR(50) NOT NULL, color VARCHAR(7) DEFAULT '#6366f1', created_at TIMESTAMP DEFAULT NOW())",
+    "CREATE TABLE IF NOT EXISTS realities (id SERIAL PRIMARY KEY, user_id INTEGER NOT NULL REFERENCES users(id), name VARCHAR(100) NOT NULL, description TEXT, image_path VARCHAR(500), width_m FLOAT, length_m FLOAT, meta JSON, created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW())",
+    "CREATE TABLE IF NOT EXISTS reality_tags (reality_id INTEGER REFERENCES realities(id) ON DELETE CASCADE, tag_id INTEGER REFERENCES tags(id) ON DELETE CASCADE, PRIMARY KEY (reality_id, tag_id))",
+    "CREATE TABLE IF NOT EXISTS org_obs (id SERIAL PRIMARY KEY, reality_id INTEGER NOT NULL REFERENCES realities(id), user_id INTEGER NOT NULL REFERENCES users(id), parent_id INTEGER REFERENCES org_obs(id) ON DELETE CASCADE, name VARCHAR(200) NOT NULL, description TEXT, meta JSON, order_index INTEGER DEFAULT 0 NOT NULL, created_at TIMESTAMP DEFAULT NOW(), updated_at TIMESTAMP DEFAULT NOW())",
+]
+for sql in migrations:
+    try:
+        conn.execute(text(sql)); conn.commit()
+    except Exception:
+        conn.rollback()

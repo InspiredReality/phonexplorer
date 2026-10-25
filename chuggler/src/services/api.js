@@ -1,0 +1,32 @@
+const BASE = import.meta.env.VITE_API_URL ?? '';
+
+async function request(path, options = {}) {
+  const res = await fetch(`${BASE}${path}`, options);
+  if (!res.ok) {
+    let detail = res.statusText;
+    try { detail = (await res.json()).detail || detail; } catch {}
+    const err = new Error(detail);
+    err.status = res.status;
+    err.response = { data: { detail } };
+    throw err;
+  }
+  return { data: await res.json() };
+}
+
+const api = {
+  get: (path) => request(path),
+  put: (path, body, opts = {}) =>
+    request(path, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json', ...opts.headers },
+      body: JSON.stringify(body),
+    }),
+  post: (path, body, opts = {}) =>
+    request(path, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', ...opts.headers },
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    }),
+};
+
+export default api;

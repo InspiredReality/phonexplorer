@@ -1,0 +1,164 @@
+React <-> Needle Engine (Unity-exported .glb) communication
+=============================================================
+
+Read this before wiring up "Needle 1.glb" in Unity. It explains what code
+needs to exist, where it lives, and the two functions that make up the
+whole contract: one that receives state codes from React, one that pushes
+completion codes back.
+
+--------------------------------------------------------------------------
+0. The one thing to unlearn: no C# runs in the browser
+--------------------------------------------------------------------------
+Unity is only used here as a *visual scene editor*. When you export
+"Needle 1.glb", the file contains geometry + a note like:
+  "GameObject 'Door' has a component called AppStateController"
+It does NOT contain executable code. The code that actually runs when a
+visitor's browser loads this .glb is plain TypeScript, already checked
+into this repo at:
+
+  frontend/src/scripts/AppStateController.ts
+
+When you open the Unity project (with the Needle Engine package installed)
+and point its Component Generator at this same `src/scripts` folder, Unity
+will *auto-generate* a matching C# file so the component shows up in the
+Inspector and you can drag it onto a GameObject and assign fields. You
+never write logic in that generated .cs file -- it's overwritten on every
+export. All behavior goes in the .ts file below.
+
+--------------------------------------------------------------------------
+1. The TypeScript component (the real "C# script waiting for a signal")
+--------------------------------------------------------------------------
+This already exists in the repo. The two functions that matter for the
+React <-> Unity contract are highlighted:
+
+  import {
+    Behaviour, registerType, findObjectOfType,
+    Animator, WaitForSeconds,
+  } from "@needle-tools/engine";
+
+  @registerType
+  export class AppStateController extends Behaviour {
+    private clips: any[] = [];
+    private currentState: string | null = null;
+
+    start() {
+      this.clips = [];
+      this.context.scene.traverse((obj: any) => {
+        if (obj.animations?.length) this.clips.push(...obj.animations);
+      });
+    }
+
+    // ---- (A) GRABBING STATE CODES FROM REACT --------------------------
+    // React calls this directly:
+    //   findObjectOfType(AppStateController)?.setState("STATE_1")
+    // This is the entry point -- everything the scene does in response
+    // to a button click starts here.
+    setState(code: string) {
+      if (!code || code === this.currentState) return;
+      this.currentState = code;
+
+      // Optional: tell React the transition has *started*.
+      this.notifyReact("app-state-started", code);
+
+      const clip = this.clipForCode(code);
+      if (!clip) {
+        console.warn(`AppStateController: no clip for state "${code}"`);
+        return;
+      }
+
+      // Do the actual work, then report completion once it's really done.
+      this.startCoroutine(this.playAndReportCompletion(clip, code));
+    }
+
+    private *playAndReportCompletion(clip: any, code: string) {
+      const animator = findObjectOfType(Animator, this.context);
+      animator?.play(clip.name);
+
+      // Wait for the real transition to finish before saying "done".
+      // Swap this for whatever "finished" actually means for this state:
+      // an animation's duration, a physics settle, a tween callback, etc.
+      yield WaitForSeconds(clip.duration ?? 1);
+
+      // ---- (B) PUSHING COMPLETION CODES BACK TO REACT ------------------
+      this.notifyReact("app-state-complete", code);
+    }
+
+    private clipForCode(code: string) {
+      const STATE_CODES = ["STATE_1", "STATE_2", "STATE_3"];
+      const index = STATE_CODES.indexOf(code);
+      return index >= 0 ? this.clips[index] : undefined;
+    }
+
+    // Single choke point for anything sent back to the host page.
+    private notifyReact(eventName: string, code: string) {
+      this.context.domElement?.dispatchEvent(
+        new CustomEvent(eventName, { detail: { code } })
+      );
+    }
+  }
+
+Notes:
+- `setState(code)` is the function to call FROM React to push a state in.
+- `notifyReact(eventName, code)` is the function that pushes codes back
+  OUT to React -- "app-state-started" fires immediately, "app-state-complete"
+  fires only once the transition actually finished (not just "requested").
+- If a state change is instantaneous (e.g. toggling visibility, swapping a
+  material), just call `this.notifyReact("app-state-complete", code)"`
+  directly inside `setState()` instead of going through a coroutine --
+  the coroutine/WaitForSeconds pattern is only needed when the state takes
+  real time to resolve (playing an animation, waiting on physics, etc).
+
+--------------------------------------------------------------------------
+2. What Unity auto-generates (reference only -- never hand-edit this)
+--------------------------------------------------------------------------
+Once the Component Generator picks up AppStateController.ts, Unity writes
+something like this into Assets/Needle/Components.codegen/:
+
+  // NEEDLE_CODEGEN_START
+  // auto generated code - do not edit directly
+  #pragma warning disable
+  namespace Needle.Typescript.GeneratedComponents
+  {
+    public partial class AppStateController : UnityEngine.MonoBehaviour
+    {
+      public void start(){}
+    }
+  }
+  // NEEDLE_CODEGEN_END
+
+That's it -- no serialized fields yet because the current .ts file has no
+@serializable() properties. If you later want scene-specific tuning from
+the Unity Inspector (e.g. which GameObject to hide per state, custom clip
+names per state instead of positional indices), add @serializable() fields
+to the .ts file and Unity will regenerate matching public fields here
+automatically on next export.
+
+--------------------------------------------------------------------------
+3. The React side (already implemented in src/pages/NeedlePage.jsx)
+--------------------------------------------------------------------------
+Sending a code in:
+
+  import { findObjectOfType } from '@needle-tools/engine';
+  import { AppStateController } from '../scripts/AppStateController';
+
+  findObjectOfType(AppStateController)?.setState('STATE_1');
+
+Receiving completion back:
+
+  useEffect(() => {
+    const el = document.querySelector('needle-engine');
+    const onComplete = (evt) => {
+      console.log('Scene finished transitioning to', evt.detail.code);
+    };
+    el?.addEventListener('app-state-complete', onComplete);
+    return () => el?.removeEventListener('app-state-complete', onComplete);
+  }, []);
+
+--------------------------------------------------------------------------
+4. Summary of the contract
+--------------------------------------------------------------------------
+React -> Scene : findObjectOfType(AppStateController)?.setState(code)
+Scene -> React : CustomEvent "app-state-started"  on <needle-engine>  (optional)
+Scene -> React : CustomEvent "app-state-complete" on <needle-engine>  (the
+                 signal to treat as "done" -- fires after the real work,
+                 not just after the request)
