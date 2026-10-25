@@ -75,6 +75,7 @@ async def lifespan(app: FastAPI):
             # create_all only creates missing tables — it won't add columns to
             # tables that already existed before this column was introduced.
             await conn.execute(text("ALTER TABLE images ADD COLUMN IF NOT EXISTS name TEXT"))
+            await conn.execute(text("ALTER TABLE org_obs ADD COLUMN IF NOT EXISTS image_path VARCHAR(500)"))
             await conn.execute(
                 text("ALTER TABLE bet_week_locks ADD COLUMN IF NOT EXISTS funder_team_id VARCHAR(64)")
             )

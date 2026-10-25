@@ -1,7 +1,8 @@
 """OrgObs router — GET/PUT/DELETE for individual OrgOb nodes, plus batch reorder."""
+from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 from pydantic import BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,8 +10,13 @@ from sqlalchemy.orm import selectinload
 
 from app.core.deps import get_db
 from app.models.org_ob import OrgOb
+from app.models.tag import Tag
 
 router = APIRouter(prefix="/api/org-obs", tags=["org-obs"])
+
+UPLOADS_DIR = Path("uploads/org_obs")
+ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
+MAX_IMAGE_BYTES = 10 * 1024 * 1024  # 10 MB
 
 
 # ── Schemas ───────────────────────────────────────────────────────────────────
@@ -21,6 +27,7 @@ class OrgObUpdate(BaseModel):
     parent_id: int | None = None
     meta: dict[str, Any] | None = None
     order_index: int | None = None
+    tag_ids: list[int] | None = None
 
 
 class ReorderItem(BaseModel):
@@ -41,6 +48,8 @@ def _org_ob_dict(org_ob: OrgOb, include_children: bool = False) -> dict:
         "parent_id":      org_ob.parent_id,
         "name":           org_ob.name,
         "description":    org_ob.description,
+        "image_path":     org_ob.image_path,
+        "tags":           [{"id": t.id, "name": t.name, "color": t.color} for t in org_ob.tags],
         "meta":           org_ob.meta or {},
         "order_index":    org_ob.order_index,
         "children_count": len(org_ob.children),
@@ -115,6 +124,10 @@ async def update_org_ob(org_ob_id: int, body: OrgObUpdate, db: AsyncSession = De
     if body.order_index is not None:
         org_ob.order_index = body.order_index
 
+    if body.tag_ids is not None:
+        tags = (await db.execute(select(Tag).where(Tag.id.in_(body.tag_ids)))).scalars().all()
+        org_ob.tags = list(tags)
+
     if body.parent_id is not None:
         if await _is_descendant(body.parent_id, org_ob.id, db):
             raise HTTPException(
@@ -132,9 +145,40 @@ async def update_org_ob(org_ob_id: int, body: OrgObUpdate, db: AsyncSession = De
     return {"org_ob": _org_ob_dict(org_ob, include_children=True)}
 
 
+@router.post("/{org_ob_id}/image")
+async def upload_org_ob_image(
+    org_ob_id: int,
+    image: UploadFile = File(...),
+    db: AsyncSession = Depends(get_db),
+):
+    org_ob = await _get_org_ob(org_ob_id, db)
+
+    if image.content_type not in ALLOWED_IMAGE_TYPES:
+        raise HTTPException(status_code=400, detail="Unsupported image type")
+
+    data = await image.read()
+    if len(data) > MAX_IMAGE_BYTES:
+        raise HTTPException(status_code=413, detail="Image too large (max 10 MB)")
+
+    UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+    suffix = Path(image.filename or "image.jpg").suffix or ".jpg"
+    filename = f"org_ob_{org_ob_id}{suffix}"
+    (UPLOADS_DIR / filename).write_bytes(data)
+
+    org_ob.image_path = f"org_obs/{filename}"
+    await db.commit()
+    await db.refresh(org_ob)
+    return {"org_ob": _org_ob_dict(org_ob, include_children=True)}
+
+
 @router.delete("/{org_ob_id}")
 async def delete_org_ob(org_ob_id: int, db: AsyncSession = Depends(get_db)):
     org_ob = await _get_org_ob(org_ob_id, db)
+    if org_ob.image_path:
+        try:
+            Path(f"uploads/{org_ob.image_path}").unlink(missing_ok=True)
+        except Exception:
+            pass
     await db.delete(org_ob)
     await db.commit()
     return {"message": "OrgOb deleted"}
