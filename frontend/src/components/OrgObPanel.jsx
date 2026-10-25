@@ -79,9 +79,9 @@ export default function OrgObPanel({ panel, isActive, onSelect, onAdd, onEdit, o
               </div>
               <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition">
                 <button onClick={e => { e.stopPropagation(); onEdit(node) }}
-                  className="text-neutral-400 hover:text-white text-xs px-1" title="Edit">✎</button>
+                  className="text-neutral-400 hover:text-white text-sm px-4 py-2 min-w-[3rem]" title="Edit">✎</button>
                 <button onClick={e => { e.stopPropagation(); onDelete(node) }}
-                  className="text-red-500 hover:text-red-400 text-xs px-1" title="Delete">✕</button>
+                  className="text-red-500 hover:text-red-400 text-sm px-2 py-2" title="Delete">✕</button>
               </div>
               {panel.selectedNode?.id === node.id && (
                 <span className="text-indigo-400 text-xs ml-1 shrink-0">▶</span>

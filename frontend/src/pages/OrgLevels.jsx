@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useRealitiesStore } from '../store/realities'
 import OrgObPanel from '../components/OrgObPanel'
@@ -38,8 +38,26 @@ export default function OrgLevels() {
     return result
   })()
 
+  // Remembers the last-opened child of each parent (key: parent id, or 'root')
+  // so re-selecting a higher level restores the deeper levels opened earlier.
+  const openedChildRef = useRef({})
+
+  function applyPath(prefix) {
+    const memory = openedChildRef.current
+    const path = [...prefix]
+    for (let i = 0; i < path.length; i++) {
+      memory[i === 0 ? 'root' : path[i - 1].id] = path[i]
+    }
+    let next = memory[path.length ? path[path.length - 1].id : 'root']
+    while (next && !path.some(n => n.id === next.id)) {
+      path.push(next)
+      next = memory[next.id]
+    }
+    setSelectedPath(path)
+  }
+
   async function selectOrgOb(level, orgOb) {
-    setSelectedPath([...selectedPath.slice(0, level), orgOb])
+    applyPath([...selectedPath.slice(0, level), orgOb])
     if (!store.orgObCache[orgOb.id]) {
       setLoadingChildren(true)
       try { await store.fetchOrgOb(orgOb.id) }
@@ -48,7 +66,7 @@ export default function OrgLevels() {
   }
 
   function navigateTo(pathIndex) {
-    setSelectedPath(pathIndex < 0 ? [] : selectedPath.slice(0, pathIndex + 1))
+    applyPath(pathIndex < 0 ? [] : selectedPath.slice(0, pathIndex + 1))
   }
 
   async function addOrgOb(panel, { name, description, parentOrgOb }) {
@@ -72,6 +90,9 @@ export default function OrgLevels() {
       description: editForm.description.trim() || null,
     })
     setSelectedPath(selectedPath.map(n => n.id === updated.id ? updated : n))
+    for (const k of Object.keys(openedChildRef.current)) {
+      if (openedChildRef.current[k].id === updated.id) openedChildRef.current[k] = updated
+    }
     setEditingOrgOb(null)
   }
 
@@ -84,6 +105,9 @@ export default function OrgLevels() {
     // eslint-disable-next-line no-restricted-globals
     if (!confirm(`Delete "${orgOb.name}" and all its children?`)) return
     await store.deleteOrgOb(orgOb.id, orgOb.parent_id, realityId)
+    for (const k of Object.keys(openedChildRef.current)) {
+      if (k === String(orgOb.id) || openedChildRef.current[k].id === orgOb.id) delete openedChildRef.current[k]
+    }
     const pathIdx = selectedPath.findIndex(n => n.id === orgOb.id)
     if (pathIdx !== -1) setSelectedPath(selectedPath.slice(0, pathIdx))
   }
