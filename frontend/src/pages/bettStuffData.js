@@ -347,6 +347,7 @@ function settlementToRow(record) {
     hasImage: !!(record.has_image || record.image),
     bet: record.bet_amount || record.bet_amount === 0 ? String(record.bet_amount) : '',
     toWin: record.to_win || record.to_win === 0 ? String(record.to_win) : '',
+    toWinExact: record.to_win_exact != null ? String(record.to_win_exact) : null,
     sportsbook: record.sportsbook || '',
     tags: tagsToString(record.tags),
     when: record.bet_when || 'pregame',
@@ -405,6 +406,7 @@ export async function saveBetToApi(dateKey, row) {
     image: row.image,
     bet_amount: parseFloat(row.bet) || 0,
     to_win: parseFloat(row.toWin) || 0,
+    to_win_exact: parseFloat(row.toWinExact) || null,
     profit: computeProfit(row) ?? 0,
     sportsbook: row.sportsbook || null,
     tags: tagsStringToArray(row.tags),
@@ -581,7 +583,8 @@ if (typeof window !== 'undefined') {
 // (stake needed to win $100). Blank until both amounts make a real bet.
 export function computeOdds(row) {
   const bet = parseFloat(row.bet);
-  const toWin = parseFloat(row.toWin);
+  // Prefer the slip's exact-cents payout; it's cleared whenever To Win is typed over.
+  const toWin = parseFloat(row.toWinExact ?? row.toWin);
   if (!(bet > 0) || !(toWin > bet)) return '';
   const profit = toWin - bet;
   if (profit >= bet) return `+${Math.round((profit / bet) * 100)}`;

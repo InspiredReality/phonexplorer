@@ -41,6 +41,7 @@ function makeRow() {
     hasImage: false,
     bet: '',
     toWin: '',
+    toWinExact: null,
     sportsbook: 'Draft Kings',
     tags: '',
     when: 'pregame',
@@ -350,6 +351,8 @@ function BettStuff() {
     const current = (getEntries()[dateKey] || []).find((r) => r.id === rowId);
     if (!current) return;
     const updated = { ...current, [field]: value };
+    // A hand-typed To Win replaces the slip's exact-cents figure (see toWinExact).
+    if (field === 'toWin') updated.toWinExact = null;
     updateEntries(dateKey, (rows) => rows.map((r) => (r.id === rowId ? updated : r)));
     saveBet(dateKey, updated);
   };
@@ -386,6 +389,8 @@ function BettStuff() {
           bet: latest.bet || (bet != null ? String(bet) : ''),
           // Whole dollars: .50 and up rounds up, .49 and below rounds down.
           toWin: latest.toWin || (toWin != null ? String(Math.round(toWin)) : ''),
+          // Keep the slip's cents so Odds stay exact while To Win shows whole dollars.
+          toWinExact: !latest.toWin && toWin != null ? String(toWin) : latest.toWinExact,
         };
         updateEntries(dateKey, (rows) => rows.map((r) => (r.id === rowId ? updated : r)));
         saveBet(dateKey, updated);
