@@ -6,6 +6,7 @@ import AccordionDetails from '@mui/material/AccordionDetails';
 import BettSummaryBar from '../components/BettSummaryBar';
 import {
   collectKnownTags,
+  computeOdds,
   computeProfit,
   currentBettingWeekDays,
   dateKeyInfo,
@@ -122,6 +123,7 @@ function DraftDayRow({ defaultDate, onConfirm, onCancel }) {
 function BetRow({ row, slipStatus, onField, onImageChange, onPreview, onRemove }) {
   const computedProfit = computeProfit(row);
   const profit = computedProfit ?? '';
+  const odds = computeOdds(row);
 
   return (
     <div className="bett-row">
@@ -179,6 +181,17 @@ function BetRow({ row, slipStatus, onField, onImageChange, onPreview, onRemove }
             className="bett-number-input"
             placeholder="$0"
             value={profit}
+            disabled
+            readOnly
+          />
+        </div>
+        <div className="bett-cell bett-cell-odds">
+          <span className="bett-cell-label">Odds</span>
+          <input
+            type="text"
+            className="bett-number-input"
+            placeholder="—"
+            value={odds}
             disabled
             readOnly
           />

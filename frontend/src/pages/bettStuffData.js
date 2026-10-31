@@ -576,6 +576,18 @@ if (typeof window !== 'undefined') {
 }
 
 
+// American odds implied by the bet and its total payout (To Win includes the
+// stake): profit >= stake is "+" odds (profit per $100), less is "-" odds
+// (stake needed to win $100). Blank until both amounts make a real bet.
+export function computeOdds(row) {
+  const bet = parseFloat(row.bet);
+  const toWin = parseFloat(row.toWin);
+  if (!(bet > 0) || !(toWin > bet)) return '';
+  const profit = toWin - bet;
+  if (profit >= bet) return `+${Math.round((profit / bet) * 100)}`;
+  return `-${Math.round((bet / profit) * 100)}`;
+}
+
 export function computeProfit(row) {
   const bet = parseFloat(row.bet);
   const toWin = parseFloat(row.toWin);
