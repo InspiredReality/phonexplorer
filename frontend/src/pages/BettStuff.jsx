@@ -337,7 +337,8 @@ function BettStuff() {
         const updated = {
           ...latest,
           bet: latest.bet || (bet != null ? String(bet) : ''),
-          toWin: latest.toWin || (toWin != null ? String(toWin) : ''),
+          // Whole dollars: .50 and up rounds up, .49 and below rounds down.
+          toWin: latest.toWin || (toWin != null ? String(Math.round(toWin)) : ''),
         };
         updateEntries(dateKey, (rows) => rows.map((r) => (r.id === rowId ? updated : r)));
         saveBet(dateKey, updated);
