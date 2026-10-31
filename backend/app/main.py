@@ -2,6 +2,7 @@
 PhoneExplorer  –  FastAPI application
 Entry point: run.py (backend root)
 """
+import asyncio
 from contextlib import asynccontextmanager
 
 from pathlib import Path
@@ -14,8 +15,10 @@ from app.config import settings
 from app.db import Base, SessionLocal, engine
 from app.models.scene_object import SceneObject
 from app.models import sticker as _sticker_models  # noqa: F401 — registers Image/Tag with Base
-from app.routers import bets, bett_stuff, data, monday, nfl, objects, org_obs, realities, stickers, tags, admin_stickers
+from app.models import nba as _nba_models  # noqa: F401 — registers NBA tables with Base
+from app.routers import bets, bett_stuff, data, monday, nba, nfl, objects, org_obs, realities, stickers, tags, admin_stickers
 from app.services import github_sync
+from app.services.nba_seed import seed_formulas
 from app.services.http_client import client
 
 
@@ -65,6 +68,21 @@ for _shape, _color, _title_base, _desc, _count in _SHAPES:
 
 
 # ── App lifecycle ──────────────────────────────────────────────────────────────
+
+async def _nba_ingest_loop() -> None:
+    """Opt-in daily ingest (NBA_INGEST_ENABLED=true). Idempotent, so a restart that
+    re-runs it immediately is harmless. Failures are logged and retried next tick."""
+    import logging
+    while True:
+        try:
+            async with SessionLocal() as db:
+                logging.info("NBA ingest: %s", await nba.run_ingest(db, None))
+        except asyncio.CancelledError:
+            raise
+        except Exception as exc:
+            logging.error("NBA ingest failed: %s", exc)
+        await asyncio.sleep(settings.nba_ingest_interval_hours * 3600)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -121,6 +139,14 @@ async def lifespan(app: FastAPI):
 
     try:
         async with SessionLocal() as db:
+            await seed_formulas(db)
+    except Exception as exc:
+        logging.error("NBA formula seed failed: %s", exc)
+
+    ingest_task = asyncio.create_task(_nba_ingest_loop()) if settings.nba_ingest_enabled else None
+
+    try:
+        async with SessionLocal() as db:
             result = await github_sync.sync_images_from_github(db)
             logging.info("Sticker sync on startup: %s", result)
     except Exception as exc:
@@ -128,6 +154,8 @@ async def lifespan(app: FastAPI):
 
     yield
 
+    if ingest_task:
+        ingest_task.cancel()
     await client.aclose()
 
 
@@ -158,6 +186,7 @@ app.include_router(org_obs.router)
 app.include_router(bets.router)
 app.include_router(bett_stuff.router)
 app.include_router(nfl.router)
+app.include_router(nba.router)
 app.mount("/static", StaticFiles(directory=str(Path(__file__).parent / "static")), name="static")
 
 _UPLOADS_DIR = Path("uploads")

@@ -31,6 +31,11 @@ class Settings(BaseSettings):
     # doesn't resolve LFS).
     image_cdn_base: str = "https://cdn.jsdelivr.net/gh/InspiredReality/inspiredrealityservice@main/images/"
 
+    # NBA points model: opt-in in-process daily ingest (yesterday + today).
+    # Leave off if an external scheduler calls POST /api/nba/ingest/run instead.
+    nba_ingest_enabled: bool = False
+    nba_ingest_interval_hours: float = 24.0
+
     @property
     def allowed_origins(self) -> list[str]:
         return [o.strip() for o in self.allowed_origins_raw.split(",") if o.strip()]
