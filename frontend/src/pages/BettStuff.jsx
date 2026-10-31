@@ -29,7 +29,7 @@ const SPORTS = ['NFL', 'NCAAF', 'NBA', 'NCAAB', 'Other'];
 const WHEN_LABEL = { pregame: 'Pregame', live: 'Live' };
 // Cycles Live -> Win -> Loss -> Live each time the result toggle is clicked.
 const NEXT_RESULT = { live: 'win', win: 'loss', loss: 'live' };
-const RESULT_LABEL = { live: '???', win: 'Win', loss: 'Loss' };
+const RESULT_LABEL = { live: 'Outcome???', win: 'Win', loss: 'Loss' };
 
 function makeRow() {
   return {
@@ -40,7 +40,7 @@ function makeRow() {
     hasImage: false,
     bet: '',
     toWin: '',
-    sportsbook: '',
+    sportsbook: 'Draft Kings',
     tags: '',
     when: 'pregame',
     sport: 'NFL',
@@ -261,7 +261,7 @@ function BetRow({ row, slipStatus, onField, onImageChange, onPreview, onRemove }
           className={`bett-toggle-btn bett-toggle-result bett-toggle-result-${row.result}`}
           onClick={() => onField('result', NEXT_RESULT[row.result] || 'live')}
         >
-          {RESULT_LABEL[row.result] || '???'}
+          {RESULT_LABEL[row.result] || 'Outcome???'}
         </button>
       </div>
     </div>
