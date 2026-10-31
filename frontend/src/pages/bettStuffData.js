@@ -361,13 +361,11 @@ function settlementToRow(record) {
 // Every distinct tag used across every bet, for the Tags textbox's
 // suggestion list — so a tag becomes selectable again once it's been used
 // anywhere, without needing its own table. Also backs the stats page's tag
-// filter dropdown. A row can be excluded so its own half-typed text isn't
-// offered back to it as if it were an existing tag.
-export function collectKnownTags(entries, excludeRowId) {
+// filter dropdown.
+export function collectKnownTags(entries) {
   const tags = new Set();
   for (const rows of Object.values(entries)) {
     for (const row of rows) {
-      if (row.id === excludeRowId) continue;
       for (const tag of tagsStringToArray(row.tags)) tags.add(tag);
     }
   }
