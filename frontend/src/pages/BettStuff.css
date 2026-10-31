@@ -798,3 +798,39 @@
     font-size: 0.95rem;
   }
 }
+
+.bett-tags-wrap {
+  position: relative;
+}
+
+.bett-tags-list {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 100%;
+  z-index: 20;
+  margin: 0 0 4px;
+  padding: 4px;
+  list-style: none;
+  max-height: 180px;
+  overflow-y: auto;
+  background: #111122;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+}
+
+.bett-tags-option {
+  width: 100%;
+  padding: 8px 10px;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  color: #ffffff;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.bett-tags-option:hover {
+  background: rgba(234, 179, 8, 0.15);
+}

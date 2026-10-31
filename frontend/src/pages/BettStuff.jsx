@@ -125,7 +125,59 @@ function DraftDayRow({ defaultDate, onConfirm, onCancel }) {
   );
 }
 
-function BetRow({ row, slipStatus, onField, onImageChange, onPreview, onRemove }) {
+// Comma-separated tags box with its own suggestion list: on focus it offers
+// every tag used on any bet (minus the ones already in the box), narrowed by
+// whatever's being typed after the last comma; tapping one completes it.
+// Replaces the browser's <datalist>, which only matches the whole text and
+// is unreliable on phones.
+function TagsInput({ value, knownTags, onChange }) {
+  const [open, setOpen] = useState(false);
+  const parts = value.split(',').map((t) => t.trim());
+  const last = parts[parts.length - 1];
+  // A finished tag in the box (e.g. "lock") means the next suggestion adds
+  // another; partial text ("pr") is what the suggestion completes.
+  const finished = knownTags.includes(last);
+  const done = finished ? parts : parts.slice(0, -1);
+  const typing = finished ? '' : last.toLowerCase();
+  const options = knownTags.filter((tag) => !done.includes(tag) && tag.toLowerCase().includes(typing));
+
+  const pick = (tag) => {
+    onChange([...done.filter(Boolean), tag].join(', '));
+    setOpen(false);
+  };
+
+  return (
+    <div className="bett-tags-wrap">
+      <input
+        type="text"
+        className="bett-text-input"
+        placeholder="e.g. parlay, primetime"
+        value={value}
+        onChange={(e) => {
+          onChange(e.target.value);
+          setOpen(true);
+        }}
+        onFocus={() => setOpen(true)}
+        onClick={() => setOpen(true)}
+        onBlur={() => setOpen(false)}
+      />
+      {open && options.length > 0 && (
+        <ul className="bett-tags-list">
+          {options.map((tag) => (
+            <li key={tag}>
+              {/* pointer-down (not click) so it lands before the input's blur closes the list */}
+              <button type="button" className="bett-tags-option" onPointerDown={(e) => { e.preventDefault(); pick(tag); }}>
+                {tag}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function BetRow({ row, knownTags, slipStatus, onField, onImageChange, onPreview, onRemove }) {
   const computedProfit = computeProfit(row);
   const profit = computedProfit ?? '';
   const odds = computeOdds(row);
@@ -256,14 +308,7 @@ function BetRow({ row, slipStatus, onField, onImageChange, onPreview, onRemove }
         </div>
         <div className="bett-cell bett-cell-tags">
           <span className="bett-cell-label">Tags</span>
-          <input
-            type="text"
-            className="bett-text-input"
-            list="bett-known-tags"
-            placeholder="e.g. parlay, primetime"
-            value={row.tags}
-            onChange={(e) => onField('tags', e.target.value)}
-          />
+          <TagsInput value={row.tags} knownTags={knownTags} onChange={(value) => onField('tags', value)} />
         </div>
       </div>
       <div className="bett-cell bett-cell-notes">
@@ -328,7 +373,6 @@ function BettStuff() {
   // than relying on insertion order) keeps the order correct even after a
   // reload, since the database fetch has no guaranteed row order of its own.
   const rowsFor = (dateKey) => [...(entries[dateKey] || [])].sort((a, b) => (a.id < b.id ? 1 : a.id > b.id ? -1 : 0));
-  const knownTags = collectKnownTags(entries);
 
   const setExtraDays = (updater) => {
     setExtraDaysState((prev) => {
@@ -447,12 +491,6 @@ function BettStuff() {
       <button className="bett-back-btn" onClick={() => navigate('/')}>← Back</button>
       <h1 className="bett-heading">Bett Stuff</h1>
 
-      <datalist id="bett-known-tags">
-        {knownTags.map((tag) => (
-          <option key={tag} value={tag} />
-        ))}
-      </datalist>
-
       <div className="bett-add-day-row">
         <button type="button" className="bett-add-day-btn" onClick={handleAddDraftDay}>
           + Add Day
@@ -528,6 +566,7 @@ function BettStuff() {
                       key={row.id}
                       row={row}
                       onField={(field, value) => handleField(dateKey, row.id, field, value)}
+                      knownTags={collectKnownTags(entries, row.id)}
                       slipStatus={slipStatus[row.id]}
                       onImageChange={(file) => handleImageChange(dateKey, row.id, file)}
                       onPreview={setPreviewImage}
