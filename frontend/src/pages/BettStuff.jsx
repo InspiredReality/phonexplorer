@@ -24,9 +24,12 @@ import {
 import './BettStuff.css';
 
 const SPORTSBOOKS = ['Draft Kings', 'BetMGM', 'Fanatics', 'Kalshi', 'theScore'];
+const SPORTS = ['NFL', 'NCAAF', 'NBA', 'NCAAB', 'Other'];
+// Clicking the When button flips between these two.
+const WHEN_LABEL = { pregame: 'Pregame', live: 'Live' };
 // Cycles Live -> Win -> Loss -> Live each time the result toggle is clicked.
 const NEXT_RESULT = { live: 'win', win: 'loss', loss: 'live' };
-const RESULT_LABEL = { live: 'Live', win: 'Win', loss: 'Loss' };
+const RESULT_LABEL = { live: '???', win: 'Win', loss: 'Loss' };
 
 function makeRow() {
   return {
@@ -39,6 +42,8 @@ function makeRow() {
     toWin: '',
     sportsbook: '',
     tags: '',
+    when: 'pregame',
+    sport: 'NFL',
     status: 'open',
     result: 'live',
   };
@@ -217,6 +222,32 @@ function BetRow({ row, slipStatus, onField, onImageChange, onPreview, onRemove }
           />
         </div>
       </div>
+      <div className="bett-sportsbook-tags-row">
+        <div className="bett-cell bett-cell-when">
+          <span className="bett-cell-label">When</span>
+          <button
+            type="button"
+            className="bett-select-input bett-when-btn"
+            onClick={() => onField('when', row.when === 'live' ? 'pregame' : 'live')}
+          >
+            {WHEN_LABEL[row.when] || WHEN_LABEL.pregame}
+          </button>
+        </div>
+        <div className="bett-cell bett-cell-sport">
+          <span className="bett-cell-label">Sport</span>
+          <select
+            className="bett-select-input"
+            value={row.sport || 'NFL'}
+            onChange={(e) => onField('sport', e.target.value)}
+          >
+            {SPORTS.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
+        </div>
+      </div>
       <div className="bett-toggle-row">
         <button
           type="button"
@@ -230,7 +261,7 @@ function BetRow({ row, slipStatus, onField, onImageChange, onPreview, onRemove }
           className={`bett-toggle-btn bett-toggle-result bett-toggle-result-${row.result}`}
           onClick={() => onField('result', NEXT_RESULT[row.result] || 'live')}
         >
-          {RESULT_LABEL[row.result] || 'Live'}
+          {RESULT_LABEL[row.result] || '???'}
         </button>
       </div>
     </div>

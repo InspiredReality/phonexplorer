@@ -349,6 +349,8 @@ function settlementToRow(record) {
     toWin: record.to_win || record.to_win === 0 ? String(record.to_win) : '',
     sportsbook: record.sportsbook || '',
     tags: tagsToString(record.tags),
+    when: record.bet_when || 'pregame',
+    sport: record.sport || 'NFL',
     status: record.status || 'open',
     result: record.result || 'live',
   };
@@ -406,6 +408,8 @@ export async function saveBetToApi(dateKey, row) {
     profit: computeProfit(row) ?? 0,
     sportsbook: row.sportsbook || null,
     tags: tagsStringToArray(row.tags),
+    bet_when: row.when || 'pregame',
+    sport: row.sport || 'NFL',
     status: row.status,
     result: row.result,
   });

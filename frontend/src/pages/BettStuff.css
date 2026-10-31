@@ -371,6 +371,11 @@
   gap: 10px;
 }
 
+.bett-when-btn {
+  text-align: left;
+  cursor: pointer;
+}
+
 .bett-text-input,
 .bett-number-input {
   width: 100%;
