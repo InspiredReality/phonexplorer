@@ -135,10 +135,13 @@ function BetRow({ row, slipStatus, onField, onImageChange, onPreview, onRemove }
       </div>
       <ImageCell row={row} onChange={onImageChange} onPreview={onPreview} />
       {slipStatus && (
-        <span className="bett-status-text" title={slipStatus.detail || ''}>
+        <span className="bett-status-text">
           {slipStatus.state === 'reading' && 'reading Bet…'}
           {slipStatus.state === 'success' && 'read Bet success'}
           {slipStatus.state === 'fail' && 'cannot read Bet'}
+          {slipStatus.state === 'fail' && slipStatus.detail && (
+            <small style={{ display: 'block', opacity: 0.7 }}>{slipStatus.detail}</small>
+          )}
         </span>
       )}
       <div className="bett-fields-row">
