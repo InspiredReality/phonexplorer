@@ -28,6 +28,9 @@ const SPORTSBOOKS = ['Draft Kings', 'BetMGM', 'Fanatics', 'Kalshi', 'theScore'];
 const SPORTS = ['NFL', 'NCAAF', 'NBA', 'NCAAB', 'Other'];
 // Clicking the When button flips between these two.
 const WHEN_LABEL = { pregame: 'Pregame', live: 'Live' };
+// Clicking the Type button cycles Single -> 2 Picks -> 3+ -> Single.
+const TYPE_LABEL = { single: 'Single', two: '2 Picks', three: '3+' };
+const NEXT_TYPE = { single: 'two', two: 'three', three: 'single' };
 // Cycles Live -> Win -> Loss -> Live each time the result toggle is clicked.
 const NEXT_RESULT = { live: 'win', win: 'loss', loss: 'live' };
 const RESULT_LABEL = { live: 'Outcome???', win: 'Win', loss: 'Loss' };
@@ -45,6 +48,7 @@ function makeRow() {
     sportsbook: 'Draft Kings',
     tags: '',
     when: 'pregame',
+    betType: 'single',
     sport: 'NFL',
     status: 'open',
     result: 'live',
@@ -198,15 +202,41 @@ function BetRow({ row, slipStatus, onField, onImageChange, onPreview, onRemove }
           />
         </div>
       </div>
-      <div className="bett-cell bett-cell-notes">
-        <span className="bett-cell-label">Notes</span>
-        <input
-          type="text"
-          className="bett-text-input"
-          placeholder="Notes…"
-          value={row.notes}
-          onChange={(e) => onField('notes', e.target.value)}
-        />
+      <div className="bett-when-sport-row">
+        <div className="bett-cell bett-cell-sport">
+          <span className="bett-cell-label">Sport</span>
+          <select
+            className="bett-select-input"
+            value={row.sport || 'NFL'}
+            onChange={(e) => onField('sport', e.target.value)}
+          >
+            {SPORTS.map((name) => (
+              <option key={name} value={name}>
+                {name}
+              </option>
+            ))}
+          </select>
+        </div>
+        <div className="bett-cell bett-cell-when">
+          <span className="bett-cell-label">When</span>
+          <button
+            type="button"
+            className="bett-select-input bett-when-btn"
+            onClick={() => onField('when', row.when === 'live' ? 'pregame' : 'live')}
+          >
+            {WHEN_LABEL[row.when] || WHEN_LABEL.pregame}
+          </button>
+        </div>
+        <div className="bett-cell bett-cell-type">
+          <span className="bett-cell-label">Type</span>
+          <button
+            type="button"
+            className="bett-select-input bett-when-btn"
+            onClick={() => onField('betType', NEXT_TYPE[row.betType] || 'two')}
+          >
+            {TYPE_LABEL[row.betType] || TYPE_LABEL.single}
+          </button>
+        </div>
       </div>
       <div className="bett-sportsbook-tags-row">
         <div className="bett-cell bett-cell-sportsbook">
@@ -236,31 +266,15 @@ function BetRow({ row, slipStatus, onField, onImageChange, onPreview, onRemove }
           />
         </div>
       </div>
-      <div className="bett-sportsbook-tags-row">
-        <div className="bett-cell bett-cell-when">
-          <span className="bett-cell-label">When</span>
-          <button
-            type="button"
-            className="bett-select-input bett-when-btn"
-            onClick={() => onField('when', row.when === 'live' ? 'pregame' : 'live')}
-          >
-            {WHEN_LABEL[row.when] || WHEN_LABEL.pregame}
-          </button>
-        </div>
-        <div className="bett-cell bett-cell-sport">
-          <span className="bett-cell-label">Sport</span>
-          <select
-            className="bett-select-input"
-            value={row.sport || 'NFL'}
-            onChange={(e) => onField('sport', e.target.value)}
-          >
-            {SPORTS.map((name) => (
-              <option key={name} value={name}>
-                {name}
-              </option>
-            ))}
-          </select>
-        </div>
+      <div className="bett-cell bett-cell-notes">
+        <span className="bett-cell-label">Notes</span>
+        <input
+          type="text"
+          className="bett-text-input"
+          placeholder="Notes…"
+          value={row.notes}
+          onChange={(e) => onField('notes', e.target.value)}
+        />
       </div>
       <div className="bett-toggle-row">
         <button

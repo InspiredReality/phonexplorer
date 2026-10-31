@@ -35,6 +35,8 @@ class BettStuffSettlement(Base):
     # Pregame or live bet, and the league it's on.
     bet_when   = Column(String(16), nullable=False, default="pregame", server_default="pregame")
     sport      = Column(String(16), nullable=False, default="NFL", server_default="NFL")
+    # single / two / three (3+ picks)
+    bet_type   = Column(String(16), nullable=False, default="single", server_default="single")
     status     = Column(String(16), nullable=False, default="closed")
     result     = Column(String(16), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)

@@ -102,6 +102,9 @@ async def lifespan(app: FastAPI):
                 text("ALTER TABLE bett_stuff_settlements ADD COLUMN IF NOT EXISTS bet_when VARCHAR(16) NOT NULL DEFAULT 'pregame'")
             )
             await conn.execute(
+                text("ALTER TABLE bett_stuff_settlements ADD COLUMN IF NOT EXISTS bet_type VARCHAR(16) NOT NULL DEFAULT 'single'")
+            )
+            await conn.execute(
                 text("ALTER TABLE bett_stuff_settlements ADD COLUMN IF NOT EXISTS sport VARCHAR(16) NOT NULL DEFAULT 'NFL'")
             )
             await conn.execute(
