@@ -362,10 +362,11 @@ function settlementToRow(record) {
 // suggestion list — so a tag becomes selectable again once it's been used
 // anywhere, without needing its own table. Also backs the stats page's tag
 // filter dropdown.
-export function collectKnownTags(entries) {
+export function collectKnownTags(entries, excludeRowId) {
   const tags = new Set();
   for (const rows of Object.values(entries)) {
     for (const row of rows) {
+      if (row.id === excludeRowId) continue;
       for (const tag of tagsStringToArray(row.tags)) tags.add(tag);
     }
   }

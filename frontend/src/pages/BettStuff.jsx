@@ -125,7 +125,65 @@ function DraftDayRow({ defaultDate, onConfirm, onCancel }) {
   );
 }
 
-function BetRow({ row, slipStatus, onField, onImageChange, onPreview, onRemove }) {
+// Comma-separated tags box plus a multi-select chip list. Focusing the box
+// shows every tag used on other bets as a tappable chip (gold = already on
+// this bet); tapping toggles it, and the list stays open so several can be
+// picked. Typing after a comma narrows the chips. The text box stays the
+// source of truth, so brand-new tags are still just typed in.
+function TagsInput({ value, knownTags, onChange }) {
+  const [open, setOpen] = useState(false);
+  const tokens = value.split(',').map((t) => t.trim());
+  const last = tokens[tokens.length - 1];
+  // A finished tag at the end ("lock", or a brand-new one matching no chip) is
+  // selected; leftover text that still matches chips ("pr") is a filter.
+  const finished = knownTags.includes(last) || (last !== '' && !knownTags.some((t) => t.toLowerCase().includes(last.toLowerCase())));
+  const selected = (finished ? tokens : tokens.slice(0, -1)).filter(Boolean);
+  const filter = finished ? '' : last.toLowerCase();
+  const chips = knownTags.filter((tag) => selected.includes(tag) || tag.toLowerCase().includes(filter));
+
+  const toggle = (tag) => {
+    const next = selected.includes(tag) ? selected.filter((t) => t !== tag) : [...selected, tag];
+    onChange(next.join(', '));
+  };
+
+  return (
+    <div className="bett-tags-wrap">
+      <input
+        type="text"
+        className="bett-text-input"
+        placeholder="e.g. parlay, primetime"
+        value={value}
+        onChange={(e) => {
+          onChange(e.target.value);
+          setOpen(true);
+        }}
+        onFocus={() => setOpen(true)}
+        onClick={() => setOpen(true)}
+        onBlur={() => setOpen(false)}
+      />
+      {open && chips.length > 0 && (
+        <div className="bett-tags-chips">
+          {chips.map((tag) => (
+            <button
+              key={tag}
+              type="button"
+              className={`bett-tag-chip${selected.includes(tag) ? ' bett-tag-chip-on' : ''}`}
+              // pointer-down (not click) with preventDefault keeps focus in the box, so the list stays open
+              onPointerDown={(e) => {
+                e.preventDefault();
+                toggle(tag);
+              }}
+            >
+              {tag}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function BetRow({ row, knownTags, slipStatus, onField, onImageChange, onPreview, onRemove }) {
   const computedProfit = computeProfit(row);
   const profit = computedProfit ?? '';
   const odds = computeOdds(row);
@@ -256,14 +314,7 @@ function BetRow({ row, slipStatus, onField, onImageChange, onPreview, onRemove }
         </div>
         <div className="bett-cell bett-cell-tags">
           <span className="bett-cell-label">Tags</span>
-          <input
-            type="text"
-            className="bett-text-input"
-            list="bett-known-tags"
-            placeholder="e.g. parlay, primetime"
-            value={row.tags}
-            onChange={(e) => onField('tags', e.target.value)}
-          />
+          <TagsInput value={row.tags} knownTags={knownTags} onChange={(value) => onField('tags', value)} />
         </div>
       </div>
       <div className="bett-cell bett-cell-notes">
@@ -328,7 +379,6 @@ function BettStuff() {
   // than relying on insertion order) keeps the order correct even after a
   // reload, since the database fetch has no guaranteed row order of its own.
   const rowsFor = (dateKey) => [...(entries[dateKey] || [])].sort((a, b) => (a.id < b.id ? 1 : a.id > b.id ? -1 : 0));
-  const knownTags = collectKnownTags(entries);
 
   const setExtraDays = (updater) => {
     setExtraDaysState((prev) => {
@@ -447,12 +497,6 @@ function BettStuff() {
       <button className="bett-back-btn" onClick={() => navigate('/')}>← Back</button>
       <h1 className="bett-heading">Bett Stuff</h1>
 
-      <datalist id="bett-known-tags">
-        {knownTags.map((tag) => (
-          <option key={tag} value={tag} />
-        ))}
-      </datalist>
-
       <div className="bett-add-day-row">
         <button type="button" className="bett-add-day-btn" onClick={handleAddDraftDay}>
           + Add Day
@@ -528,6 +572,7 @@ function BettStuff() {
                       key={row.id}
                       row={row}
                       onField={(field, value) => handleField(dateKey, row.id, field, value)}
+                      knownTags={collectKnownTags(entries, row.id)}
                       slipStatus={slipStatus[row.id]}
                       onImageChange={(file) => handleImageChange(dateKey, row.id, file)}
                       onPreview={setPreviewImage}
