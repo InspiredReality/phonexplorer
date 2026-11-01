@@ -132,6 +132,30 @@ function DraftDayRow({ defaultDate, onConfirm, onCancel }) {
 // source of truth, so brand-new tags are still just typed in.
 function TagsInput({ value, knownTags, onChange }) {
   const [open, setOpen] = useState(false);
+  // Where the dropdown goes: below the box when there's room above the
+  // keyboard, otherwise above it, sized to fit and scroll.
+  const [placement, setPlacement] = useState({ above: false, maxHeight: 200 });
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const place = () => {
+      const rect = inputRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+      // The fixed Table/Day/Week bar covers the bottom of the screen; stay clear of it.
+      const barHeight = document.querySelector('.bett-summary-bar')?.offsetHeight ?? 0;
+      const below = viewportHeight - barHeight - rect.bottom - 12;
+      const aboveRoom = rect.top - 12;
+      const above = below < 140 && aboveRoom > below;
+      setPlacement({ above, maxHeight: Math.max(100, Math.min(220, above ? aboveRoom : below)) });
+    };
+    place();
+    const vv = window.visualViewport;
+    vv?.addEventListener('resize', place);
+    return () => vv?.removeEventListener('resize', place);
+  }, [open]);
+
   const tokens = value.split(',').map((t) => t.trim());
   const last = tokens[tokens.length - 1];
   // A finished tag at the end ("lock", or a brand-new one matching no chip) is
@@ -149,6 +173,7 @@ function TagsInput({ value, knownTags, onChange }) {
   return (
     <div className="bett-tags-wrap">
       <input
+        ref={inputRef}
         type="text"
         className="bett-text-input"
         placeholder="e.g. parlay, primetime"
@@ -162,17 +187,19 @@ function TagsInput({ value, knownTags, onChange }) {
         onBlur={() => setOpen(false)}
       />
       {open && chips.length > 0 && (
-        <div className="bett-tags-chips">
+        <div
+          className={`bett-tags-chips${placement.above ? ' bett-tags-chips-above' : ''}`}
+          style={{ maxHeight: placement.maxHeight }}
+        >
           {chips.map((tag) => (
             <button
               key={tag}
               type="button"
               className={`bett-tag-chip${selected.includes(tag) ? ' bett-tag-chip-on' : ''}`}
-              // pointer-down (not click) with preventDefault keeps focus in the box, so the list stays open
-              onPointerDown={(e) => {
-                e.preventDefault();
-                toggle(tag);
-              }}
+              // mouse-down preventDefault keeps focus in the box so the list stays open;
+              // the toggle is on click, so dragging to scroll the list never toggles a chip
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => toggle(tag)}
             >
               {tag}
             </button>
