@@ -14,6 +14,7 @@ import {
   loadExtraDays,
   loadImagesFor,
   readSlip,
+  rowHasTag,
   removeBet,
   saveBet,
   saveExtraDays,
@@ -388,6 +389,7 @@ function BettStuff() {
   const [drafts, setDrafts] = useState([]);
   const [expanded, setExpanded] = useState(() => ({ [todayDateKey()]: true }));
   const [previewImage, setPreviewImage] = useState(null);
+  const [tagFilter, setTagFilter] = useState('');
   // Per-row result of reading Bet / To Win off an uploaded slip screenshot.
   const [slipStatus, setSlipStatus] = useState({});
 
@@ -405,7 +407,14 @@ function BettStuff() {
   // so a plain descending string sort on it works. Sorting here (rather
   // than relying on insertion order) keeps the order correct even after a
   // reload, since the database fetch has no guaranteed row order of its own.
-  const rowsFor = (dateKey) => [...(entries[dateKey] || [])].sort((a, b) => (a.id < b.id ? 1 : a.id > b.id ? -1 : 0));
+  // With a tag selected, only bets carrying it show — plus untouched blank
+  // rows, so tapping "Add Bet" while filtered doesn't look like it did nothing.
+  const isBlankRow = (row) => !row.text && !row.notes && !row.bet && !row.toWin && !row.tags && !row.image;
+  const rowsFor = (dateKey) =>
+    [...(entries[dateKey] || [])]
+      .filter((row) => !tagFilter || rowHasTag(row, tagFilter) || isBlankRow(row))
+      .sort((a, b) => (a.id < b.id ? 1 : a.id > b.id ? -1 : 0));
+  const allKnownTags = collectKnownTags(entries);
 
   const setExtraDays = (updater) => {
     setExtraDaysState((prev) => {
@@ -423,8 +432,8 @@ function BettStuff() {
   const visibleDateKeys = Array.from(
     new Set([
       todayKey,
-      ...extraDays,
-      ...Object.keys(entries).filter((k) => (entries[k] || []).length > 0),
+      ...(tagFilter ? [] : extraDays),
+      ...Object.keys(entries).filter((k) => rowsFor(k).length > 0),
     ])
   )
     .sort()
@@ -523,6 +532,22 @@ function BettStuff() {
     <div className="bett-page">
       <button className="bett-back-btn" onClick={() => navigate('/')}>← Back</button>
       <h1 className="bett-heading">Bett Stuff</h1>
+
+      <div className="bett-goal-row">
+        <span className="bett-goal-label">Tag</span>
+        <select
+          className="bett-select-input bett-tag-filter-select"
+          value={tagFilter}
+          onChange={(e) => setTagFilter(e.target.value)}
+        >
+          <option value="">All Tags</option>
+          {allKnownTags.map((tag) => (
+            <option key={tag} value={tag}>
+              {tag}
+            </option>
+          ))}
+        </select>
+      </div>
 
       <div className="bett-add-day-row">
         <button type="button" className="bett-add-day-btn" onClick={handleAddDraftDay}>
