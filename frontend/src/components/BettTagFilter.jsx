@@ -1,11 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import '../pages/BettStuff.css';
 
-// Multi-select tag filter shared by the picks and stats pages. The button
+// Multi-select chip filter shared by the picks and stats pages (tags, and the
+// stats page's Sport / When / Type). The button
 // summarises the selection ("All Tags", one tag, or "lock +2"); tapping it
 // opens a scrollable chip list where tags toggle on and off and the list
 // stays open, so several can be picked in a row.
-function BettTagFilter({ tags, selected, onChange }) {
+function BettTagFilter({ tags, selected, onChange, allLabel = 'All Tags', formatLabel = (v) => v }) {
   const [open, setOpen] = useState(false);
   const wrapRef = useRef(null);
 
@@ -23,7 +24,11 @@ function BettTagFilter({ tags, selected, onChange }) {
   };
 
   const label =
-    selected.length === 0 ? 'All Tags' : selected.length === 1 ? selected[0] : `${selected[0]} +${selected.length - 1}`;
+    selected.length === 0
+      ? allLabel
+      : selected.length === 1
+        ? formatLabel(selected[0])
+        : `${formatLabel(selected[0])} +${selected.length - 1}`;
 
   return (
     <div className="bett-tag-filter" ref={wrapRef}>
@@ -38,7 +43,7 @@ function BettTagFilter({ tags, selected, onChange }) {
             className={`bett-tag-chip${selected.length === 0 ? ' bett-tag-chip-on' : ''}`}
             onClick={() => onChange([])}
           >
-            All Tags
+            {allLabel}
           </button>
           {tags.map((tag) => (
             <button
@@ -47,7 +52,7 @@ function BettTagFilter({ tags, selected, onChange }) {
               className={`bett-tag-chip${selected.includes(tag) ? ' bett-tag-chip-on' : ''}`}
               onClick={() => toggle(tag)}
             >
-              {tag}
+              {formatLabel(tag)}
             </button>
           ))}
         </div>

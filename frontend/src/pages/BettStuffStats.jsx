@@ -19,6 +19,15 @@ import './BettStuff.css';
 
 // Green once the week hits its goal, white if it's still positive but short
 // of the goal, red if the week is in the red.
+// Filters are multi-select: nothing selected means no restriction.
+const matchesAny = (selected, value) => selected.length === 0 || selected.includes(value);
+
+const SPORTS = ['NFL', 'NCAAF', 'NBA', 'NCAAB', 'Other'];
+const WHENS = ['pregame', 'live'];
+const WHEN_LABEL = { pregame: 'Pregame', live: 'Live' };
+const TYPES = ['single', 'two', 'three'];
+const TYPE_LABEL = { single: 'Single', two: '2 Picks', three: '3+' };
+
 function goalValueClass(weekProfit, goalValue) {
   if (weekProfit >= goalValue) return 'bett-stats-amount-good';
   if (weekProfit < 0) return 'bett-stats-amount-bad';
@@ -59,6 +68,9 @@ function BettStuffStats() {
   const { entries } = useBettEntries();
   const [weeklyGoal, setWeeklyGoal] = useState(loadWeeklyGoal);
   const [tagFilter, setTagFilter] = useState([]);
+  const [sportFilter, setSportFilter] = useState([]);
+  const [whenFilter, setWhenFilter] = useState([]);
+  const [typeFilter, setTypeFilter] = useState([]);
 
   useEffect(() => {
     syncEntries();
@@ -69,7 +81,13 @@ function BettStuffStats() {
   // the bottom summary bar (Table/Day/Week) always reflects everything.
   const rowsFor = (dateKey) => {
     const rows = entries[dateKey] || [];
-    return rows.filter((row) => rowHasAnyTag(row, tagFilter));
+    return rows.filter(
+      (row) =>
+        rowHasAnyTag(row, tagFilter) &&
+        matchesAny(sportFilter, row.sport || 'NFL') &&
+        matchesAny(whenFilter, row.when || 'pregame') &&
+        matchesAny(typeFilter, row.betType || 'single')
+    );
   };
   const weeks = allBettingWeeks(entries);
   const goalValue = parseFloat(weeklyGoal) || 0;
@@ -96,6 +114,33 @@ function BettStuffStats() {
           value={weeklyGoal}
           onChange={(e) => handleGoalChange(e.target.value)}
         />
+      </div>
+
+      <div className="bett-filter-row">
+        <div className="bett-filter-cell">
+          <span className="bett-goal-label">Sport</span>
+          <BettTagFilter tags={SPORTS} selected={sportFilter} onChange={setSportFilter} allLabel="All" />
+        </div>
+        <div className="bett-filter-cell">
+          <span className="bett-goal-label">When</span>
+          <BettTagFilter
+            tags={WHENS}
+            selected={whenFilter}
+            onChange={setWhenFilter}
+            allLabel="All"
+            formatLabel={(v) => WHEN_LABEL[v]}
+          />
+        </div>
+        <div className="bett-filter-cell">
+          <span className="bett-goal-label">Type</span>
+          <BettTagFilter
+            tags={TYPES}
+            selected={typeFilter}
+            onChange={setTypeFilter}
+            allLabel="All"
+            formatLabel={(v) => TYPE_LABEL[v]}
+          />
+        </div>
       </div>
 
       <div className="bett-stats-header-row">
