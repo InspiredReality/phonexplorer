@@ -98,22 +98,13 @@ function BettStuffStats() {
   };
 
   return (
-    <div className="bett-page">
+    <div className="bett-page bett-page-stats">
       <button className="bett-back-btn" onClick={() => navigate('/')}>← Back</button>
       <h1 className="bett-heading">Bett Stuff Stats</h1>
 
       <div className="bett-goal-row">
         <span className="bett-goal-label">Tag</span>
         <BettTagFilter tags={knownTags} selected={tagFilter} onChange={setTagFilter} />
-        <span className="bett-goal-label">Weekly Profit Goal</span>
-        <input
-          type="number"
-          inputMode="decimal"
-          className="bett-goal-input"
-          placeholder="$0"
-          value={weeklyGoal}
-          onChange={(e) => handleGoalChange(e.target.value)}
-        />
       </div>
 
       <div className="bett-filter-row">
@@ -154,6 +145,18 @@ function BettStuffStats() {
         {weeks.map((week) => (
           <WeekRow key={week[0].dateKey} week={week} rowsFor={rowsFor} goalValue={goalValue} />
         ))}
+      </div>
+
+      <div className="bett-goal-row bett-goal-row-bottom">
+        <span className="bett-goal-label">Weekly Profit Goal</span>
+        <input
+          type="number"
+          inputMode="decimal"
+          className="bett-goal-input"
+          placeholder="$0"
+          value={weeklyGoal}
+          onChange={(e) => handleGoalChange(e.target.value)}
+        />
       </div>
 
       <BettSummaryBar days={summaryDays} entries={entries} activePage="stats" />

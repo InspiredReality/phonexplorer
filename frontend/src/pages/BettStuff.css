@@ -898,3 +898,17 @@
   left: auto;
   right: 0;
 }
+
+/* Stats page: the weekly goal is pinned to the bottom of the page, just above
+   the fixed summary bar, with extra padding so the grid never runs under it. */
+.bett-page-stats {
+  padding-bottom: 150px;
+}
+
+.bett-goal-row-bottom {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 88px;
+  margin: 0;
+}
