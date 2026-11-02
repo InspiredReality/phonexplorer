@@ -286,7 +286,11 @@ export function flushPending() {
       const found = findRow(entriesState, id);
       if (found) {
         try {
-          await saveBetToApi(found.dateKey, found.row);
+          const saved = await saveBetToApi(found.dateKey, found.row);
+          // A backend that predates Sport/When/Type accepts the request but
+          // drops those fields (and never echoes them back). Keep the edit
+          // queued instead of treating it as saved, so it isn't lost.
+          if (saved && !('sport' in saved)) return false;
         } catch {
           return false;
         }
@@ -305,8 +309,14 @@ export function flushPending() {
   return flushing;
 }
 
+// Edits made while a revalidation is in flight. The list that comes back was
+// read before those edits, so it must not overwrite them — even if their API
+// writes have already finished and left the pending queue.
+let editLog = null;
+
 // Persist a row's latest state locally and queue it for the API.
 export function saveBet(dateKey, row) {
+  editLog?.set(row.id, 'save');
   putImage(row.id, row.image);
   const p = loadPending();
   p.upserts[row.id] = ++pendingSeq;
@@ -316,6 +326,7 @@ export function saveBet(dateKey, row) {
 }
 
 export function removeBet(dateKey, rowId) {
+  editLog?.set(rowId, 'delete');
   updateEntries(dateKey, (rows) => rows.filter((r) => r.id !== rowId));
   deleteImage(rowId);
   const p = loadPending();
@@ -350,9 +361,10 @@ function settlementToRow(record) {
     toWinExact: record.to_win_exact != null ? String(record.to_win_exact) : null,
     sportsbook: record.sportsbook || '',
     tags: tagsToString(record.tags),
-    when: record.bet_when || 'pregame',
-    betType: record.bet_type || 'single',
-    sport: record.sport || 'NFL',
+    // undefined (not a default) when the server doesn't send the field at all
+    when: 'bet_when' in record ? record.bet_when || 'pregame' : undefined,
+    betType: 'bet_type' in record ? record.bet_type || 'single' : undefined,
+    sport: 'sport' in record ? record.sport || 'NFL' : undefined,
     status: record.status || 'open',
     result: record.result || 'live',
   };
@@ -407,7 +419,7 @@ export async function saveBetToApi(dateKey, row) {
     if (!image) throw new Error('screenshot not loaded yet');
     row = { ...row, image };
   }
-  await api.put(`/api/bett-stuff/settlements/${row.id}`, {
+  const res = await api.put(`/api/bett-stuff/settlements/${row.id}`, {
     bet_date: dateKey,
     pick: row.text,
     notes: row.notes || null,
@@ -424,6 +436,7 @@ export async function saveBetToApi(dateKey, row) {
     status: row.status,
     result: row.result,
   });
+  return res.data;
 }
 
 // Shrinks a screenshot before upload — slip text stays legible at this size
@@ -466,7 +479,16 @@ function isBlankDraft(row) {
 // (logged before sync existed, or while offline) are kept and pushed up.
 async function revalidate() {
   await flushPending();
-  const records = await fetchRecordsFromApi();
+  editLog = new Map();
+  let records;
+  try {
+    records = await fetchRecordsFromApi();
+  } catch (err) {
+    editLog = null;
+    throw err;
+  }
+  const edited = editLog;
+  editLog = null;
 
   const pending = loadPending();
   const firstBridge = !readJson(BRIDGED_KEY, false);
@@ -479,19 +501,25 @@ async function revalidate() {
   };
 
   for (const { dateKey, row } of records) {
-    if (pending.deletes.includes(row.id)) continue;
+    if (pending.deletes.includes(row.id) || edited.get(row.id) === 'delete') continue;
     const local = findRow(current, row.id);
-    if (pending.upserts[row.id] && local) {
+    if ((pending.upserts[row.id] || edited.get(row.id) === 'save') && local) {
       add(local.dateKey, local.row);
       continue;
     }
-    add(dateKey, { ...row, image: local?.row.image || row.image });
+    // A server that doesn't know a field yet (older backend) omits it; keep
+    // what this device has rather than falling back to the default.
+    const merged = { ...row, image: local?.row.image || row.image };
+    for (const key of ['when', 'betType', 'sport']) {
+      if (merged[key] === undefined && local) merged[key] = local.row[key];
+    }
+    add(dateKey, merged);
   }
 
   for (const [dateKey, rows] of Object.entries(current)) {
     for (const row of rows) {
       if (dbIds.has(row.id)) continue;
-      const keep = pending.upserts[row.id] || firstBridge || isBlankDraft(row);
+      const keep = pending.upserts[row.id] || edited.get(row.id) === 'save' || firstBridge || isBlankDraft(row);
       if (!keep) continue;
       add(dateKey, row);
       if (!isBlankDraft(row)) {
