@@ -91,6 +91,11 @@ function BettStuffStats() {
   };
   const weeks = allBettingWeeks(entries);
   const goalValue = parseFloat(weeklyGoal) || 0;
+  // Everything across every week shown, so it follows the active filters like the grid does.
+  const allWeeksTotal = weeks.reduce(
+    (total, week) => total + week.reduce((weekTotal, d) => weekTotal + sumProfit(rowsFor(d.dateKey)), 0),
+    0
+  );
 
   const handleGoalChange = (value) => {
     setWeeklyGoal(value);
@@ -135,7 +140,10 @@ function BettStuffStats() {
       </div>
 
       <div className="bett-stats-header-row">
-        <div className="bett-stats-header-cell bett-stats-header-week" />
+        <div className="bett-stats-header-cell bett-stats-header-week bett-stats-header-total">
+          <span>Total</span>
+          <span className={`bett-stats-header-total-value ${amountClass(allWeeksTotal)}`}>{formatMoneyShort(allWeeksTotal)}</span>
+        </div>
         {weeks[0].map((d) => (
           <div key={d.dayName} className="bett-stats-header-cell">{d.dayName.slice(0, 3)}</div>
         ))}
