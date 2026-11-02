@@ -125,6 +125,7 @@ async def lifespan(app: FastAPI):
 
         async with SessionLocal() as db:
             await bett_migrations.migrate_live_tags(db)
+            await bett_migrations.migrate_saturday_ncaaf(db)
 
         async with SessionLocal() as db:
             count = await db.scalar(select(func.count()).select_from(SceneObject))
