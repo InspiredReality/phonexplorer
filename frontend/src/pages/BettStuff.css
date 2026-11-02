@@ -844,3 +844,23 @@
   margin-top: 0;
   margin-bottom: 4px;
 }
+
+.bett-tag-filter {
+  position: relative;
+}
+
+.bett-tag-filter-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 160px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.bett-tag-filter-panel {
+  right: auto;
+  width: 260px;
+  max-height: 260px;
+}

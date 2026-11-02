@@ -4,6 +4,7 @@ import Accordion from '@mui/material/Accordion';
 import AccordionSummary from '@mui/material/AccordionSummary';
 import AccordionDetails from '@mui/material/AccordionDetails';
 import BettSummaryBar from '../components/BettSummaryBar';
+import BettTagFilter from '../components/BettTagFilter';
 import {
   collectKnownTags,
   computeOdds,
@@ -14,7 +15,7 @@ import {
   loadExtraDays,
   loadImagesFor,
   readSlip,
-  rowHasTag,
+  rowHasAnyTag,
   removeBet,
   saveBet,
   saveExtraDays,
@@ -389,7 +390,7 @@ function BettStuff() {
   const [drafts, setDrafts] = useState([]);
   const [expanded, setExpanded] = useState(() => ({ [todayDateKey()]: true }));
   const [previewImage, setPreviewImage] = useState(null);
-  const [tagFilter, setTagFilter] = useState('');
+  const [tagFilter, setTagFilter] = useState([]);
   // Per-row result of reading Bet / To Win off an uploaded slip screenshot.
   const [slipStatus, setSlipStatus] = useState({});
 
@@ -412,7 +413,7 @@ function BettStuff() {
   const isBlankRow = (row) => !row.text && !row.notes && !row.bet && !row.toWin && !row.tags && !row.image;
   const rowsFor = (dateKey) =>
     [...(entries[dateKey] || [])]
-      .filter((row) => !tagFilter || rowHasTag(row, tagFilter) || isBlankRow(row))
+      .filter((row) => rowHasAnyTag(row, tagFilter) || isBlankRow(row))
       .sort((a, b) => (a.id < b.id ? 1 : a.id > b.id ? -1 : 0));
   const allKnownTags = collectKnownTags(entries);
 
@@ -432,7 +433,7 @@ function BettStuff() {
   const visibleDateKeys = Array.from(
     new Set([
       todayKey,
-      ...(tagFilter ? [] : extraDays),
+      ...(tagFilter.length > 0 ? [] : extraDays),
       ...Object.keys(entries).filter((k) => rowsFor(k).length > 0),
     ])
   )
@@ -535,18 +536,7 @@ function BettStuff() {
 
       <div className="bett-goal-row">
         <span className="bett-goal-label">Tag</span>
-        <select
-          className="bett-select-input bett-tag-filter-select"
-          value={tagFilter}
-          onChange={(e) => setTagFilter(e.target.value)}
-        >
-          <option value="">All Tags</option>
-          {allKnownTags.map((tag) => (
-            <option key={tag} value={tag}>
-              {tag}
-            </option>
-          ))}
-        </select>
+        <BettTagFilter tags={allKnownTags} selected={tagFilter} onChange={setTagFilter} />
       </div>
 
       <div className="bett-add-day-row">

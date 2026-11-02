@@ -377,6 +377,12 @@ export function rowHasTag(row, tag) {
   return tagsStringToArray(row.tags).includes(tag);
 }
 
+// Multi-tag filter: no tags selected means everything; otherwise a bet matches
+// if it carries any one of the selected tags.
+export function rowHasAnyTag(row, tags) {
+  return tags.length === 0 || tags.some((tag) => rowHasTag(row, tag));
+}
+
 // Every bet from the database, without screenshots (those come separately,
 // see fetchImage). Returns [{ dateKey, row, hasImage }].
 async function fetchRecordsFromApi() {

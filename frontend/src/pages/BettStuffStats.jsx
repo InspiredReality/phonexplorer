@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BettSummaryBar from '../components/BettSummaryBar';
+import BettTagFilter from '../components/BettTagFilter';
 import {
   allBettingWeeks,
   amountClass,
@@ -8,7 +9,7 @@ import {
   currentBettingWeekDays,
   formatMoneyShort,
   loadWeeklyGoal,
-  rowHasTag,
+  rowHasAnyTag,
   saveWeeklyGoal,
   sumProfit,
   syncEntries,
@@ -57,7 +58,7 @@ function BettStuffStats() {
   // navigating here shows it instantly; the sync only hits the API if stale.
   const { entries } = useBettEntries();
   const [weeklyGoal, setWeeklyGoal] = useState(loadWeeklyGoal);
-  const [tagFilter, setTagFilter] = useState('');
+  const [tagFilter, setTagFilter] = useState([]);
 
   useEffect(() => {
     syncEntries();
@@ -68,7 +69,7 @@ function BettStuffStats() {
   // the bottom summary bar (Table/Day/Week) always reflects everything.
   const rowsFor = (dateKey) => {
     const rows = entries[dateKey] || [];
-    return tagFilter ? rows.filter((row) => rowHasTag(row, tagFilter)) : rows;
+    return rows.filter((row) => rowHasAnyTag(row, tagFilter));
   };
   const weeks = allBettingWeeks(entries);
   const goalValue = parseFloat(weeklyGoal) || 0;
@@ -85,18 +86,7 @@ function BettStuffStats() {
 
       <div className="bett-goal-row">
         <span className="bett-goal-label">Tag</span>
-        <select
-          className="bett-select-input bett-tag-filter-select"
-          value={tagFilter}
-          onChange={(e) => setTagFilter(e.target.value)}
-        >
-          <option value="">All Tags</option>
-          {knownTags.map((tag) => (
-            <option key={tag} value={tag}>
-              {tag}
-            </option>
-          ))}
-        </select>
+        <BettTagFilter tags={knownTags} selected={tagFilter} onChange={setTagFilter} />
         <span className="bett-goal-label">Weekly Profit Goal</span>
         <input
           type="number"
