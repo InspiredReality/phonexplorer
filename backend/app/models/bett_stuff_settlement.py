@@ -26,10 +26,17 @@ class BettStuffSettlement(Base):
     bet_amount = Column(Float, nullable=False, default=0)
     to_win     = Column(Float, nullable=False, default=0)
     profit     = Column(Float, nullable=False, default=0)
+    # Payout with cents as read off a slip; to_win is the whole-dollar figure shown.
+    to_win_exact = Column(Float, nullable=True)
     sportsbook = Column(String(64), nullable=True)
     # JSON-encoded list of strings — stored as plain text rather than a
     # Postgres ARRAY column so it works the same under sqlite in tests.
     tags       = Column(Text, nullable=False, default="[]")
+    # Pregame or live bet, and the league it's on.
+    bet_when   = Column(String(16), nullable=False, default="pregame", server_default="pregame")
+    sport      = Column(String(16), nullable=False, default="NFL", server_default="NFL")
+    # single / two / three (3+ picks)
+    bet_type   = Column(String(16), nullable=False, default="single", server_default="single")
     status     = Column(String(16), nullable=False, default="closed")
     result     = Column(String(16), nullable=False)
     created_at = Column(DateTime, default=datetime.utcnow)

@@ -15,7 +15,7 @@ from app.db import Base, SessionLocal, engine
 from app.models.scene_object import SceneObject
 from app.models import sticker as _sticker_models  # noqa: F401 — registers Image/Tag with Base
 from app.routers import bets, bett_stuff, data, monday, nfl, objects, org_obs, realities, stickers, tags, admin_stickers
-from app.services import github_sync
+from app.services import bett_migrations, github_sync
 from app.services.http_client import client
 
 
@@ -96,6 +96,18 @@ async def lifespan(app: FastAPI):
                 text("ALTER TABLE bett_stuff_settlements ADD COLUMN IF NOT EXISTS tags TEXT NOT NULL DEFAULT '[]'")
             )
             await conn.execute(
+                text("ALTER TABLE bett_stuff_settlements ADD COLUMN IF NOT EXISTS to_win_exact DOUBLE PRECISION")
+            )
+            await conn.execute(
+                text("ALTER TABLE bett_stuff_settlements ADD COLUMN IF NOT EXISTS bet_when VARCHAR(16) NOT NULL DEFAULT 'pregame'")
+            )
+            await conn.execute(
+                text("ALTER TABLE bett_stuff_settlements ADD COLUMN IF NOT EXISTS bet_type VARCHAR(16) NOT NULL DEFAULT 'single'")
+            )
+            await conn.execute(
+                text("ALTER TABLE bett_stuff_settlements ADD COLUMN IF NOT EXISTS sport VARCHAR(16) NOT NULL DEFAULT 'NFL'")
+            )
+            await conn.execute(
                 text(
                     """
                     DO $$
@@ -110,6 +122,9 @@ async def lifespan(app: FastAPI):
                     """
                 )
             )
+
+        async with SessionLocal() as db:
+            await bett_migrations.migrate_live_tags(db)
 
         async with SessionLocal() as db:
             count = await db.scalar(select(func.count()).select_from(SceneObject))

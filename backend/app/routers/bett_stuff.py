@@ -26,9 +26,13 @@ class SettlementUpsert(BaseModel):
     image: str | None = None
     bet_amount: float = 0
     to_win: float = 0
+    to_win_exact: float | None = None
     profit: float = 0
     sportsbook: str | None = None
     tags: list[str] = []
+    bet_when: str = "pregame"
+    bet_type: str = "single"
+    sport: str = "NFL"
     status: str
     result: str
 
@@ -47,9 +51,13 @@ def _dict(row: BettStuffSettlement, include_image: bool = True) -> dict:
         "has_image": bool(row.image),
         "bet_amount": row.bet_amount,
         "to_win": row.to_win,
+        "to_win_exact": row.to_win_exact,
         "profit": row.profit,
         "sportsbook": row.sportsbook,
         "tags": tags,
+        "bet_when": row.bet_when,
+        "bet_type": row.bet_type,
+        "sport": row.sport,
         "status": row.status,
         "result": row.result,
     }
@@ -69,9 +77,13 @@ def _list_dict(row) -> dict:
         "has_image": bool(row["has_image"]),
         "bet_amount": row["bet_amount"],
         "to_win": row["to_win"],
+        "to_win_exact": row["to_win_exact"],
         "profit": row["profit"],
         "sportsbook": row["sportsbook"],
         "tags": tags,
+        "bet_when": row["bet_when"],
+        "bet_type": row["bet_type"],
+        "sport": row["sport"],
         "status": row["status"],
         "result": row["result"],
     }
@@ -122,9 +134,13 @@ async def upsert_settlement(row_id: str, body: SettlementUpsert, db: AsyncSessio
         row.image = body.image
     row.bet_amount = body.bet_amount
     row.to_win = body.to_win
+    row.to_win_exact = body.to_win_exact
     row.profit = body.profit
     row.sportsbook = body.sportsbook
     row.tags = json.dumps(body.tags)
+    row.bet_when = body.bet_when
+    row.bet_type = body.bet_type
+    row.sport = body.sport
     row.status = body.status
     row.result = body.result
     await db.commit()
