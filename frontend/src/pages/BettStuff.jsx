@@ -28,11 +28,11 @@ import './BettStuff.css';
 
 const SPORTSBOOKS = ['Draft Kings', 'BetMGM', 'Fanatics', 'Kalshi', 'theScore'];
 const SPORTS = ['NFL', 'NCAAF', 'NBA', 'NCAAB', 'Other'];
-// Clicking the When button flips between these two.
 const WHEN_LABEL = { pregame: 'Pregame', live: 'Live' };
-// Clicking the Type button cycles Single -> 2 Picks -> 3+ -> Single.
 const TYPE_LABEL = { single: 'Single', two: '2 Picks', three: '3+' };
-const NEXT_TYPE = { single: 'two', two: 'three', three: 'single' };
+const SPORT_OPTIONS = SPORTS.map((name) => ({ value: name, label: name }));
+const WHEN_OPTIONS = Object.entries(WHEN_LABEL).map(([value, label]) => ({ value, label }));
+const TYPE_OPTIONS = Object.entries(TYPE_LABEL).map(([value, label]) => ({ value, label }));
 // Cycles Live -> Win -> Loss -> Live each time the result toggle is clicked.
 const NEXT_RESULT = { live: 'win', win: 'loss', loss: 'live' };
 const RESULT_LABEL = { live: 'Outcome???', win: 'Win', loss: 'Loss' };
@@ -212,6 +212,101 @@ function TagsInput({ value, knownTags, onChange }) {
   );
 }
 
+// Tap-through button for a short list of options: a tap advances to the next
+// one (wrapping around); press-and-hold (or right-click) pops up the whole
+// list so any option can be picked directly.
+const HOLD_MS = 450;
+
+function CycleSelect({ value, options, onChange }) {
+  const [open, setOpen] = useState(false);
+  const [above, setAbove] = useState(false);
+  const wrapRef = useRef(null);
+  const holdTimer = useRef(null);
+  const heldOpen = useRef(false);
+
+  const index = Math.max(0, options.findIndex((o) => o.value === value));
+  const current = options[index];
+
+  useEffect(() => {
+    if (!open) return undefined;
+    // Open upward when there isn't room below the button above the fixed bottom bar.
+    const rect = wrapRef.current?.getBoundingClientRect();
+    if (rect) {
+      const barHeight = document.querySelector('.bett-summary-bar')?.offsetHeight ?? 0;
+      const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+      const needed = options.length * 42 + 16;
+      setAbove(viewportHeight - barHeight - rect.bottom < needed && rect.top > needed);
+    }
+    const close = (e) => {
+      if (!wrapRef.current?.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener('pointerdown', close);
+    return () => document.removeEventListener('pointerdown', close);
+  }, [open, options.length]);
+
+  const cancelHold = () => {
+    clearTimeout(holdTimer.current);
+    holdTimer.current = null;
+  };
+
+  const startHold = () => {
+    heldOpen.current = false;
+    cancelHold();
+    holdTimer.current = setTimeout(() => {
+      heldOpen.current = true;
+      setOpen(true);
+    }, HOLD_MS);
+  };
+
+  return (
+    <div className="bett-cycle" ref={wrapRef}>
+      <button
+        type="button"
+        className="bett-select-input bett-when-btn"
+        onPointerDown={startHold}
+        onPointerUp={cancelHold}
+        onPointerLeave={cancelHold}
+        onPointerCancel={cancelHold}
+        onContextMenu={(e) => {
+          // Long-press on a phone fires the browser's context menu; use it as our popup instead.
+          e.preventDefault();
+          heldOpen.current = true;
+          setOpen(true);
+        }}
+        onClick={() => {
+          // The click that ends a long-press must not also advance the value.
+          if (heldOpen.current) {
+            heldOpen.current = false;
+            return;
+          }
+          setOpen(false);
+          onChange(options[(index + 1) % options.length].value);
+        }}
+      >
+        {current.label}
+      </button>
+      {open && (
+        <ul className={`bett-option-list${above ? ' bett-option-list-above' : ''}`}>
+          {options.map((o) => (
+            <li key={o.value}>
+              <button
+                type="button"
+                className={`bett-option-item${o.value === current.value ? ' bett-option-item-on' : ''}`}
+                onClick={() => {
+                  onChange(o.value);
+                  setOpen(false);
+                }}
+              >
+                {o.label}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
 function BetRow({ row, knownTags, slipStatus, onField, onImageChange, onPreview, onRemove }) {
   const computedProfit = computeProfit(row);
   const profit = computedProfit ?? '';
@@ -292,37 +387,15 @@ function BetRow({ row, knownTags, slipStatus, onField, onImageChange, onPreview,
       <div className="bett-when-sport-row">
         <div className="bett-cell bett-cell-sport">
           <span className="bett-cell-label">Sport</span>
-          <select
-            className="bett-select-input"
-            value={row.sport || 'NFL'}
-            onChange={(e) => onField('sport', e.target.value)}
-          >
-            {SPORTS.map((name) => (
-              <option key={name} value={name}>
-                {name}
-              </option>
-            ))}
-          </select>
+          <CycleSelect value={row.sport || 'NFL'} options={SPORT_OPTIONS} onChange={(v) => onField('sport', v)} />
         </div>
         <div className="bett-cell bett-cell-when">
           <span className="bett-cell-label">When</span>
-          <button
-            type="button"
-            className="bett-select-input bett-when-btn"
-            onClick={() => onField('when', row.when === 'live' ? 'pregame' : 'live')}
-          >
-            {WHEN_LABEL[row.when] || WHEN_LABEL.pregame}
-          </button>
+          <CycleSelect value={row.when || 'pregame'} options={WHEN_OPTIONS} onChange={(v) => onField('when', v)} />
         </div>
         <div className="bett-cell bett-cell-type">
           <span className="bett-cell-label">Type</span>
-          <button
-            type="button"
-            className="bett-select-input bett-when-btn"
-            onClick={() => onField('betType', NEXT_TYPE[row.betType] || 'two')}
-          >
-            {TYPE_LABEL[row.betType] || TYPE_LABEL.single}
-          </button>
+          <CycleSelect value={row.betType || 'single'} options={TYPE_OPTIONS} onChange={(v) => onField('betType', v)} />
         </div>
       </div>
       <div className="bett-sportsbook-tags-row">

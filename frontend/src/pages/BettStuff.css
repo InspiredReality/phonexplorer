@@ -912,3 +912,52 @@
   bottom: 88px;
   margin: 0;
 }
+
+.bett-cycle {
+  position: relative;
+}
+
+.bett-cycle .bett-when-btn {
+  /* Long-press opens the list: keep the browser from selecting text / showing its menu */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.bett-option-list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 100%;
+  z-index: 30;
+  margin: 4px 0 0;
+  padding: 4px;
+  list-style: none;
+  background: #111122;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+}
+
+.bett-option-list-above {
+  top: auto;
+  bottom: 100%;
+  margin: 0 0 4px;
+}
+
+.bett-option-item {
+  width: 100%;
+  min-height: 38px;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  color: #ffffff;
+  font: inherit;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.bett-option-item-on {
+  background: rgba(234, 179, 8, 0.25);
+}
