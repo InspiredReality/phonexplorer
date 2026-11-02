@@ -141,7 +141,6 @@ function BettStuffStats() {
 
       <div className="bett-stats-header-row">
         <div className="bett-stats-header-cell bett-stats-header-week bett-stats-header-total">
-          <span>Total</span>
           <span className={`bett-stats-header-total-value ${amountClass(allWeeksTotal)}`}>{formatMoneyShort(allWeeksTotal)}</span>
         </div>
         {weeks[0].map((d) => (
