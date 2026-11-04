@@ -1,27 +1,12 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import './ActivityTimeline.css';
 import './WeeklyActivityTimeline.css';
-import { buildEvents, firstWords, formatDate, useScrollToEnd } from './ActivityTimeline';
+import { buildEvents, firstWords, formatDate, weekLabel, weekStart } from './ActivityTimeline';
 import { DECISION_COLOR, STATUS_ORDER, statusColor, statusGroup } from './statusGroups';
 
 // Same data as ActivityTimeline, grouped into Monday-start weeks. Each week is
 // one column on the horizontal line; its updates and status changes stack
 // vertically underneath, aligned in a single column.
-
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-function weekStart(date) {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); // back up to Monday
-  return d;
-}
-
-function weekLabel(start) {
-  const end = new Date(start.getTime() + 6 * DAY_MS);
-  const fmt = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' });
-  return `${fmt.format(start)} – ${fmt.format(end)}`;
-}
 
 // Oldest → newest, including empty weeks in between so gaps stay visible.
 function groupByWeek(events) {
@@ -48,9 +33,39 @@ function groupByWeek(events) {
 const PINK = '#f6287e';
 
 function eventColor(e) {
+  if (e.kind === 'agenda') return statusColor(statusGroup(e.status));
   if (e.kind === 'update') return e.subtype === 'decision' ? DECISION_COLOR : PINK;
   return statusColor(statusGroup(e.status));
 }
+
+// Upcoming work from the board: every task or milestone dated today or later whose
+// status is not Done, shown in the week its date falls in. The date is the item's
+// Agenda Date, or, when it has none, the start of its Timeline (so future work still
+// appears if the Agenda Date column is empty or isn't being returned yet).
+// `groups` is the `groups` array from /api/monday/project.
+export function upcomingAgendaItems(groups) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  const items = [];
+  for (const g of groups ?? []) {
+    for (const t of g.tasks ?? []) {
+      const fromAgenda = !!t.agenda_date;
+      const raw = t.agenda_date || t.timeline?.from;
+      if (!raw) continue;
+      const [y, m, d] = raw.slice(0, 10).split('-').map(Number);
+      const date = new Date(y, m - 1, d, 12); // local noon: no timezone day-shift
+      if (Number.isNaN(date.getTime()) || date < today) continue;
+      if ((t.status || '').trim().toLowerCase() === 'done') continue;
+      items.push({
+        id: t.id, name: t.name, status: t.status, milestone: !!t.milestone,
+        group: g.title, date, fromAgenda,
+      });
+    }
+  }
+  return items;
+}
+
+const dayFormat = new Intl.DateTimeFormat(undefined, { weekday: 'short', month: 'short', day: 'numeric' });
 
 const SUBTYPES = [
   { key: 'comment', label: 'Comments', color: PINK },
@@ -58,23 +73,39 @@ const SUBTYPES = [
 ];
 
 export default function WeeklyActivityTimeline({
-  updates, changes, loading, error, errorChanges, onRetry,
+  updates, changes, agenda, loading, error, errorChanges, onRetry,
   title = 'Activity Timeline · By Week',
   emptyText = 'No updates or status changes in this period.',
 }) {
-  const allEvents = buildEvents(updates, changes);
+  // Upcoming agenda items become events too, so the timeline runs on into future weeks.
+  const agendaEvents = (agenda ?? []).map(a => ({
+    key: `a-${a.id}`,
+    kind: 'agenda',
+    time: a.date,
+    item: a.name,
+    who: a.group,
+    status: a.status,
+    milestone: a.milestone,
+    text: `${a.status ?? 'No status'}${a.fromAgenda ? '' : ' · timeline start'}`,
+  }));
+  const allEvents = [...buildEvents(updates, changes), ...agendaEvents]
+    .sort((a, b) => new Date(a.time) - new Date(b.time));
 
   // Filters: click a chip to hide / show that kind of event. The two top-level
   // chips switch a whole type off; the chips under them filter within it.
   const [hideUpdates, setHideUpdates] = useState(false);
   const [hideStatusChanges, setHideStatusChanges] = useState(false);
+  const [hideAgenda, setHideAgenda] = useState(false);
   const [hiddenSubtypes, setHiddenSubtypes] = useState(() => new Set());
   const [hiddenStatuses, setHiddenStatuses] = useState(() => new Set());
 
   const subtypeCounts = { comment: 0, decision: 0 };
   const statusCounts = new Map(STATUS_ORDER.map(n => [n, 0]));
+  let agendaCount = 0;
   for (const e of allEvents) {
-    if (e.kind === 'update') {
+    if (e.kind === 'agenda') {
+      agendaCount += 1;
+    } else if (e.kind === 'update') {
       subtypeCounts[e.subtype] += 1;
     } else {
       const g = statusGroup(e.status);
@@ -109,12 +140,27 @@ export default function WeeklyActivityTimeline({
   }
 
   const events = allEvents.filter(e => {
+    if (e.kind === 'agenda') return !hideAgenda;
     if (e.kind === 'update') return !hideUpdates && !hiddenSubtypes.has(e.subtype);
     return !hideStatusChanges && !hiddenStatuses.has(statusGroup(e.status));
   });
   const weeks = groupByWeek(events);
   const scrollRef = useRef(null);
-  useScrollToEnd(scrollRef, `${loading}-${weeks.length}`);
+  const thisWeek = weekStart(new Date()).getTime();
+
+  // Open scrolled so the current week is the right-most visible column: history on
+  // the left, upcoming weeks one scroll away to the right. With no current week, go to the end.
+  useEffect(() => {
+    const sc = scrollRef.current;
+    if (!sc) return;
+    const col = sc.querySelector('[data-current-week="true"]');
+    if (!col) {
+      sc.scrollLeft = sc.scrollWidth;
+      return;
+    }
+    const right = col.getBoundingClientRect().right - sc.getBoundingClientRect().left + sc.scrollLeft;
+    sc.scrollLeft = Math.max(0, right - sc.clientWidth);
+  }, [loading, weeks.length, hideAgenda]);
 
   return (
     <section className="atl-card">
@@ -197,6 +243,18 @@ export default function WeeklyActivityTimeline({
                     })}
                   </div>
                 </div>
+                {agendaCount > 0 && (
+                  <div className="wk-filters__col">
+                    <button
+                      type="button"
+                      className={`wk-chip wk-chip--main${hideAgenda ? ' wk-chip--off' : ''}`}
+                      aria-pressed={!hideAgenda}
+                      onClick={() => setHideAgenda(v => !v)}
+                    >
+                      <i className="wk-chip__dot" /> Upcoming <span className="wk-chip__n">{agendaCount}</span>
+                    </button>
+                  </div>
+                )}
               </div>
               {events.length === 0 ? (
                 <div className="atl-state">Everything is filtered out. Click a filter above to show it again.</div>
@@ -204,8 +262,12 @@ export default function WeeklyActivityTimeline({
               <div className="atl-scroll" ref={scrollRef}>
                 <ol className="wk-timeline">
                   {weeks.map(w => (
-                    <li key={w.key} className="wk-col">
-                      <span className="wk-label">{weekLabel(w.start)}</span>
+                    <li
+                      key={w.key}
+                      className={`wk-col${w.key === thisWeek ? ' wk-col--current' : ''}`}
+                      data-current-week={w.key === thisWeek ? 'true' : undefined}
+                    >
+                      <span className="wk-label">{weekLabel(w.start)}{w.key === thisWeek ? ' · This week' : ''}</span>
                       <span className="wk-node" />
                       <ul className="wk-stack">
                         {w.events.length === 0 && <li className="wk-empty">No activity</li>}
@@ -214,7 +276,7 @@ export default function WeeklyActivityTimeline({
                           return (
                             <li
                               key={e.key}
-                              className={`tl-card wk-card${open ? ' wk-card--open' : ''}`}
+                              className={`tl-card wk-card${open ? ' wk-card--open' : ''}${e.kind === 'agenda' ? ' wk-card--agenda' : ''}`}
                               style={{ '--c': eventColor(e) }}
                               role="button"
                               tabIndex={0}
@@ -229,8 +291,15 @@ export default function WeeklyActivityTimeline({
                             >
                               <div className="wk-card__top">
                                 <span className="wk-card__dot" />
-                                <span className="wk-card__time">{formatDate(e.time)}</span>
+                                <span className="wk-card__time">
+                                  {e.kind === 'agenda' ? dayFormat.format(e.time) : formatDate(e.time)}
+                                </span>
                                 {e.subtype === 'decision' && <span className="wk-card__badge">Decision</span>}
+                                {e.kind === 'agenda' && (
+                                  <span className="wk-card__badge wk-card__badge--agenda">
+                                    {e.milestone ? 'Milestone' : 'Upcoming'}
+                                  </span>
+                                )}
                               </div>
                               <div className="tl-item">{e.item ?? '—'}</div>
                               <div className="tl-text">

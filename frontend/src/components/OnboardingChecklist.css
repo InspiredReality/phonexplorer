@@ -25,14 +25,26 @@
   gap: 6px;
 }
 .ob-ms {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 8px;
   border-radius: 8px;
   background: rgba(255,255,255,0.04);
   font-size: 0.74rem;
+  overflow: hidden;
 }
+.ob-ms__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 6px 8px;
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.ob-ms__head:hover { background: rgba(255,255,255,0.05); }
+.ob-ms__head:focus-visible { outline: 2px solid #fff; outline-offset: -2px; }
 .ob-ms__diamond {
   width: 10px;
   height: 10px;
@@ -41,6 +53,11 @@
   border-radius: 2px;
 }
 .ob-ms__name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ob-ms--open .ob-ms__name { white-space: normal; }
+.ob-ms__caret { color: rgba(255,255,255,0.5); transition: transform 0.15s; }
+.ob-ms__caret--open { transform: rotate(90deg); }
+.ob-ms__body { padding: 2px 8px 8px 26px; }
+.ob-ms__meta { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .ob-ms__date { color: rgba(255,255,255,0.45); font-size: 0.68rem; white-space: nowrap; }
 
 /* Cards: 5 visible then scroll (same as the weekly timeline) */

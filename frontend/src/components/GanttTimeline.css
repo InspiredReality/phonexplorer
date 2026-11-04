@@ -1,0 +1,90 @@
+/* Gantt chart: weeks across, one row per item, band coloured by that week's status */
+.gt-scroll {
+  --gt-name: 170px;
+  --gt-week: 84px;
+  --gt-bg: #1a1a2e;
+  overflow: auto;
+  max-height: 520px;
+  margin: 8px 0 14px;
+  -webkit-overflow-scrolling: touch;
+}
+.gt-grid { width: max-content; min-width: 100%; }
+
+.gt-row { display: grid; align-items: stretch; }
+.gt-row:not(.gt-head):not(.gt-grouprow) { height: 34px; }
+
+/* sticky name column + sticky header row */
+.gt-name {
+  position: sticky;
+  left: 0;
+  z-index: 2;
+  background: var(--gt-bg);
+  padding: 0 10px;
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  border-right: 1px solid rgba(255,255,255,0.1);
+}
+.gt-head { position: sticky; top: 0; z-index: 4; background: var(--gt-bg); border-bottom: 1px solid rgba(255,255,255,0.12); }
+.gt-head__name { z-index: 5; font-size: 0.7rem; letter-spacing: 0.06em; text-transform: uppercase; color: rgba(255,255,255,0.5); height: 30px; }
+.gt-weeklabel {
+  height: 30px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.7rem;
+  color: rgba(255,255,255,0.5);
+  white-space: nowrap;
+  border-left: 1px solid rgba(255,255,255,0.06);
+}
+.gt-weeklabel--now { color: #fff; font-weight: 600; }
+
+.gt-grouprow { height: 30px; background: rgba(255,255,255,0.03); }
+.gt-groupname { font-size: 0.78rem; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block; line-height: 30px; background: #20203a; }
+.gt-itemname { font-size: 0.76rem; gap: 6px; }
+.gt-itemname__text { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+.gt-cell { position: relative; border-left: 1px solid rgba(255,255,255,0.06); }
+.gt-cell--now { background: rgba(255,255,255,0.05); }
+.gt-row:not(.gt-head):not(.gt-grouprow) .gt-cell { border-bottom: 1px solid rgba(255,255,255,0.04); }
+
+/* The band: one segment per week, coloured by that week's status */
+.gt-band {
+  position: absolute;
+  top: 10px;
+  height: 14px;
+}
+.gt-band--start { border-top-left-radius: 7px; border-bottom-left-radius: 7px; }
+.gt-band--end { border-top-right-radius: 7px; border-bottom-right-radius: 7px; }
+
+.gt-milestone {
+  position: absolute;
+  top: 10px;
+  width: 12px;
+  height: 12px;
+  margin-left: -6px;
+  transform: rotate(45deg);
+  border-radius: 2px;
+  box-shadow: 0 0 0 1px rgba(255,255,255,0.5);
+}
+
+.gt-diamond {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  flex-shrink: 0;
+  transform: rotate(45deg);
+  border-radius: 2px;
+  background: #8b8ba7;
+}
+
+.gt-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px 16px;
+  padding: 12px 20px 0;
+  font-size: 0.72rem;
+  color: rgba(255,255,255,0.6);
+}
+.gt-legend__item { display: inline-flex; align-items: center; gap: 6px; }
+.gt-legend__swatch { width: 18px; height: 8px; border-radius: 4px; display: inline-block; }
