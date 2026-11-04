@@ -448,7 +448,10 @@ A section titled **Success Roadmap** (small uppercase heading, no card) with two
 
 A card titled **Recent Updates** with two filter chips:
 - **Comments** (pink `#f6287e`), **Decisions** (black with outline). Each shows a count (of all entries, not just visible), clicking hides/shows that subtype.
-- Entries = `flattenComments(updates)`: updates **and replies**, newest first, **after filtering, take the first 10**.
+- Entries = `flattenComments(updates)`: every update **and reply** in the period (same set the Activity Timeline shows; no 10-item cap), grouped into
+  **one bordered box per calendar week** (Monday start, via the shared `weekStart` / `weekLabel` helpers in `ActivityTimeline.jsx`). Weeks run newest first and entries
+  newest first inside a box. Each box has a header like `Oct 26 – Nov 1` with an entry count; the current week is marked "· This week" with a brighter border. Weeks with no
+  entries are not shown.
 - Each entry: bold task name (+ a black "Decision" badge for decisions), `Author · date` on the right (replies read `Author · reply · date`), then the text
   (`white-space: pre-wrap`). Replies are indented with a pink left bar.
 - If everything is filtered out: "Everything is filtered out."

@@ -1,10 +1,11 @@
 import { useState } from 'react';
 import './RecentUpdates.css';
-import { flattenComments } from './ActivityTimeline';
+import { flattenComments, weekLabel, weekStart } from './ActivityTimeline';
 import { DECISION_COLOR } from './statusGroups';
 
-// Recent Updates: the 10 newest comment updates (replies count as their own entries),
-// with Comments / Decisions filter chips. A comment containing #decision is a Decision.
+// Recent Updates: every comment update from the period (replies count as their own entries),
+// grouped into a box per calendar week (Monday start, newest week first) like the weekly
+// Activity Timeline, with Comments / Decisions filter chips. A comment containing #decision is a Decision.
 // Props: updates = the `updates` array returned by GET /api/monday/project/activity
 
 function fmtStamp(iso) {
@@ -36,8 +37,16 @@ export default function RecentUpdates({ updates }) {
     });
   }
 
-  // Comment updates and their replies, newest first, after filtering.
-  const latest = all.filter(c => !hidden.has(c.subtype)).slice(0, 10);
+  // One box per calendar week, newest week first; entries newest first inside each box.
+  const thisWeek = weekStart(new Date()).getTime();
+  const byWeek = new Map();
+  for (const c of all) {
+    if (hidden.has(c.subtype) || Number.isNaN(new Date(c.time).getTime())) continue;
+    const key = weekStart(c.time).getTime();
+    if (!byWeek.has(key)) byWeek.set(key, []);
+    byWeek.get(key).push(c);
+  }
+  const weeks = [...byWeek.entries()].sort(([a], [b]) => b - a);
 
   return (
     <section className="ru-updates">
@@ -59,21 +68,29 @@ export default function RecentUpdates({ updates }) {
           );
         })}
       </div>
-      {latest.length === 0 && <p className="ru-updates__empty">Everything is filtered out.</p>}
-      <ul className="ru-updates__list">
-        {latest.map(c => (
-          <li key={c.key} className={`ru-update${c.isReply ? ' ru-update--reply' : ''}`}>
-            <div className="ru-update__meta">
-              <strong>
-                {c.item ?? '—'}
-                {c.subtype === 'decision' && <span className="ru-badge">Decision</span>}
-              </strong>
-              <span>{c.who ?? '—'}{c.isReply ? ' · reply' : ''} · {fmtStamp(c.time)}</span>
-            </div>
-            <p className="ru-update__body">{c.text}</p>
-          </li>
-        ))}
-      </ul>
+      {weeks.length === 0 && <p className="ru-updates__empty">Everything is filtered out.</p>}
+      {weeks.map(([key, entries]) => (
+        <section key={key} className={`ru-week${key === thisWeek ? ' ru-week--current' : ''}`}>
+          <h3 className="ru-week__title">
+            {weekLabel(new Date(key))}{key === thisWeek ? ' · This week' : ''}
+            <span className="ru-week__count">{entries.length}</span>
+          </h3>
+          <ul className="ru-updates__list">
+            {entries.map(c => (
+              <li key={c.key} className={`ru-update${c.isReply ? ' ru-update--reply' : ''}`}>
+                <div className="ru-update__meta">
+                  <strong>
+                    {c.item ?? '—'}
+                    {c.subtype === 'decision' && <span className="ru-badge">Decision</span>}
+                  </strong>
+                  <span>{c.who ?? '—'}{c.isReply ? ' · reply' : ''} · {fmtStamp(c.time)}</span>
+                </div>
+                <p className="ru-update__body">{c.text}</p>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ))}
     </section>
   );
 }

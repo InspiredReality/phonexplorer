@@ -1,27 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import './ActivityTimeline.css';
 import './WeeklyActivityTimeline.css';
-import { buildEvents, firstWords, formatDate } from './ActivityTimeline';
+import { buildEvents, firstWords, formatDate, weekLabel, weekStart } from './ActivityTimeline';
 import { DECISION_COLOR, STATUS_ORDER, statusColor, statusGroup } from './statusGroups';
 
 // Same data as ActivityTimeline, grouped into Monday-start weeks. Each week is
 // one column on the horizontal line; its updates and status changes stack
 // vertically underneath, aligned in a single column.
-
-const DAY_MS = 24 * 60 * 60 * 1000;
-
-function weekStart(date) {
-  const d = new Date(date);
-  d.setHours(0, 0, 0, 0);
-  d.setDate(d.getDate() - ((d.getDay() + 6) % 7)); // back up to Monday
-  return d;
-}
-
-function weekLabel(start) {
-  const end = new Date(start.getTime() + 6 * DAY_MS);
-  const fmt = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' });
-  return `${fmt.format(start)} – ${fmt.format(end)}`;
-}
 
 // Oldest → newest, including empty weeks in between so gaps stay visible.
 function groupByWeek(events) {

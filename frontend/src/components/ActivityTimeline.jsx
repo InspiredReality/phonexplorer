@@ -35,6 +35,21 @@ export function flattenComments(updates) {
   return out;
 }
 
+// Calendar weeks start on Monday. weekStart returns local midnight of that Monday.
+export function weekStart(date) {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+  return d;
+}
+
+export function weekLabel(start) {
+  const end = new Date(start);
+  end.setDate(end.getDate() + 6);
+  const fmt = new Intl.DateTimeFormat(undefined, { month: 'short', day: 'numeric' });
+  return `${fmt.format(start)} – ${fmt.format(end)}`;
+}
+
 // A Monday update or reply containing the hashtag #decision is a Decision; the rest are Comments.
 export function commentSubtype(text) {
   return /#decision\b/i.test(text || '') ? 'decision' : 'comment';
