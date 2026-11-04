@@ -113,6 +113,23 @@ async def project_raw_items(
     return raw
 
 
+@router.get("/project/status-history")
+async def project_status_history(
+    customer: str = Query(min_length=1, max_length=100),
+    days: int = Query(default=90, ge=1, le=365),
+) -> dict[str, Any]:
+    """Status changes (Activity log) for one customer's board over a longer window."""
+    async with _client() as c:
+        try:
+            history = await c.get_board_status_history(customer, days=days)
+        except (RuntimeError, httpx.HTTPError) as exc:
+            log.exception("Monday request failed")
+            raise HTTPException(status_code=502, detail=f"Monday API error: {exc}") from exc
+    if history is None:
+        raise HTTPException(status_code=404, detail=f'No Monday board found for "{customer}"')
+    return history
+
+
 @router.get("/project")
 async def project_board(customer: str = Query(min_length=1, max_length=100)) -> dict[str, Any]:
     """

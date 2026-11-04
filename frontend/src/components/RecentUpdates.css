@@ -68,32 +68,44 @@
 .ru-chip[style*="#000"] .ru-chip__dot { box-shadow: 0 0 0 1px rgba(255,255,255,0.7); }
 .ru-chip[style*="#000"]:not(.ru-chip--off) { border-color: rgba(255,255,255,0.7); }
 
-/* ── One box per week ── */
+/* ── One collapsible box per week ── */
 .ru-week {
   margin-top: 12px;
-  padding: 10px 12px 4px;
+  padding: 0 12px 4px;
   border: 1px solid rgba(255,255,255,0.18);
   border-radius: 10px;
   background: rgba(255,255,255,0.02);
 }
 .ru-week--current { border-color: rgba(255,255,255,0.5); }
-.ru-week__title {
+.ru-week__head {
   display: flex;
   align-items: center;
   gap: 8px;
-  margin: 0 0 2px;
+  width: 100%;
+  padding: 10px 0;
+  background: none;
+  border: none;
+  color: rgba(255,255,255,0.7);
+  font: inherit;
   font-size: 0.78rem;
   font-weight: 600;
   letter-spacing: 0.04em;
-  color: rgba(255,255,255,0.7);
+  text-align: left;
+  cursor: pointer;
 }
-.ru-week--current .ru-week__title { color: #fff; }
-.ru-week__count {
-  font-size: 0.68rem;
+.ru-week--current .ru-week__head { color: #fff; }
+.ru-week__head:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }
+.ru-week__caret { display: inline-block; width: 1em; color: rgba(255,255,255,0.5); transition: transform 0.15s; }
+.ru-week__caret--open { transform: rotate(90deg); }
+.ru-week__title { flex: 1; }
+.ru-week__closed {
+  font-size: 0.7rem;
   font-weight: 500;
-  padding: 1px 7px;
+  padding: 2px 8px;
   border-radius: 999px;
-  background: rgba(255,255,255,0.1);
-  color: rgba(255,255,255,0.6);
+  background: rgba(0,200,117,0.15);
+  color: #00c875;
+  white-space: nowrap;
 }
+.ru-week__none { margin: 0 0 10px; color: rgba(255,255,255,0.4); font-size: 0.82rem; }
 .ru-week .ru-update:first-child { border-top: none; }

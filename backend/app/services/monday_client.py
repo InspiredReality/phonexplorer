@@ -451,6 +451,37 @@ class MondayClient:
             await asyncio.sleep(PAGE_DELAY_S)
         return changes
 
+    async def get_board_status_history(self, customer: str, days: int = 90) -> dict | None:
+        """
+        Status changes only (no updates) for one customer's board over a longer window,
+        oldest first, for reconstructing what status each task was in week by week.
+        Returns None if no board matches.
+        """
+        board = await self.find_board_by_customer(customer)
+        if not board:
+            return None
+        to_dt = datetime.now(timezone.utc)
+        from_dt = to_dt - timedelta(days=days)
+        variables = {
+            "from": from_dt.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "to": to_dt.strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "limit": 100,
+        }
+        try:
+            users = {
+                str(u["id"]): u["name"]
+                for u in (await self._gql(USERS_QUERY)).get("users", [])
+            }
+        except RuntimeError:
+            users = {}
+        changes = await self._board_status_changes(board, users, variables, 100, 15)
+        changes.sort(key=lambda c: c["timestamp"])
+        return {
+            "board": {"id": board["id"], "name": board["name"]},
+            "days": days,
+            "status_changes": changes,
+        }
+
     async def get_board_activity(self, customer: str, days: int = 30) -> dict | None:
         """
         Updates and status changes for one customer's board (same shapes as

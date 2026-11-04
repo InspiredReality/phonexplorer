@@ -5,6 +5,7 @@ import OnboardingChecklist from '../components/OnboardingChecklist';
 import SuccessRoadmap from '../components/SuccessRoadmap';
 import RecentUpdates from '../components/RecentUpdates';
 import WeeklyActivityTimeline, { upcomingAgendaItems } from '../components/WeeklyActivityTimeline';
+import GanttTimeline from '../components/GanttTimeline';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -19,6 +20,7 @@ async function getJSON(path) {
 }
 
 const fetchProject = customer => getJSON(`/api/monday/project?customer=${encodeURIComponent(customer)}`);
+const fetchStatusHistory = customer => getJSON(`/api/monday/project/status-history?customer=${encodeURIComponent(customer)}&days=90`);
 const fetchActivity = customer => getJSON(`/api/monday/project/activity?customer=${encodeURIComponent(customer)}&days=30`);
 
 export default function MondayProject() {
@@ -30,6 +32,9 @@ export default function MondayProject() {
   const [activity, setActivity] = useState(null);
   const [loadingA, setLoadingA] = useState(false);
   const [errorA, setErrorA] = useState(null);
+  const [history, setHistory] = useState(null);
+  const [loadingH, setLoadingH] = useState(false);
+  const [errorH, setErrorH] = useState(null);
 
   async function loadActivity(name) {
     setLoadingA(true);
@@ -44,6 +49,19 @@ export default function MondayProject() {
     }
   }
 
+  async function loadHistory(name) {
+    setLoadingH(true);
+    setErrorH(null);
+    try {
+      setHistory(await fetchStatusHistory(name));
+    } catch (err) {
+      setHistory(null);
+      setErrorH(err.message);
+    } finally {
+      setLoadingH(false);
+    }
+  }
+
   async function load(e) {
     e.preventDefault();
     const name = customer.trim();
@@ -51,9 +69,11 @@ export default function MondayProject() {
     setLoading(true);
     setError(null);
     setActivity(null);
+    setHistory(null);
     try {
       setProject(await fetchProject(name));
       loadActivity(name);
+      loadHistory(name);
     } catch (err) {
       setProject(null);
       setError(err.message);
@@ -93,7 +113,7 @@ export default function MondayProject() {
           <>
             <OnboardingChecklist groups={project.groups} />
             <SuccessRoadmap groups={project.groups} />
-            {activity?.updates?.length > 0 && <RecentUpdates updates={activity.updates} />}
+            {activity?.updates?.length > 0 && <RecentUpdates updates={activity.updates} changes={activity.status_changes} />}
             <WeeklyActivityTimeline
               updates={activity?.updates}
               changes={activity?.status_changes}
@@ -103,6 +123,12 @@ export default function MondayProject() {
               onRetry={() => loadActivity(customer.trim())}
               title="Activity Timeline (30 days) · By Week"
               emptyText="No updates or status changes on this board in the last 30 days."
+            />
+            <GanttTimeline
+              groups={project.groups}
+              changes={history?.status_changes}
+              historyLoading={loadingH}
+              historyError={errorH}
             />
           </>
         )}

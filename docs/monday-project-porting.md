@@ -6,7 +6,7 @@ This guide has two parts:
 2. **Build spec**: everything an AI agent needs to rebuild the four sections, the project-board step,
    and the backend API calls from scratch, in an existing React app with an empty page.
 
-The finished page: a **Customer name** textbox. On "Load" it finds that customer's Monday board and shows four sections:
+The finished page: a **Customer name** textbox. On "Load" it finds that customer's Monday board and shows five sections (the first four are the original set; the Gantt was added later):
 
 | # | Section | Component | Data it needs |
 |---|---|---|---|
@@ -14,6 +14,7 @@ The finished page: a **Customer name** textbox. On "Load" it finds that customer
 | 2 | **Success Roadmap** | `SuccessRoadmap` | `groups` from `/api/monday/project` |
 | 3 | **Recent Updates** | `RecentUpdates` | `updates` from `/api/monday/project/activity` |
 | 4 | **Activity Timeline (30 days) · By Week** | `WeeklyActivityTimeline` | `updates` + `status_changes` from `/api/monday/project/activity` |
+| 5 | **Timeline Gantt · By Week** | `GanttTimeline` | `groups` from `/api/monday/project` + `status_changes` from `/api/monday/project/status-history` |
 
 ---
 
@@ -32,6 +33,8 @@ frontend/src/components/RecentUpdates.jsx
 frontend/src/components/RecentUpdates.css
 frontend/src/components/WeeklyActivityTimeline.jsx
 frontend/src/components/WeeklyActivityTimeline.css
+frontend/src/components/GanttTimeline.jsx
+frontend/src/components/GanttTimeline.css
 frontend/src/components/ActivityTimeline.jsx      <- shared helpers (see note)
 frontend/src/components/ActivityTimeline.css      <- shared card/scroll styles
 frontend/src/components/statusGroups.js           <- shared status grouping + colours
@@ -80,9 +83,9 @@ Minimum subset inside the two backend files (everything else in them is unrelate
 - `monday_client.py`: the GraphQL constants `BOARDS_QUERY`, `BOARD_PROJECT_QUERY`, `NEXT_PROJECT_ITEMS_QUERY`,
   `ACTIVITY_LOGS_QUERY`, `BOARD_UPDATES_QUERY`, `ITEM_NAMES_QUERY`, `USERS_QUERY`, `_PROJECT_COLUMN_FIELDS`; the class
   `MondayClient` with `_gql`, `find_board_by_customer`, `get_project_board`, `get_board_activity`,
-  `_board_status_changes`, `_fetch_item_meta`; and helpers `_shape_task`, `_is_milestone_value`, `_activity_ts`,
+  `get_board_status_history`, `_board_status_changes`, `_fetch_item_meta`; and helpers `_shape_task`, `_is_milestone_value`, `_activity_ts`,
   `_parse_status_change`, `_parse_dt`.
-- `routers/monday.py`: `_client()`, `GET /project`, `GET /project/activity`, and (optional, debugging)
+- `routers/monday.py`: `_client()`, `GET /project`, `GET /project/activity`, `GET /project/status-history`, and (optional, debugging)
   `GET /project/raw-items`.
 
 ---
@@ -450,7 +453,9 @@ A card titled **Recent Updates** with two filter chips:
 - **Comments** (pink `#f6287e`), **Decisions** (black with outline). Each shows a count (of all entries, not just visible), clicking hides/shows that subtype.
 - Entries = `flattenComments(updates)`: every update **and reply** in the period (same set the Activity Timeline shows; no 10-item cap), grouped into
   **one bordered box per calendar week** (Monday start, via the shared `weekStart` / `weekLabel` helpers in `ActivityTimeline.jsx`). Weeks run newest first and entries
-  newest first inside a box. Each box has a header like `Oct 26 – Nov 1` with an entry count; the current week is marked "· This week" with a brighter border. Weeks with no
+  newest first inside a box. **Each week box is collapsible** (button with caret; the newest week starts open, the rest closed). Collapsed it shows only the date range and
+  `N tasks closed`: the number of *distinct tasks* whose status changed to Done or Deferred that week, counted from the `status_changes` prop. A week is listed if it has
+  updates or closed tasks. Each box has a header like `Oct 26 – Nov 1` with an entry count; the current week is marked "· This week" with a brighter border. Weeks with no
   entries are not shown.
 - Each entry: bold task name (+ a black "Decision" badge for decisions), `Author · date` on the right (replies read `Author · reply · date`), then the text
   (`white-space: pre-wrap`). Replies are indented with a pink left bar.
@@ -479,6 +484,27 @@ A card with a count badge and a refresh button (`onRetry`), states for loading /
   **5 cards visible per column then vertical scroll**, plus horizontal scroll across weeks. Fixed card height 104px; text clamped to 2 lines.
 - **Click** (or Enter/Space) a card to expand it to the full text.
 - **Scroll position**: on load, scroll horizontally so the **current week is the right-most visible column** (history to the left, upcoming weeks one scroll to the right). The current week is marked "· This week" with a ringed node. If there is no current-week column, scroll to the far end.
+
+### 2.10b `GET /api/monday/project/status-history?customer=NAME&days=90` and `GanttTimeline`
+
+Backend: same as the activity endpoint's status-change half, but over a longer window (default 90 days, max 365), **status changes only** (no updates, so it stays cheap), oldest first:
+
+```json
+{ "board": { "id": "123", "name": "Eversource" }, "days": 90, "status_changes": [ /* same shape as in 2.4 */ ] }
+```
+
+The page calls it separately after the project loads (state: `history`, `loadingH`, `errorH`), because the Gantt needs more history than the 30-day activity call.
+
+**`GanttTimeline({ groups, changes, historyLoading, historyError, title })`**: a card titled **Timeline Gantt · By Week**.
+- **Rows**: every top-level task or milestone whose `timeline.from` is set (subtasks are not included; they live on another board with no status history), grouped under group header rows
+  (group title in the group colour). Columns: a sticky name column (170px) then one 84px column per **Monday-start week**, from the earliest start to the latest end (always including this week; capped at 60 weeks).
+- **Band**: drawn as one segment per week cell, positioned by day within the week (`left = startDay/7`, `width = days/7`), rounded at the true start and end. A milestone is a single diamond.
+- **Colour = the status the task had that week**: `statusAt(item, endOfWeek)` = `to_status` of the latest change at or before the end of that week; if none and the task has later changes, the first change's
+  `from_status`; if no history, the task's current status. Current and future weeks use the current status. The colour is `statusColor(statusGroup(status))` (ToDo grey, Pending Customer yellow,
+  Pending Nucleus blue, Done/Deferred green, else blue). A legend shows these colours. Each segment has a tooltip `Name: Status (week of Oct 26)`.
+- The current week column is highlighted and labelled "· now"; on open the chart scrolls so it is roughly centred. The chart scrolls both ways (max height 520px, sticky header and name column).
+- If the history request fails: warning line, and bands fall back to each task's current status. While it loads: "Loading status history…".
+- Limits: history only goes back as far as the request window (90 days); before the first known change a task shows its `from_status`.
 
 ### 2.11 Verification checklist
 
