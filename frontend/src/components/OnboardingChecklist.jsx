@@ -45,6 +45,48 @@ function StatusPill({ task }) {
   );
 }
 
+// A milestone as a collapsible accordion item: closed by default, opens to show
+// its status, dates and any subtasks.
+function MilestoneItem({ milestone }) {
+  const [open, setOpen] = useState(false);
+  const subs = milestone.subtasks ?? [];
+  const date = fmtTimeline(milestone.timeline);
+
+  return (
+    <li className={`ob-ms${open ? ' ob-ms--open' : ''}`}>
+      <button
+        type="button"
+        className="ob-ms__head"
+        aria-expanded={open}
+        title={milestone.name}
+        onClick={() => setOpen(o => !o)}
+      >
+        <span className="ob-ms__diamond" style={{ background: isDone(milestone) ? GREEN : NODE_GREY }} />
+        <span className="ob-ms__name">{milestone.name}</span>
+        <span className={`ob-ms__caret${open ? ' ob-ms__caret--open' : ''}`}>▸</span>
+      </button>
+      {open && (
+        <div className="ob-ms__body">
+          <div className="ob-ms__meta">
+            <StatusPill task={milestone} />
+            <span className="ob-ms__date">{date ?? 'No date'}</span>
+          </div>
+          {subs.length > 0 && (
+            <ul className="ob-subs">
+              {subs.map(sub => (
+                <li key={sub.id} className="ob-sub">
+                  <span className="ob-sub__name">{sub.name}</span>
+                  <StatusPill task={sub} />
+                </li>
+              ))}
+            </ul>
+          )}
+        </div>
+      )}
+    </li>
+  );
+}
+
 function ChecklistCard({ task }) {
   const [open, setOpen] = useState(false);
   const subs = task.subtasks ?? [];
@@ -173,13 +215,7 @@ export default function OnboardingChecklist({ groups }) {
                   />
                   {milestones.length > 0 && (
                     <ul className="ob-milestones">
-                      {milestones.map(m => (
-                        <li key={m.id} className="ob-ms" title={m.name}>
-                          <span className="ob-ms__diamond" style={{ background: isDone(m) ? GREEN : NODE_GREY }} />
-                          <span className="ob-ms__name">{m.name}</span>
-                          {fmtTimeline(m.timeline) && <span className="ob-ms__date">{fmtTimeline(m.timeline)}</span>}
-                        </li>
-                      ))}
+                      {milestones.map(m => <MilestoneItem key={m.id} milestone={m} />)}
                     </ul>
                   )}
                   <ul className="wk-stack ob-stack">
