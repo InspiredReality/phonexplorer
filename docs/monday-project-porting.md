@@ -14,6 +14,7 @@ The finished page: a **Customer name** textbox. On "Load" it finds that customer
 | 2 | **Success Roadmap** | `SuccessRoadmap` | `groups` from `/api/monday/project` |
 | 3 | **Recent Updates** | `RecentUpdates` | `updates` from `/api/monday/project/activity` |
 | 4 | **Activity Timeline (30 days) · By Week** | `WeeklyActivityTimeline` | `updates` + `status_changes` from `/api/monday/project/activity` |
+| 0 | **Implementation** (phase table + Business Goals), shown first | `ImplementationSummary` | `groups` from `/api/monday/project` + `project.board.id` |
 | 5 | **Timeline Gantt · By Week** | `GanttTimeline` | `groups` from `/api/monday/project` + `status_changes` from `/api/monday/project/status-history` |
 
 ---
@@ -33,6 +34,8 @@ frontend/src/components/RecentUpdates.jsx
 frontend/src/components/RecentUpdates.css
 frontend/src/components/WeeklyActivityTimeline.jsx
 frontend/src/components/WeeklyActivityTimeline.css
+frontend/src/components/ImplementationSummary.jsx
+frontend/src/components/ImplementationSummary.css
 frontend/src/components/GanttTimeline.jsx
 frontend/src/components/GanttTimeline.css
 frontend/src/components/ActivityTimeline.jsx      <- shared helpers (see note)
@@ -484,6 +487,24 @@ A card with a count badge and a refresh button (`onRetry`), states for loading /
   **5 cards visible per column then vertical scroll**, plus horizontal scroll across weeks. Fixed card height 104px; text clamped to 2 lines.
 - **Click** (or Enter/Space) a card to expand it to the full text.
 - **Scroll position**: on load, scroll horizontally so the **current week is the right-most visible column** (history to the left, upcoming weeks one scroll to the right). The current week is marked "· This week" with a ringed node. If there is no current-week column, scroll to the far end.
+
+### 2.10a `ImplementationSummary({ groups, boardId })`
+
+A card at the very top of the page (above the Onboarding Checklist) titled **Implementation**, in two parts.
+
+**Phase table** (5 columns, header row + one date row; must fit a ~400px screen without sideways scrolling):
+
+| Column | Value |
+|---|---|
+| **POV** | a date input labelled "start date", typed by the user (there is no Salesforce link). Saved in `localStorage`, key `monday-project-summary:<boardId>`, field `povStart`. |
+| **Kickoff** | the **earliest `agenda_date`** across all tasks (any group); if no task has one, the earliest `timeline.from`, noted as "earliest timeline start". `—` if none. |
+| **Onboarding** | no date; shown as a dashed "running timeline" cell. |
+| **Go Live** | the date of the task named **"Onboarding Complete"** (case-insensitive exact name): its `timeline.from`, else its `agenda_date`; `—` if missing. |
+| **Success** | no date; dashed "running timeline" cell. |
+
+**Business Goals**: a numbered list of the **subtasks of the task whose name contains "Document Business Goals"** (case-insensitive), in board order. Under each goal a **Due** date input,
+defaulting to that subtask's `timeline.to`, editable, saved in `localStorage` (`goalDue[subtaskId]`) in the same key. If the task is missing, show
+`No "Document Business Goals" task on this board.`; if it has no subtasks, `No subtasks on "Document Business Goals".` Wrap storage reads/writes in try/catch (storage can be unavailable).
 
 ### 2.10b `GET /api/monday/project/status-history?customer=NAME&days=90` and `GanttTimeline`
 

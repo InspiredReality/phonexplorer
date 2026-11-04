@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import './MondayProject.css';
+import ImplementationSummary from '../components/ImplementationSummary';
 import OnboardingChecklist from '../components/OnboardingChecklist';
 import SuccessRoadmap from '../components/SuccessRoadmap';
 import RecentUpdates from '../components/RecentUpdates';
@@ -111,6 +112,7 @@ export default function MondayProject() {
 
         {project && (
           <>
+            <ImplementationSummary groups={project.groups} boardId={project.board.id} />
             <OnboardingChecklist groups={project.groups} />
             <SuccessRoadmap groups={project.groups} />
             {activity?.updates?.length > 0 && <RecentUpdates updates={activity.updates} changes={activity.status_changes} />}

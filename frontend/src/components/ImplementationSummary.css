@@ -1,0 +1,66 @@
+.is-card {
+  background: #181820;
+  border-radius: 6px;
+  padding: 14px 16px;
+}
+.is-title, .is-subtitle {
+  margin: 0 0 10px;
+  font-size: 0.95rem;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+.is-subtitle { margin-top: 18px; font-size: 0.85rem; }
+
+.is-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.is-table { width: 100%; border-collapse: collapse; }
+.is-table th {
+  padding: 8px 3px;
+  font-size: 0.62rem;
+  letter-spacing: 0.03em;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.55);
+  border-bottom: 1px solid rgba(255,255,255,0.15);
+  text-align: center;
+}
+.is-table td {
+  padding: 10px 3px;
+  text-align: center;
+  vertical-align: top;
+  border-left: 1px solid rgba(255,255,255,0.06);
+}
+.is-table td:first-child { border-left: none; }
+.is-value { display: block; font-size: 0.78rem; font-weight: 600; }
+.is-note { display: block; margin-top: 3px; font-size: 0.62rem; color: rgba(255,255,255,0.4); }
+.is-running span {
+  display: inline-block;
+  padding: 3px 4px;
+  font-size: 0.62rem;
+  color: rgba(255,255,255,0.45);
+  border-top: 1px dashed rgba(255,255,255,0.3);
+  border-bottom: 1px dashed rgba(255,255,255,0.3);
+}
+
+.is-date {
+  max-width: 100%;
+  background: #1c1c24;
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 6px;
+  color: inherit;
+  padding: 4px 6px;
+  font: inherit;
+  font-size: 0.78rem;
+  color-scheme: dark;
+}
+
+.is-goals { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 8px; }
+.is-goal { padding-left: 4px; }
+.is-goal::marker { color: rgba(255,255,255,0.5); font-weight: 600; }
+.is-goal__name { display: block; font-size: 0.88rem; line-height: 1.35; overflow-wrap: anywhere; }
+.is-goal__due { display: inline-flex; align-items: center; gap: 8px; margin-top: 4px; font-size: 0.72rem; color: rgba(255,255,255,0.5); }
+.is-empty { margin: 0; color: rgba(255,255,255,0.4); font-size: 0.85rem; }
+
+/* the POV date picker lives inside a narrow table cell */
+.is-table .is-date { width: 100%; min-width: 0; padding: 3px 2px; font-size: 0.68rem; }
+.is-table .is-date { font-size: 0.6rem; padding: 3px 1px; }
+.is-table .is-date::-webkit-calendar-picker-indicator { margin: 0 0 0 2px; padding: 0; width: 10px; }
+.is-table th { font-size: 0.58rem; letter-spacing: 0; padding-left: 1px; padding-right: 1px; }
