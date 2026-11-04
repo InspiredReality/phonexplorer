@@ -134,6 +134,7 @@ query GetBoardProject($boardId: [ID!]!, $limit: Int!) {
     id
     name
     groups { id title color }
+    columns { id title type }
     items_page(limit: $limit) {
       cursor
       items {
@@ -223,6 +224,7 @@ Build the response by creating one entry per board group (in board order), then 
           "timeline": { "from": "2026-10-10", "to": "2026-10-15" },
           "milestone": false,
           "tags": ["Onboarding"],
+          "agenda_date": "2026-11-13",
           "subtasks": [ /* same fields as a task, minus nesting */ ]
         }
       ]
@@ -243,6 +245,9 @@ Build the response by creating one entry per board group (in board order), then 
   (a JSON string such as `{"from":"2026-10-15","to":"2026-10-15","visualization_type":"milestone"}`) and set
   `milestone = true` only when `visualization_type == "milestone"`. **Never guess milestones from single-day dates**;
   an earlier attempt did and mislabelled normal tasks.
+- **Agenda Date**: the board column *titled* "Agenda Date" (case-insensitive; found via the `columns { id title type }` selection on the board). Read that
+  column's value by id (`date`, or `text`), keep `YYYY-MM-DD` as `agenda_date` (else `null`). Check this column **before** the generic date handling so it never doubles as
+  a timeline fallback. Only top-level tasks get it (subitems live on a different board with different column ids).
 - **Tags**: the Tags column's type is **`tag`** (singular; also accept `tags`). Use the column's `text` (comma-separated
   names, shown in Monday as `#Onboarding`); strip whitespace and a leading `#`. Put the names in `tags`.
 
@@ -460,14 +465,17 @@ A card with a count badge and a refresh button (`onRetry`), states for loading /
 - If every event is filtered out: "Everything is filtered out. Click a filter above to show it again."
 
 **Timeline**
-- Events = `buildEvents(...)`, grouped into **calendar weeks starting Monday**, oldest week on the left, newest on the right. Weeks between the first and last event
+- Events = `buildEvents(...)` plus **upcoming agenda items**, grouped into **calendar weeks starting Monday**, oldest week on the left, future weeks on the right.
+  Upcoming items = every task/milestone (any group) with an `agenda_date` of **today or later** whose status is **not `Done`** (Deferred counts as not done); pass them as the `agenda` prop
+  via `upcomingAgendaItems(groups)`. Each sits in the week its Agenda Date falls in, as a dashed-border card with a date (`Fri, Nov 6`), the status, its group, and an
+  "Upcoming" badge (or "Milestone" for milestones), coloured by status group. A third white **Upcoming** chip (with count, shown only if there are any) hides/shows them. Weeks between the first and last event
   are all shown (empty ones say "No activity").
 - Each week is a column: label `Sep 14 – Sep 20`, a node on the horizontal line, then that week's events **stacked vertically** (oldest on top) as cards.
 - **Cards**: top border + dot coloured by type: Comment pink; Decision black; Status change by the *new* status group colour. Contents: dot, timestamp, a "Decision" badge if applicable, task name,
   text (comments show the first 8 words; status changes `FROM → TO`), author (`Name · reply` for replies).
   **5 cards visible per column then vertical scroll**, plus horizontal scroll across weeks. Fixed card height 104px; text clamped to 2 lines.
 - **Click** (or Enter/Space) a card to expand it to the full text.
-- **Scroll position**: on load and when filters change, scroll horizontally to the far right so the newest week/today is visible (`useScrollToEnd`).
+- **Scroll position**: on load, scroll horizontally so the **current week is the right-most visible column** (history to the left, upcoming weeks one scroll to the right). The current week is marked "· This week" with a ringed node. If there is no current-week column, scroll to the far end.
 
 ### 2.11 Verification checklist
 

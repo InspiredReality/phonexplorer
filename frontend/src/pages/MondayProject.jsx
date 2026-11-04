@@ -4,7 +4,7 @@ import './MondayProject.css';
 import OnboardingChecklist from '../components/OnboardingChecklist';
 import SuccessRoadmap from '../components/SuccessRoadmap';
 import RecentUpdates from '../components/RecentUpdates';
-import WeeklyActivityTimeline from '../components/WeeklyActivityTimeline';
+import WeeklyActivityTimeline, { upcomingAgendaItems } from '../components/WeeklyActivityTimeline';
 
 const API_BASE = import.meta.env.VITE_API_URL || '';
 
@@ -97,6 +97,7 @@ export default function MondayProject() {
             <WeeklyActivityTimeline
               updates={activity?.updates}
               changes={activity?.status_changes}
+              agenda={upcomingAgendaItems(project.groups)}
               loading={loadingA}
               error={errorA}
               onRetry={() => loadActivity(customer.trim())}

@@ -148,6 +148,7 @@ query GetBoardProject($boardId: [ID!]!, $limit: Int!) {
     id
     name
     groups { id title color }
+    columns { id title type }
     items_page(limit: $limit) {
       cursor
       items {
@@ -578,6 +579,12 @@ class MondayClient:
             items.extend(nxt.get("items", []))
             cursor = nxt.get("cursor")
 
+        # The column titled "Agenda Date" (case-insensitive) holds each item's upcoming date.
+        agenda_col_id = next(
+            (c["id"] for c in board.get("columns") or [] if c["title"].strip().lower() == "agenda date"),
+            None,
+        )
+
         groups = [
             {"id": g["id"], "title": g["title"], "color": g.get("color"), "tasks": []}
             for g in board.get("groups", [])
@@ -587,7 +594,7 @@ class MondayClient:
             group = by_id.get((item.get("group") or {}).get("id"))
             if group is None:
                 continue
-            task = _shape_task(item)
+            task = _shape_task(item, agenda_col_id)
             task["subtasks"] = [_shape_task(s) for s in item.get("subitems") or []]
             group["tasks"].append(task)
 
@@ -741,7 +748,7 @@ def _parse_status_change(entry: dict, board: dict, users: dict[str, str]) -> dic
     }
 
 
-def _shape_task(item: dict) -> dict:
+def _shape_task(item: dict, agenda_col_id: str | None = None) -> dict:
     """
     Flatten an item's column values into the fields the UI shows: status,
     timeline, tags (names, without the leading "#") and whether the Timeline
@@ -750,13 +757,17 @@ def _shape_task(item: dict) -> dict:
     task: dict[str, Any] = {
         "id": item["id"], "name": item["name"],
         "status": None, "status_color": None, "timeline": None,
-        "milestone": False, "tags": [],
+        "milestone": False, "tags": [], "agenda_date": None,
     }
     fallback_date: dict | None = None
     has_timeline_column = any(c.get("type") in ("timeline", "timerange") for c in item.get("column_values") or [])
     for col in item.get("column_values") or []:
         kind = col.get("type")
-        if kind in ("status", "color") and task["status"] is None:
+        if agenda_col_id and col.get("id") == agenda_col_id:
+            # Agenda Date column: a date (YYYY-MM-DD), optionally with a time.
+            raw = (col.get("date") or col.get("text") or "").strip()
+            task["agenda_date"] = raw[:10] or None
+        elif kind in ("status", "color") and task["status"] is None:
             task["status"] = col.get("label") or col.get("text") or None
             task["status_color"] = (col.get("label_style") or {}).get("color")
         elif kind in ("timeline", "timerange"):
