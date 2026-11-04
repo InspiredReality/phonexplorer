@@ -38,8 +38,10 @@ function eventColor(e) {
   return statusColor(statusGroup(e.status));
 }
 
-// Upcoming work from the board: every task or milestone with an Agenda Date of today
-// or later whose status is not Done. Shown in the week its Agenda Date falls in.
+// Upcoming work from the board: every task or milestone dated today or later whose
+// status is not Done, shown in the week its date falls in. The date is the item's
+// Agenda Date, or, when it has none, the start of its Timeline (so future work still
+// appears if the Agenda Date column is empty or isn't being returned yet).
 // `groups` is the `groups` array from /api/monday/project.
 export function upcomingAgendaItems(groups) {
   const today = new Date();
@@ -47,14 +49,16 @@ export function upcomingAgendaItems(groups) {
   const items = [];
   for (const g of groups ?? []) {
     for (const t of g.tasks ?? []) {
-      if (!t.agenda_date) continue;
-      const [y, m, d] = t.agenda_date.split('-').map(Number);
+      const fromAgenda = !!t.agenda_date;
+      const raw = t.agenda_date || t.timeline?.from;
+      if (!raw) continue;
+      const [y, m, d] = raw.slice(0, 10).split('-').map(Number);
       const date = new Date(y, m - 1, d, 12); // local noon: no timezone day-shift
       if (Number.isNaN(date.getTime()) || date < today) continue;
       if ((t.status || '').trim().toLowerCase() === 'done') continue;
       items.push({
         id: t.id, name: t.name, status: t.status, milestone: !!t.milestone,
-        group: g.title, date,
+        group: g.title, date, fromAgenda,
       });
     }
   }
@@ -82,7 +86,7 @@ export default function WeeklyActivityTimeline({
     who: a.group,
     status: a.status,
     milestone: a.milestone,
-    text: a.status ?? 'No status',
+    text: `${a.status ?? 'No status'}${a.fromAgenda ? '' : ' · timeline start'}`,
   }));
   const allEvents = [...buildEvents(updates, changes), ...agendaEvents]
     .sort((a, b) => new Date(a.time) - new Date(b.time));

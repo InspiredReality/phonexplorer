@@ -469,7 +469,7 @@ A card with a count badge and a refresh button (`onRetry`), states for loading /
 
 **Timeline**
 - Events = `buildEvents(...)` plus **upcoming agenda items**, grouped into **calendar weeks starting Monday**, oldest week on the left, future weeks on the right.
-  Upcoming items = every task/milestone (any group) with an `agenda_date` of **today or later** whose status is **not `Done`** (Deferred counts as not done); pass them as the `agenda` prop
+  Upcoming items = every task/milestone (any group) dated **today or later** (`agenda_date`, falling back to the start of its Timeline when it has no Agenda Date) whose status is **not `Done`** (Deferred counts as not done); pass them as the `agenda` prop
   via `upcomingAgendaItems(groups)`. Each sits in the week its Agenda Date falls in, as a dashed-border card with a date (`Fri, Nov 6`), the status, its group, and an
   "Upcoming" badge (or "Milestone" for milestones), coloured by status group. A third white **Upcoming** chip (with count, shown only if there are any) hides/shows them. Weeks between the first and last event
   are all shown (empty ones say "No activity").
