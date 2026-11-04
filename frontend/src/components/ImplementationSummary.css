@@ -64,3 +64,24 @@
 .is-table .is-date { font-size: 0.6rem; padding: 3px 1px; }
 .is-table .is-date::-webkit-calendar-picker-indicator { margin: 0 0 0 2px; padding: 0; width: 10px; }
 .is-table th { font-size: 0.58rem; letter-spacing: 0; padding-left: 1px; padding-right: 1px; }
+
+/* milestones listed with the goals */
+.is-diamond {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  margin-right: 7px;
+  transform: rotate(45deg);
+  border-radius: 2px;
+  background: #8b8ba7;
+}
+.is-diamond--done { background: #00c875; }
+.is-tag {
+  margin-left: 8px;
+  padding: 1px 7px;
+  border-radius: 999px;
+  border: 1px solid rgba(255,255,255,0.3);
+  color: rgba(255,255,255,0.65);
+  font-size: 0.62rem;
+  white-space: nowrap;
+}

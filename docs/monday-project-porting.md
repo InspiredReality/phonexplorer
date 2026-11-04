@@ -502,8 +502,8 @@ A card at the very top of the page (above the Onboarding Checklist) titled **Imp
 | **Go Live** | the date of the task named **"Onboarding Complete"** (case-insensitive exact name): its `timeline.from`, else its `agenda_date`; `—` if missing. |
 | **Success** | no date; dashed "running timeline" cell. |
 
-**Business Goals**: a numbered list of the **subtasks of the task whose name contains "Document Business Goals"** (case-insensitive), in board order. Under each goal a **Due** date input,
-defaulting to that subtask's `timeline.to`, editable, saved in `localStorage` (`goalDue[subtaskId]`) in the same key. If the task is missing, show
+**Business Goals**: a numbered list of the **subtasks of the task whose name contains "Document Business Goals"** (case-insensitive), in board order, **followed by every milestone on the board** (`milestone: true`, any group, sorted by date; shown with a diamond, green when its status is Done, and a "Milestone" tag). Under each entry a **Due** date input,
+defaulting to that subtask's `timeline.to` (a milestone's `timeline.from`), editable, saved in `localStorage` (`goalDue[subtaskId]`) in the same key. If the task is missing, show
 `No "Document Business Goals" task on this board.`; if it has no subtasks, `No subtasks on "Document Business Goals".` Wrap storage reads/writes in try/catch (storage can be unavailable).
 
 ### 2.10b `GET /api/monday/project/status-history?customer=NAME&days=90` and `GanttTimeline`

@@ -3,7 +3,8 @@ import './ImplementationSummary.css';
 
 // Implementation summary shown at the top of the project page:
 //   - a phase table  POV | Kickoff | Onboarding | Go Live | Success  with a date row
-//   - the Business Goals list (subtasks of "Document Business Goals") with a due date each
+//   - the Business Goals list (subtasks of "Document Business Goals", then the board's
+//     milestones) with a due date each
 //
 // Props: groups = `groups` from GET /api/monday/project; boardId = project.board.id
 //
@@ -12,7 +13,7 @@ import './ImplementationSummary.css';
 //   Kickoff       the earliest Agenda Date on the board (falls back to the earliest Timeline start)
 //   Go Live       the date of the "Onboarding Complete" milestone
 //   Onboarding / Success have no date: they are running timelines
-//   Goal due      defaults to the subtask's Timeline end date; editable, saved in this browser
+//   Goal due      defaults to the subtask's Timeline end date (a milestone's date); editable, saved in this browser
 
 const GOALS_TASK = 'document business goals';
 const GO_LIVE_ITEM = 'onboarding complete';
@@ -59,9 +60,20 @@ export default function ImplementationSummary({ groups, boardId }) {
   const goLiveItem = tasks.find(t => t.name.trim().toLowerCase() === GO_LIVE_ITEM);
   const goLive = goLiveItem?.timeline?.from ?? goLiveItem?.agenda_date ?? null;
 
-  // Business Goals: subtasks of "Document Business Goals".
+  // Business Goals: subtasks of "Document Business Goals", followed by the board's milestones.
   const goalsTask = tasks.find(t => t.name.trim().toLowerCase().includes(GOALS_TASK));
-  const goals = goalsTask?.subtasks ?? [];
+  const goalItems = (goalsTask?.subtasks ?? []).map(g => ({
+    id: g.id, name: g.name, milestone: false, done: false, due: (g.timeline?.to ?? '').slice(0, 10),
+  }));
+  const milestoneItems = tasks
+    .filter(t => t.milestone)
+    .map(t => ({
+      id: t.id, name: t.name, milestone: true,
+      done: (t.status || '').trim().toLowerCase() === 'done',
+      due: (t.timeline?.from ?? t.agenda_date ?? '').slice(0, 10),
+    }))
+    .sort((a, b) => (a.due || '9999').localeCompare(b.due || '9999'));
+  const goals = [...goalItems, ...milestoneItems];
 
   return (
     <section className="is-card">
@@ -108,19 +120,25 @@ export default function ImplementationSummary({ groups, boardId }) {
       <h3 className="is-subtitle">Business Goals</h3>
       {goals.length === 0 ? (
         <p className="is-empty">
-          {goalsTask ? 'No subtasks on "Document Business Goals".' : 'No "Document Business Goals" task on this board.'}
+          {goalsTask ? 'No subtasks on "Document Business Goals" and no milestones.' : 'No "Document Business Goals" task and no milestones on this board.'}
         </p>
       ) : (
         <ol className="is-goals">
           {goals.map(goal => (
-            <li key={goal.id} className="is-goal">
-              <span className="is-goal__name">{goal.name}</span>
+            <li key={goal.id} className={`is-goal${goal.milestone ? ' is-goal--milestone' : ''}`}>
+              <span className="is-goal__name">
+                {goal.milestone && (
+                  <span className={`is-diamond${goal.done ? ' is-diamond--done' : ''}`} title={goal.done ? 'Milestone done' : 'Milestone'} />
+                )}
+                {goal.name}
+                {goal.milestone && <span className="is-tag">Milestone</span>}
+              </span>
               <label className="is-goal__due">
                 <span>Due</span>
                 <input
                   type="date"
                   className="is-date"
-                  value={saved.goalDue?.[goal.id] ?? (goal.timeline?.to ?? '').slice(0, 10)}
+                  value={saved.goalDue?.[goal.id] ?? goal.due}
                   onChange={e => update({ goalDue: { ...saved.goalDue, [goal.id]: e.target.value } })}
                 />
               </label>
