@@ -19,6 +19,24 @@ ALLOWED_IMAGE_TYPES = {"image/jpeg", "image/png", "image/webp", "image/gif"}
 MAX_IMAGE_BYTES = 10 * 1024 * 1024  # 10 MB
 
 
+CUSTOM_PREFIX = "custom."
+
+
+def custom_fields_of(meta: dict | None) -> dict:
+    """User-defined fields live in meta under "custom.<name>"; anything else is core/internal."""
+    return {k[len(CUSTOM_PREFIX):]: v for k, v in (meta or {}).items() if k.startswith(CUSTOM_PREFIX)}
+
+
+def merge_custom_fields(meta: dict | None, fields: dict[str, str]) -> dict:
+    """Replace every "custom.*" entry in meta with `fields`, leaving other keys untouched."""
+    merged = {k: v for k, v in (meta or {}).items() if not k.startswith(CUSTOM_PREFIX)}
+    for name, value in fields.items():
+        name = name.strip()
+        if name:
+            merged[CUSTOM_PREFIX + name] = value
+    return merged
+
+
 # ── Schemas ───────────────────────────────────────────────────────────────────
 
 class OrgObUpdate(BaseModel):
@@ -27,6 +45,11 @@ class OrgObUpdate(BaseModel):
     parent_id: int | None = None
     meta: dict[str, Any] | None = None
     order_index: int | None = None
+    length_m: float | None = None
+    width_m: float | None = None
+    height_m: float | None = None
+    # User-defined fields, stored in meta as "custom.<name>"; replaces the full set when sent.
+    custom_fields: dict[str, str] | None = None
     tag_ids: list[int] | None = None
 
 
@@ -49,6 +72,10 @@ def _org_ob_dict(org_ob: OrgOb, include_children: bool = False) -> dict:
         "name":           org_ob.name,
         "description":    org_ob.description,
         "image_path":     org_ob.image_path,
+        "length_m":       org_ob.length_m,
+        "width_m":        org_ob.width_m,
+        "height_m":       org_ob.height_m,
+        "custom_fields":  custom_fields_of(org_ob.meta),
         "tags":           [{"id": t.id, "name": t.name, "color": t.color} for t in org_ob.tags],
         "meta":           org_ob.meta or {},
         "order_index":    org_ob.order_index,
@@ -123,6 +150,14 @@ async def update_org_ob(org_ob_id: int, body: OrgObUpdate, db: AsyncSession = De
         org_ob.meta = body.meta
     if body.order_index is not None:
         org_ob.order_index = body.order_index
+
+    # Dimensions are nullable, so an explicit null clears them; omitted keys are left alone.
+    for dim in ("length_m", "width_m", "height_m"):
+        if dim in body.model_fields_set:
+            setattr(org_ob, dim, getattr(body, dim))
+
+    if body.custom_fields is not None:
+        org_ob.meta = merge_custom_fields(org_ob.meta, body.custom_fields)
 
     if body.tag_ids is not None:
         tags = (await db.execute(select(Tag).where(Tag.id.in_(body.tag_ids)))).scalars().all()

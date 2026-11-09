@@ -10,6 +10,7 @@ from sqlalchemy.orm import selectinload
 
 from app.core.deps import get_db
 from app.models.org_ob import OrgOb
+from app.routers.org_obs import custom_fields_of
 from app.models.reality import Reality
 from app.models.tag import Tag
 
@@ -59,6 +60,10 @@ def _org_ob_dict(org_ob: OrgOb, include_children: bool = False) -> dict:
         "name":           org_ob.name,
         "description":    org_ob.description,
         "image_path":     org_ob.image_path,
+        "length_m":       org_ob.length_m,
+        "width_m":        org_ob.width_m,
+        "height_m":       org_ob.height_m,
+        "custom_fields":  custom_fields_of(org_ob.meta),
         "tags":           [{"id": t.id, "name": t.name, "color": t.color} for t in org_ob.tags],
         "meta":           org_ob.meta or {},
         "order_index":    org_ob.order_index,
