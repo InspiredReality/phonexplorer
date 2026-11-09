@@ -4,6 +4,7 @@ import { useRealitiesStore } from '../store/realities'
 import OrgObPanel from '../components/OrgObPanel'
 import OrgBreadcrumb from '../components/OrgBreadcrumb'
 import TagPicker from '../components/TagPicker'
+import CustomFieldsEditor from '../components/CustomFieldsEditor'
 import { useTagsStore } from '../store/tags'
 import { getUploadUrl } from '../services/api'
 import { INPUT } from '../styles/constants'
@@ -16,7 +17,9 @@ export default function OrgLevels() {
   const [selectedPath, setSelectedPath] = useState([])
   const [loadingChildren, setLoadingChildren] = useState(false)
   const [editingOrgOb, setEditingOrgOb] = useState(null)
-  const [editForm, setEditForm] = useState({ name: '', description: '', selectedTags: [] })
+  const [editForm, setEditForm] = useState({
+    name: '', description: '', length_m: '', width_m: '', height_m: '', selectedTags: [], customFields: [],
+  })
   const [editPhotoFile, setEditPhotoFile] = useState(null)
   const [editPhotoPreview, setEditPhotoPreview] = useState(null)
   const [editSaving, setEditSaving] = useState(false)
@@ -91,7 +94,12 @@ export default function OrgLevels() {
 
   function openEditModal(orgOb) {
     setEditingOrgOb(orgOb)
-    setEditForm({ name: orgOb.name, description: orgOb.description || '', selectedTags: [...(orgOb.tags || [])] })
+    setEditForm({
+      name: orgOb.name, description: orgOb.description || '',
+      length_m: orgOb.length_m ?? '', width_m: orgOb.width_m ?? '', height_m: orgOb.height_m ?? '',
+      selectedTags: [...(orgOb.tags || [])],
+      customFields: Object.entries(orgOb.custom_fields || {}).map(([key, value]) => ({ key, value })),
+    })
     setEditPhotoFile(null); setEditPhotoPreview(null); setEditError('')
   }
 
@@ -102,7 +110,12 @@ export default function OrgLevels() {
       let updated = await store.updateOrgOb(editingOrgOb.id, {
         name: editForm.name.trim(),
         description: editForm.description.trim() || null,
+        length_m: editForm.length_m === '' ? null : Number(editForm.length_m),
+        width_m: editForm.width_m === '' ? null : Number(editForm.width_m),
+        height_m: editForm.height_m === '' ? null : Number(editForm.height_m),
         tag_ids: editForm.selectedTags.map(t => t.id),
+        custom_fields: Object.fromEntries(
+          editForm.customFields.filter(f => f.key.trim()).map(f => [f.key.trim(), f.value])),
       })
       if (editPhotoFile) updated = await store.uploadOrgObImage(editingOrgOb.id, editPhotoFile)
       setSelectedPath(selectedPath.map(n => n.id === updated.id ? updated : n))
@@ -208,8 +221,20 @@ export default function OrgLevels() {
                 placeholder="Name" maxLength={200} className={INPUT} />
               <textarea value={editForm.description} onChange={e => setEditForm(f => ({...f, description: e.target.value}))}
                 placeholder="Description (optional)" rows={3} className={INPUT + " resize-none"} />
+              <div className="flex gap-2">
+                {[['length_m', 'Length (m)'], ['width_m', 'Width (m)'], ['height_m', 'Height (m)']].map(([key, label]) => (
+                  <div key={key} className="flex-1 min-w-0">
+                    <label className="text-xs text-neutral-400 mb-1 block">{label}</label>
+                    <input type="number" inputMode="decimal" min={0} step="any"
+                      value={editForm[key]} onChange={e => setEditForm(f => ({...f, [key]: e.target.value}))}
+                      className={INPUT} placeholder="0" />
+                  </div>
+                ))}
+              </div>
               <TagPicker value={editForm.selectedTags}
                 onChange={selectedTags => setEditForm(f => ({...f, selectedTags}))} />
+              <CustomFieldsEditor value={editForm.customFields}
+                onChange={customFields => setEditForm(f => ({...f, customFields}))} />
             </div>
 
             {editError && <p className="text-red-400 text-sm mt-3">{editError}</p>}

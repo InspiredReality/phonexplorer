@@ -1,6 +1,6 @@
 from datetime import datetime
 
-from sqlalchemy import Column, DateTime, ForeignKey, Integer, JSON, String, Text
+from sqlalchemy import Column, DateTime, Float, ForeignKey, Integer, JSON, String, Text
 from sqlalchemy.orm import backref, relationship
 
 from app.db import Base
@@ -21,6 +21,9 @@ class OrgOb(Base):
     name        = Column(String(200), nullable=False)
     description = Column(Text)
     image_path  = Column(String(500), nullable=True)
+    length_m    = Column(Float, nullable=True)
+    width_m     = Column(Float, nullable=True)
+    height_m    = Column(Float, nullable=True)
     meta        = Column(JSON, default=dict)
     order_index = Column(Integer, default=0, nullable=False)
     created_at  = Column(DateTime, default=datetime.utcnow)

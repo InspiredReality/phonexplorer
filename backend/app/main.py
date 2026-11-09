@@ -76,6 +76,8 @@ async def lifespan(app: FastAPI):
             # tables that already existed before this column was introduced.
             await conn.execute(text("ALTER TABLE images ADD COLUMN IF NOT EXISTS name TEXT"))
             await conn.execute(text("ALTER TABLE org_obs ADD COLUMN IF NOT EXISTS image_path VARCHAR(500)"))
+            for col in ("length_m", "width_m", "height_m"):
+                await conn.execute(text(f"ALTER TABLE org_obs ADD COLUMN IF NOT EXISTS {col} DOUBLE PRECISION"))
             await conn.execute(
                 text("ALTER TABLE bet_week_locks ADD COLUMN IF NOT EXISTS funder_team_id VARCHAR(64)")
             )
