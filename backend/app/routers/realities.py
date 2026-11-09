@@ -58,6 +58,8 @@ def _org_ob_dict(org_ob: OrgOb, include_children: bool = False) -> dict:
         "parent_id":      org_ob.parent_id,
         "name":           org_ob.name,
         "description":    org_ob.description,
+        "image_path":     org_ob.image_path,
+        "tags":           [{"id": t.id, "name": t.name, "color": t.color} for t in org_ob.tags],
         "meta":           org_ob.meta or {},
         "order_index":    org_ob.order_index,
         "children_count": len(org_ob.children),

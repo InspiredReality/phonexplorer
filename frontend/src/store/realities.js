@@ -1,6 +1,25 @@
 import { create } from 'zustand'
 import api from '../services/api'
 
+// Returns a new cache with `updated` swapped in at its own key and inside its
+// parent's children / the reality's top-level list.
+function replaceOrgObInCache(oldCache, updated) {
+  const cache = { ...oldCache, [updated.id]: updated }
+  if (updated.parent_id === null) {
+    const key = `top:${updated.reality_id}`
+    if (cache[key]) cache[key] = cache[key].map(o => o.id === updated.id ? updated : o)
+  } else {
+    const parent = cache[updated.parent_id]
+    if (parent?.children) {
+      cache[updated.parent_id] = {
+        ...parent,
+        children: parent.children.map(c => c.id === updated.id ? updated : c),
+      }
+    }
+  }
+  return cache
+}
+
 const useRealitiesStore = create((set, get) => ({
   realities: [],
   currentReality: null,
@@ -130,22 +149,16 @@ const useRealitiesStore = create((set, get) => ({
   updateOrgOb: async (id, data) => {
     const res = await api.put(`/api/org-obs/${id}`, data)
     const updated = res.data.org_ob
-    set(s => {
-      const cache = { ...s.orgObCache, [id]: updated }
-      if (updated.parent_id === null) {
-        const key = `top:${updated.reality_id}`
-        if (cache[key]) cache[key] = cache[key].map(o => o.id === id ? updated : o)
-      } else {
-        const parent = cache[updated.parent_id]
-        if (parent?.children) {
-          cache[updated.parent_id] = {
-            ...parent,
-            children: parent.children.map(c => c.id === id ? updated : c),
-          }
-        }
-      }
-      return { orgObCache: cache }
-    })
+    set(s => ({ orgObCache: replaceOrgObInCache(s.orgObCache, updated) }))
+    return updated
+  },
+
+  uploadOrgObImage: async (id, file) => {
+    const formData = new FormData()
+    formData.append('image', file)
+    const res = await api.post(`/api/org-obs/${id}/image`, formData)
+    const updated = res.data.org_ob
+    set(s => ({ orgObCache: replaceOrgObInCache(s.orgObCache, updated) }))
     return updated
   },
 

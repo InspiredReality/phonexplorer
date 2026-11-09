@@ -347,8 +347,12 @@ function settlementToRow(record) {
     hasImage: !!(record.has_image || record.image),
     bet: record.bet_amount || record.bet_amount === 0 ? String(record.bet_amount) : '',
     toWin: record.to_win || record.to_win === 0 ? String(record.to_win) : '',
+    toWinExact: record.to_win_exact != null ? String(record.to_win_exact) : null,
     sportsbook: record.sportsbook || '',
     tags: tagsToString(record.tags),
+    when: record.bet_when || 'pregame',
+    betType: record.bet_type || 'single',
+    sport: record.sport || 'NFL',
     status: record.status || 'open',
     result: record.result || 'live',
   };
@@ -358,10 +362,11 @@ function settlementToRow(record) {
 // suggestion list — so a tag becomes selectable again once it's been used
 // anywhere, without needing its own table. Also backs the stats page's tag
 // filter dropdown.
-export function collectKnownTags(entries) {
+export function collectKnownTags(entries, excludeRowId) {
   const tags = new Set();
   for (const rows of Object.values(entries)) {
     for (const row of rows) {
+      if (row.id === excludeRowId) continue;
       for (const tag of tagsStringToArray(row.tags)) tags.add(tag);
     }
   }
@@ -370,6 +375,12 @@ export function collectKnownTags(entries) {
 
 export function rowHasTag(row, tag) {
   return tagsStringToArray(row.tags).includes(tag);
+}
+
+// Multi-tag filter: no tags selected means everything; otherwise a bet matches
+// if it carries any one of the selected tags.
+export function rowHasAnyTag(row, tags) {
+  return tags.length === 0 || tags.some((tag) => rowHasTag(row, tag));
 }
 
 // Every bet from the database, without screenshots (those come separately,
@@ -403,9 +414,13 @@ export async function saveBetToApi(dateKey, row) {
     image: row.image,
     bet_amount: parseFloat(row.bet) || 0,
     to_win: parseFloat(row.toWin) || 0,
+    to_win_exact: parseFloat(row.toWinExact) || null,
     profit: computeProfit(row) ?? 0,
     sportsbook: row.sportsbook || null,
     tags: tagsStringToArray(row.tags),
+    bet_when: row.when || 'pregame',
+    bet_type: row.betType || 'single',
+    sport: row.sport || 'NFL',
     status: row.status,
     result: row.result,
   });
@@ -571,6 +586,19 @@ if (typeof window !== 'undefined') {
   });
 }
 
+
+// American odds implied by the bet and its total payout (To Win includes the
+// stake): profit >= stake is "+" odds (profit per $100), less is "-" odds
+// (stake needed to win $100). Blank until both amounts make a real bet.
+export function computeOdds(row) {
+  const bet = parseFloat(row.bet);
+  // Prefer the slip's exact-cents payout; it's cleared whenever To Win is typed over.
+  const toWin = parseFloat(row.toWinExact ?? row.toWin);
+  if (!(bet > 0) || !(toWin > bet)) return '';
+  const profit = toWin - bet;
+  if (profit >= bet) return `+${Math.round((profit / bet) * 100)}`;
+  return `-${Math.round((bet / profit) * 100)}`;
+}
 
 export function computeProfit(row) {
   const bet = parseFloat(row.bet);

@@ -4,8 +4,10 @@ import Accordion from '@mui/material/Accordion';
 import AccordionSummary from '@mui/material/AccordionSummary';
 import AccordionDetails from '@mui/material/AccordionDetails';
 import BettSummaryBar from '../components/BettSummaryBar';
+import BettTagFilter from '../components/BettTagFilter';
 import {
   collectKnownTags,
+  computeOdds,
   computeProfit,
   currentBettingWeekDays,
   dateKeyInfo,
@@ -13,6 +15,7 @@ import {
   loadExtraDays,
   loadImagesFor,
   readSlip,
+  rowHasAnyTag,
   removeBet,
   saveBet,
   saveExtraDays,
@@ -24,9 +27,15 @@ import {
 import './BettStuff.css';
 
 const SPORTSBOOKS = ['Draft Kings', 'BetMGM', 'Fanatics', 'Kalshi', 'theScore'];
+const SPORTS = ['NFL', 'NCAAF', 'NBA', 'NCAAB', 'Other'];
+const WHEN_LABEL = { pregame: 'Pregame', live: 'Live' };
+const TYPE_LABEL = { single: 'Single', two: '2 Picks', three: '3+' };
+const SPORT_OPTIONS = SPORTS.map((name) => ({ value: name, label: name }));
+const WHEN_OPTIONS = Object.entries(WHEN_LABEL).map(([value, label]) => ({ value, label }));
+const TYPE_OPTIONS = Object.entries(TYPE_LABEL).map(([value, label]) => ({ value, label }));
 // Cycles Live -> Win -> Loss -> Live each time the result toggle is clicked.
 const NEXT_RESULT = { live: 'win', win: 'loss', loss: 'live' };
-const RESULT_LABEL = { live: 'Live', win: 'Win', loss: 'Loss' };
+const RESULT_LABEL = { live: 'Outcome???', win: 'Win', loss: 'Loss' };
 
 function makeRow() {
   return {
@@ -37,8 +46,12 @@ function makeRow() {
     hasImage: false,
     bet: '',
     toWin: '',
-    sportsbook: '',
+    toWinExact: null,
+    sportsbook: 'Draft Kings',
     tags: '',
+    when: 'pregame',
+    betType: 'single',
+    sport: 'NFL',
     status: 'open',
     result: 'live',
   };
@@ -114,9 +127,190 @@ function DraftDayRow({ defaultDate, onConfirm, onCancel }) {
   );
 }
 
-function BetRow({ row, slipStatus, onField, onImageChange, onPreview, onRemove }) {
+// Comma-separated tags box plus a multi-select chip list. Focusing the box
+// shows every tag used on other bets as a tappable chip (gold = already on
+// this bet); tapping toggles it, and the list stays open so several can be
+// picked. Typing after a comma narrows the chips. The text box stays the
+// source of truth, so brand-new tags are still just typed in.
+function TagsInput({ value, knownTags, onChange }) {
+  const [open, setOpen] = useState(false);
+  // Where the dropdown goes: below the box when there's room above the
+  // keyboard, otherwise above it, sized to fit and scroll.
+  const [placement, setPlacement] = useState({ above: false, maxHeight: 200 });
+  const inputRef = useRef(null);
+
+  useEffect(() => {
+    if (!open) return undefined;
+    const place = () => {
+      const rect = inputRef.current?.getBoundingClientRect();
+      if (!rect) return;
+      const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+      // The fixed Table/Day/Week bar covers the bottom of the screen; stay clear of it.
+      const barHeight = document.querySelector('.bett-summary-bar')?.offsetHeight ?? 0;
+      const below = viewportHeight - barHeight - rect.bottom - 12;
+      const aboveRoom = rect.top - 12;
+      const above = below < 140 && aboveRoom > below;
+      setPlacement({ above, maxHeight: Math.max(100, Math.min(220, above ? aboveRoom : below)) });
+    };
+    place();
+    const vv = window.visualViewport;
+    vv?.addEventListener('resize', place);
+    return () => vv?.removeEventListener('resize', place);
+  }, [open]);
+
+  const tokens = value.split(',').map((t) => t.trim());
+  const last = tokens[tokens.length - 1];
+  // A finished tag at the end ("lock", or a brand-new one matching no chip) is
+  // selected; leftover text that still matches chips ("pr") is a filter.
+  const finished = knownTags.includes(last) || (last !== '' && !knownTags.some((t) => t.toLowerCase().includes(last.toLowerCase())));
+  const selected = (finished ? tokens : tokens.slice(0, -1)).filter(Boolean);
+  const filter = finished ? '' : last.toLowerCase();
+  const chips = knownTags.filter((tag) => selected.includes(tag) || tag.toLowerCase().includes(filter));
+
+  const toggle = (tag) => {
+    const next = selected.includes(tag) ? selected.filter((t) => t !== tag) : [...selected, tag];
+    onChange(next.join(', '));
+  };
+
+  return (
+    <div className="bett-tags-wrap">
+      <input
+        ref={inputRef}
+        type="text"
+        className="bett-text-input"
+        placeholder="e.g. parlay, primetime"
+        value={value}
+        onChange={(e) => {
+          onChange(e.target.value);
+          setOpen(true);
+        }}
+        onFocus={() => setOpen(true)}
+        onClick={() => setOpen(true)}
+        onBlur={() => setOpen(false)}
+      />
+      {open && chips.length > 0 && (
+        <div
+          className={`bett-tags-chips${placement.above ? ' bett-tags-chips-above' : ''}`}
+          style={{ maxHeight: placement.maxHeight }}
+        >
+          {chips.map((tag) => (
+            <button
+              key={tag}
+              type="button"
+              className={`bett-tag-chip${selected.includes(tag) ? ' bett-tag-chip-on' : ''}`}
+              // mouse-down preventDefault keeps focus in the box so the list stays open;
+              // the toggle is on click, so dragging to scroll the list never toggles a chip
+              onMouseDown={(e) => e.preventDefault()}
+              onClick={() => toggle(tag)}
+            >
+              {tag}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// Tap-through button for a short list of options: a tap advances to the next
+// one (wrapping around); press-and-hold (or right-click) pops up the whole
+// list so any option can be picked directly.
+const HOLD_MS = 450;
+
+function CycleSelect({ value, options, onChange }) {
+  const [open, setOpen] = useState(false);
+  const [above, setAbove] = useState(false);
+  const wrapRef = useRef(null);
+  const holdTimer = useRef(null);
+  const heldOpen = useRef(false);
+
+  const index = Math.max(0, options.findIndex((o) => o.value === value));
+  const current = options[index];
+
+  useEffect(() => {
+    if (!open) return undefined;
+    // Open upward when there isn't room below the button above the fixed bottom bar.
+    const rect = wrapRef.current?.getBoundingClientRect();
+    if (rect) {
+      const barHeight = document.querySelector('.bett-summary-bar')?.offsetHeight ?? 0;
+      const viewportHeight = window.visualViewport?.height ?? window.innerHeight;
+      const needed = options.length * 42 + 16;
+      setAbove(viewportHeight - barHeight - rect.bottom < needed && rect.top > needed);
+    }
+    const close = (e) => {
+      if (!wrapRef.current?.contains(e.target)) setOpen(false);
+    };
+    document.addEventListener('pointerdown', close);
+    return () => document.removeEventListener('pointerdown', close);
+  }, [open, options.length]);
+
+  const cancelHold = () => {
+    clearTimeout(holdTimer.current);
+    holdTimer.current = null;
+  };
+
+  const startHold = () => {
+    heldOpen.current = false;
+    cancelHold();
+    holdTimer.current = setTimeout(() => {
+      heldOpen.current = true;
+      setOpen(true);
+    }, HOLD_MS);
+  };
+
+  return (
+    <div className="bett-cycle" ref={wrapRef}>
+      <button
+        type="button"
+        className="bett-select-input bett-when-btn"
+        onPointerDown={startHold}
+        onPointerUp={cancelHold}
+        onPointerLeave={cancelHold}
+        onPointerCancel={cancelHold}
+        onContextMenu={(e) => {
+          // Long-press on a phone fires the browser's context menu; use it as our popup instead.
+          e.preventDefault();
+          heldOpen.current = true;
+          setOpen(true);
+        }}
+        onClick={() => {
+          // The click that ends a long-press must not also advance the value.
+          if (heldOpen.current) {
+            heldOpen.current = false;
+            return;
+          }
+          setOpen(false);
+          onChange(options[(index + 1) % options.length].value);
+        }}
+      >
+        {current.label}
+      </button>
+      {open && (
+        <ul className={`bett-option-list${above ? ' bett-option-list-above' : ''}`}>
+          {options.map((o) => (
+            <li key={o.value}>
+              <button
+                type="button"
+                className={`bett-option-item${o.value === current.value ? ' bett-option-item-on' : ''}`}
+                onClick={() => {
+                  onChange(o.value);
+                  setOpen(false);
+                }}
+              >
+                {o.label}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function BetRow({ row, knownTags, slipStatus, onField, onImageChange, onPreview, onRemove }) {
   const computedProfit = computeProfit(row);
   const profit = computedProfit ?? '';
+  const odds = computeOdds(row);
 
   return (
     <div className="bett-row">
@@ -135,10 +329,13 @@ function BetRow({ row, slipStatus, onField, onImageChange, onPreview, onRemove }
       </div>
       <ImageCell row={row} onChange={onImageChange} onPreview={onPreview} />
       {slipStatus && (
-        <span className="bett-status-text" title={slipStatus.detail || ''}>
+        <span className="bett-status-text">
           {slipStatus.state === 'reading' && 'reading Bet…'}
           {slipStatus.state === 'success' && 'read Bet success'}
           {slipStatus.state === 'fail' && 'cannot read Bet'}
+          {slipStatus.state === 'fail' && slipStatus.detail && (
+            <small style={{ display: 'block', opacity: 0.7 }}>{slipStatus.detail}</small>
+          )}
         </span>
       )}
       <div className="bett-fields-row">
@@ -175,16 +372,31 @@ function BetRow({ row, slipStatus, onField, onImageChange, onPreview, onRemove }
             readOnly
           />
         </div>
+        <div className="bett-cell bett-cell-odds">
+          <span className="bett-cell-label">Odds</span>
+          <input
+            type="text"
+            className="bett-number-input"
+            placeholder="—"
+            value={odds}
+            disabled
+            readOnly
+          />
+        </div>
       </div>
-      <div className="bett-cell bett-cell-notes">
-        <span className="bett-cell-label">Notes</span>
-        <input
-          type="text"
-          className="bett-text-input"
-          placeholder="Notes…"
-          value={row.notes}
-          onChange={(e) => onField('notes', e.target.value)}
-        />
+      <div className="bett-when-sport-row">
+        <div className="bett-cell bett-cell-sport">
+          <span className="bett-cell-label">Sport</span>
+          <CycleSelect value={row.sport || 'NFL'} options={SPORT_OPTIONS} onChange={(v) => onField('sport', v)} />
+        </div>
+        <div className="bett-cell bett-cell-when">
+          <span className="bett-cell-label">When</span>
+          <CycleSelect value={row.when || 'pregame'} options={WHEN_OPTIONS} onChange={(v) => onField('when', v)} />
+        </div>
+        <div className="bett-cell bett-cell-type">
+          <span className="bett-cell-label">Type</span>
+          <CycleSelect value={row.betType || 'single'} options={TYPE_OPTIONS} onChange={(v) => onField('betType', v)} />
+        </div>
       </div>
       <div className="bett-sportsbook-tags-row">
         <div className="bett-cell bett-cell-sportsbook">
@@ -204,15 +416,18 @@ function BetRow({ row, slipStatus, onField, onImageChange, onPreview, onRemove }
         </div>
         <div className="bett-cell bett-cell-tags">
           <span className="bett-cell-label">Tags</span>
-          <input
-            type="text"
-            className="bett-text-input"
-            list="bett-known-tags"
-            placeholder="e.g. parlay, primetime"
-            value={row.tags}
-            onChange={(e) => onField('tags', e.target.value)}
-          />
+          <TagsInput value={row.tags} knownTags={knownTags} onChange={(value) => onField('tags', value)} />
         </div>
+      </div>
+      <div className="bett-cell bett-cell-notes">
+        <span className="bett-cell-label">Notes</span>
+        <input
+          type="text"
+          className="bett-text-input"
+          placeholder="Notes…"
+          value={row.notes}
+          onChange={(e) => onField('notes', e.target.value)}
+        />
       </div>
       <div className="bett-toggle-row">
         <button
@@ -227,7 +442,7 @@ function BetRow({ row, slipStatus, onField, onImageChange, onPreview, onRemove }
           className={`bett-toggle-btn bett-toggle-result bett-toggle-result-${row.result}`}
           onClick={() => onField('result', NEXT_RESULT[row.result] || 'live')}
         >
-          {RESULT_LABEL[row.result] || 'Live'}
+          {RESULT_LABEL[row.result] || 'Outcome???'}
         </button>
       </div>
     </div>
@@ -248,6 +463,7 @@ function BettStuff() {
   const [drafts, setDrafts] = useState([]);
   const [expanded, setExpanded] = useState(() => ({ [todayDateKey()]: true }));
   const [previewImage, setPreviewImage] = useState(null);
+  const [tagFilter, setTagFilter] = useState([]);
   // Per-row result of reading Bet / To Win off an uploaded slip screenshot.
   const [slipStatus, setSlipStatus] = useState({});
 
@@ -265,8 +481,14 @@ function BettStuff() {
   // so a plain descending string sort on it works. Sorting here (rather
   // than relying on insertion order) keeps the order correct even after a
   // reload, since the database fetch has no guaranteed row order of its own.
-  const rowsFor = (dateKey) => [...(entries[dateKey] || [])].sort((a, b) => (a.id < b.id ? 1 : a.id > b.id ? -1 : 0));
-  const knownTags = collectKnownTags(entries);
+  // With a tag selected, only bets carrying it show — plus untouched blank
+  // rows, so tapping "Add Bet" while filtered doesn't look like it did nothing.
+  const isBlankRow = (row) => !row.text && !row.notes && !row.bet && !row.toWin && !row.tags && !row.image;
+  const rowsFor = (dateKey) =>
+    [...(entries[dateKey] || [])]
+      .filter((row) => rowHasAnyTag(row, tagFilter) || isBlankRow(row))
+      .sort((a, b) => (a.id < b.id ? 1 : a.id > b.id ? -1 : 0));
+  const allKnownTags = collectKnownTags(entries);
 
   const setExtraDays = (updater) => {
     setExtraDaysState((prev) => {
@@ -284,8 +506,8 @@ function BettStuff() {
   const visibleDateKeys = Array.from(
     new Set([
       todayKey,
-      ...extraDays,
-      ...Object.keys(entries).filter((k) => (entries[k] || []).length > 0),
+      ...(tagFilter.length > 0 ? [] : extraDays),
+      ...Object.keys(entries).filter((k) => rowsFor(k).length > 0),
     ])
   )
     .sort()
@@ -303,6 +525,8 @@ function BettStuff() {
     const current = (getEntries()[dateKey] || []).find((r) => r.id === rowId);
     if (!current) return;
     const updated = { ...current, [field]: value };
+    // A hand-typed To Win replaces the slip's exact-cents figure (see toWinExact).
+    if (field === 'toWin') updated.toWinExact = null;
     updateEntries(dateKey, (rows) => rows.map((r) => (r.id === rowId ? updated : r)));
     saveBet(dateKey, updated);
   };
@@ -337,7 +561,10 @@ function BettStuff() {
         const updated = {
           ...latest,
           bet: latest.bet || (bet != null ? String(bet) : ''),
-          toWin: latest.toWin || (toWin != null ? String(toWin) : ''),
+          // Whole dollars: .50 and up rounds up, .49 and below rounds down.
+          toWin: latest.toWin || (toWin != null ? String(Math.round(toWin)) : ''),
+          // Keep the slip's cents so Odds stay exact while To Win shows whole dollars.
+          toWinExact: !latest.toWin && toWin != null ? String(toWin) : latest.toWinExact,
         };
         updateEntries(dateKey, (rows) => rows.map((r) => (r.id === rowId ? updated : r)));
         saveBet(dateKey, updated);
@@ -380,11 +607,10 @@ function BettStuff() {
       <button className="bett-back-btn" onClick={() => navigate('/')}>← Back</button>
       <h1 className="bett-heading">Bett Stuff</h1>
 
-      <datalist id="bett-known-tags">
-        {knownTags.map((tag) => (
-          <option key={tag} value={tag} />
-        ))}
-      </datalist>
+      <div className="bett-goal-row">
+        <span className="bett-goal-label">Tag</span>
+        <BettTagFilter tags={allKnownTags} selected={tagFilter} onChange={setTagFilter} />
+      </div>
 
       <div className="bett-add-day-row">
         <button type="button" className="bett-add-day-btn" onClick={handleAddDraftDay}>
@@ -461,6 +687,7 @@ function BettStuff() {
                       key={row.id}
                       row={row}
                       onField={(field, value) => handleField(dateKey, row.id, field, value)}
+                      knownTags={collectKnownTags(entries, row.id)}
                       slipStatus={slipStatus[row.id]}
                       onImageChange={(file) => handleImageChange(dateKey, row.id, file)}
                       onPreview={setPreviewImage}

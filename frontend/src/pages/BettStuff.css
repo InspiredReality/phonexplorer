@@ -361,6 +361,12 @@
 
 .bett-fields-row {
   display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  gap: 10px;
+}
+
+.bett-when-sport-row {
+  display: grid;
   grid-template-columns: 1fr 1fr 1fr;
   gap: 10px;
 }
@@ -369,6 +375,11 @@
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 10px;
+}
+
+.bett-when-btn {
+  text-align: left;
+  cursor: pointer;
 }
 
 .bett-text-input,
@@ -786,4 +797,167 @@
   .bett-summary-value {
     font-size: 0.95rem;
   }
+}
+
+.bett-tags-wrap {
+  position: relative;
+}
+
+.bett-tags-chips {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  z-index: 20;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 4px;
+  padding: 8px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  background: #111122;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+}
+
+.bett-tag-chip {
+  padding: 6px 10px;
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 999px;
+  color: #ffffff;
+  font: inherit;
+  font-size: 0.9em;
+  cursor: pointer;
+}
+
+.bett-tag-chip-on {
+  background: rgba(234, 179, 8, 0.25);
+  border-color: #eab308;
+}
+
+.bett-tags-chips-above {
+  top: auto;
+  bottom: 100%;
+  margin-top: 0;
+  margin-bottom: 4px;
+}
+
+.bett-tag-filter {
+  position: relative;
+}
+
+.bett-tag-filter-btn {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 160px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.bett-tag-filter-panel {
+  right: auto;
+  width: 260px;
+  max-height: 260px;
+}
+
+.bett-filter-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr;
+  gap: 10px;
+  max-width: 960px;
+  margin: 0 auto 24px;
+}
+
+.bett-filter-cell {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 6px;
+  min-width: 0;
+}
+
+.bett-filter-cell .bett-goal-label {
+  text-align: center;
+}
+
+.bett-filter-cell .bett-tag-filter-btn {
+  width: 100%;
+}
+
+.bett-filter-cell .bett-tag-filter-panel {
+  width: 200px;
+  max-height: 220px;
+}
+
+.bett-filter-cell:last-child .bett-tag-filter-panel {
+  left: auto;
+  right: 0;
+}
+
+/* Stats page: the weekly goal is pinned to the bottom of the page, just above
+   the fixed summary bar, with extra padding so the grid never runs under it. */
+.bett-page-stats {
+  padding-bottom: 150px;
+}
+
+.bett-goal-row-bottom {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 88px;
+  margin: 0;
+}
+
+.bett-cycle {
+  position: relative;
+}
+
+.bett-cycle .bett-when-btn {
+  /* Long-press opens the list: keep the browser from selecting text / showing its menu */
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.bett-option-list {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  min-width: 100%;
+  z-index: 30;
+  margin: 4px 0 0;
+  padding: 4px;
+  list-style: none;
+  background: #111122;
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  border-radius: 8px;
+}
+
+.bett-option-list-above {
+  top: auto;
+  bottom: 100%;
+  margin: 0 0 4px;
+}
+
+.bett-option-item {
+  width: 100%;
+  min-height: 38px;
+  padding: 8px 12px;
+  background: none;
+  border: none;
+  border-radius: 6px;
+  color: #ffffff;
+  font: inherit;
+  text-align: left;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.bett-option-item-on {
+  background: rgba(234, 179, 8, 0.25);
 }

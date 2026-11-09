@@ -26,9 +26,13 @@ class SettlementUpsert(BaseModel):
     image: str | None = None
     bet_amount: float = 0
     to_win: float = 0
+    to_win_exact: float | None = None
     profit: float = 0
     sportsbook: str | None = None
     tags: list[str] = []
+    bet_when: str = "pregame"
+    bet_type: str = "single"
+    sport: str = "NFL"
     status: str
     result: str
 
@@ -47,9 +51,13 @@ def _dict(row: BettStuffSettlement, include_image: bool = True) -> dict:
         "has_image": bool(row.image),
         "bet_amount": row.bet_amount,
         "to_win": row.to_win,
+        "to_win_exact": row.to_win_exact,
         "profit": row.profit,
         "sportsbook": row.sportsbook,
         "tags": tags,
+        "bet_when": row.bet_when,
+        "bet_type": row.bet_type,
+        "sport": row.sport,
         "status": row.status,
         "result": row.result,
     }
@@ -69,9 +77,13 @@ def _list_dict(row) -> dict:
         "has_image": bool(row["has_image"]),
         "bet_amount": row["bet_amount"],
         "to_win": row["to_win"],
+        "to_win_exact": row["to_win_exact"],
         "profit": row["profit"],
         "sportsbook": row["sportsbook"],
         "tags": tags,
+        "bet_when": row["bet_when"],
+        "bet_type": row["bet_type"],
+        "sport": row["sport"],
         "status": row["status"],
         "result": row["result"],
     }
@@ -122,9 +134,13 @@ async def upsert_settlement(row_id: str, body: SettlementUpsert, db: AsyncSessio
         row.image = body.image
     row.bet_amount = body.bet_amount
     row.to_win = body.to_win
+    row.to_win_exact = body.to_win_exact
     row.profit = body.profit
     row.sportsbook = body.sportsbook
     row.tags = json.dumps(body.tags)
+    row.bet_when = body.bet_when
+    row.bet_type = body.bet_type
+    row.sport = body.sport
     row.status = body.status
     row.result = body.result
     await db.commit()
@@ -169,35 +185,44 @@ def _money(value) -> float | None:
 async def read_slip(body: SlipImage):
     """Reads Bet and To Win off a bet-slip screenshot with a vision model."""
     if not settings.anthropic_api_key:
-        raise HTTPException(status_code=503, detail="Slip reading is not configured")
+        raise HTTPException(status_code=503, detail="ANTHROPIC_API_KEY is not set on the backend")
     match = re.match(r"data:(image/[\w.+-]+);base64,(.+)", body.image, re.DOTALL)
     if not match:
         raise HTTPException(status_code=400, detail="Expected a base64 image data URL")
     media_type, data = match.groups()
 
-    async with httpx.AsyncClient(timeout=60) as client:
-        res = await client.post(
-            "https://api.anthropic.com/v1/messages",
-            headers={
-                "x-api-key": settings.anthropic_api_key,
-                "anthropic-version": "2023-06-01",
-            },
-            json={
-                "model": settings.slip_model,
-                "max_tokens": 100,
-                "messages": [
-                    {
-                        "role": "user",
-                        "content": [
-                            {"type": "image", "source": {"type": "base64", "media_type": media_type, "data": data}},
-                            {"type": "text", "text": SLIP_PROMPT},
-                        ],
-                    }
-                ],
-            },
-        )
+    try:
+        async with httpx.AsyncClient(timeout=60) as client:
+            res = await client.post(
+                "https://api.anthropic.com/v1/messages",
+                headers={
+                    "x-api-key": settings.anthropic_api_key,
+                    "anthropic-version": "2023-06-01",
+                },
+                json={
+                    "model": settings.slip_model,
+                    "max_tokens": 100,
+                    "messages": [
+                        {
+                            "role": "user",
+                            "content": [
+                                {"type": "image", "source": {"type": "base64", "media_type": media_type, "data": data}},
+                                {"type": "text", "text": SLIP_PROMPT},
+                            ],
+                        }
+                    ],
+                },
+            )
+    except httpx.HTTPError as exc:
+        raise HTTPException(status_code=502, detail=f"Could not reach Anthropic: {type(exc).__name__}")
     if res.status_code != 200:
-        raise HTTPException(status_code=502, detail="Slip reader unavailable")
+        # Pass Anthropic's own reason through (bad key, no credits, unknown
+        # model...) so it can be shown in the app instead of guessed at.
+        try:
+            reason = res.json()["error"]["message"]
+        except (ValueError, KeyError, TypeError):
+            reason = res.text[:200]
+        raise HTTPException(status_code=502, detail=f"Anthropic {res.status_code}: {reason}")
     text = "".join(b.get("text", "") for b in res.json().get("content", []))
     found = re.search(r"\{.*\}", text, re.DOTALL)
     try:
